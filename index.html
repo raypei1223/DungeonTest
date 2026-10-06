@@ -379,11 +379,12 @@
   <div class="lobbyGrid">
     <div class="lobbyBox lobbySide">
       <h2>👥 協力プレイ</h2>
-      <div id="fbWarning">協力プレイが使えません（FirebaseのAPIキー未設定、または通信環境の制限でFirebaseの読み込みがブロックされている可能性があります）。「ダンジョン」だけ利用できます。</div>
+      <div id="fbWarning">協力プレイが使えません（FirebaseのAPIキー未設定、または通信環境の制限でFirebaseの読み込みがブロックされている可能性があります）。「ダンジョン」と「人狼ゲームテスト（一人・通信なし）」だけ利用できます。</div>
       <button id="createRoomBtn">ルームを作成</button>
       <button id="createPvpRoomBtn" style="background:#e0533d;">PvPのルームを作成</button>
       <label style="display:flex; align-items:center; justify-content:center; gap:6px; margin:0 0 6px; cursor:pointer;"><input type="checkbox" id="pvpFixedWeaponChk"> 武器固定（全員が同じ武器）</label>
       <button id="createFrontlineRoomBtn" style="background:#4fd67a;">最北戦線のルームを作成</button>
+      <button id="pvpOfflineTestBtn" style="background:#8a6bd1;" title="通信なし・一人で、入ると直接 人狼ゲームが始まる">🧪 人狼ゲームテスト（一人・通信なし）</button>
       <div class="joinRow">
         <input type="text" id="roomCodeInput" placeholder="ルームコード" maxlength="5">
         <button id="joinRoomBtn">参加</button>
@@ -413,7 +414,7 @@
       <button id="soloBtn">ダンジョン</button>
     </div>
     <div class="lobbyBox lobbySide lobbyRight">
-      <button id="arms4RitualBtn" class="challengeBtn" style="background:#b26bff;">【期間限定】螟ｩ菴ｿ・調伏の儀</button>
+      <button id="arms4RitualBtn" class="challengeBtn" style="background:#b26bff;">【期間限定】天使・調伏の儀</button>
       <button id="bossRushBtn" class="challengeBtn" style="background:#ff8a5b;">ボスラッシュ</button>
       <button id="frontlineBtn" class="challengeBtn" style="background:#4fd67a;">最北戦線</button>
     </div>
@@ -872,7 +873,7 @@ function generateArms4Map() {
     landY: (bossY + 17) * TILE + TILE / 2, // 投げ飛ばされた時の着地点（ボスラッシュと同じ部屋の下寄り）
     startBottomY: (startY + startH) * TILE, bossTopY: bossY * TILE, roomCenterX: 21 * TILE, // 下の部屋の底／ボス部屋の天井の高さ／部屋の真ん中のx
     trigY: (corTop + 2) * TILE, corridorX: 21.5 * TILE, corTopY: corTop * TILE, corBottomY: startY * TILE,
-    arms4: { x: 21.5 * TILE, y: (arenaY + 9) * TILE + TILE / 2 }, // 四つ腕の登場位置（部屋の真ん中より、3マス上）
+    arms4: { x: 21.5 * TILE, y: (arenaY + 10) * TILE + TILE / 2 }, // 天使の登場位置（部屋の真ん中より、2マス上。1マス下げた）
     arms4CamY: (arenaY + 12) * TILE + TILE / 2, // 登場演出でカメラが向かう高さの基準（四つ腕を上げても、カメラの位置は動かさない）
   };
 }
@@ -902,11 +903,17 @@ const PVP = {
   circleR: 1.8,          // 準備室の各円の半径
   // 準備室の3つの円（dx：準備室の中心からの横のずれ[タイル]）。全員が同じ円に入って countdown 秒たつとその モードで開始
   circles: [
-    { key: 'soon',      label: '準備中',         dx: -5, disabled: true, color: 0x3bd16f, stroke: 0x5be08a, text: '#9af0b6' },
+    { key: 'werewolf',  label: '人狼ゲーム',     dx: -5, color: 0x3bd16f, stroke: 0x5be08a, text: '#9af0b6' },
     { key: 'bodycount', label: 'ボディカウント', dx: 0,  color: 0xffd23b, stroke: 0xffe15b, text: '#ffe89a' },
     { key: 'survival',  label: 'サバイバル',     dx: 5,  color: 0xff3b3b, stroke: 0xff5b5b, text: '#ff9a9a' },
   ],
   weaponZone: { cx: 10, cy: 4.5, size: 4, holdTime: 3 }, // 武器変更ゾーン（準備室の上側の正方形。中心タイル座標・一辺のタイル数）。holdTime：武器固定の時、全員が入ってからホストが選び直すまでの秒数
+  // 人狼ゲームのマップ（バトルフィールドの右隣に作る）。中心に円形の広場、そこから放射状に道が伸びて、道の先に家（円形・入口が1つ）がある。それ以外は岩（壁）。
+  werewolf: { houses: 10, plazaR: 9, houseDist: 30, houseIn: 4.5, houseOut: 6.5, roadW: 3, size: 80, gap: 4, rays: 600, viewR: 20, time: 300, dayTime: 30, nightTime: 90, nightViewR: 6, nightHole: 0.94 },
+  // dayTime／nightTime：昼・夜の長さ(秒。開始は昼で、昼→夜→昼…とくり返す)／nightViewR：夜のランタンの光の半径（タイル数。自分の周りだけ）／
+  // nightHole：闇に空ける丸い穴の大きさ（光の半径に対する割合）。光のゆらぎで光の縁が縮んでも、穴の縁より内側に来ない（隙間ができない）ように、1より小さくしておく
+  // houses：家の数（参加者は均等にばらして割り当てる）／plazaR：広場の半径／houseDist：広場の中心から家の中心まで／houseIn・houseOut：家の内側・外側の半径（差が壁の厚み）/
+  // roadW：道と入口の幅／size：マップ領域の一辺／gap：バトルフィールドとの間隔／rays：視界の光線の数（多いほど滑らかだが重い）／viewR：見える距離（タイル数。これより遠くは壁がなくても黒くなる。小さいほど軽い）／time：ルール未実装のあいだの、ラウンドの長さ(秒)
   countdown: 10,         // 全員が円に入ってからワープまでの秒数
   minPlayers: 2,         // 開始に必要な最低人数
   ringR: 24,             // 初期配置の円の半径（中心＝バトルフィールド中央）。プレイヤーはこの円周上に等間隔で並ぶ
@@ -921,10 +928,44 @@ const PVP = {
   fadeTime: 3,           // 勝敗が決まってから、画面が暗くなってリザルト画面が出るまでの秒数
 };
 
+// 人狼ゲームのマップ領域を grid に書き込む。円や斜めの道はタイルで近似する（タイルの中心の座標で判定）。
+// kind：0=岩・壁／1=広場／2=道／3=家の中／4=家の入口（壁の厚さ2マス）／5=家の中の玄関前1マス（入口と合わせて明るい3マスの目印）。hid：家の番号（家の中・入口・玄関前のタイルだけ。それ以外は -1）。
+function buildWerewolfRegion(grid, width, height, ox, oy) {
+  const W = PVP.werewolf, size = W.size, cx = ox + size / 2, cy = oy + size / 2; // cx,cy＝領域の中心（タイルの角の座標）
+  const kind = new Uint8Array(width * height), hid = new Int8Array(width * height).fill(-1);
+  const houses = [];
+  for (let k = 0; k < W.houses; k++) { // 0番が真上、時計回り
+    const a = -Math.PI / 2 + Math.PI * 2 * k / W.houses, ux = Math.cos(a), uy = Math.sin(a);
+    houses.push({ k, a, ux, uy, x: cx + ux * W.houseDist, y: cy + uy * W.houseDist });
+  }
+  for (let ty = oy; ty < oy + size; ty++) for (let tx = ox; tx < ox + size; tx++) {
+    const px = tx + 0.5, py = ty + 0.5, dx = px - cx, dy = py - cy;
+    let kd = Math.hypot(dx, dy) <= W.plazaR ? 1 : 0, id = -1;
+    for (const h of houses) {
+      const hd = Math.hypot(px - h.x, py - h.y);
+      const along = dx * h.ux + dy * h.uy, perp = Math.abs(dx * h.uy - dy * h.ux); // 広場の中心から家へ向かう線に沿った距離／その線からのずれ
+      const inRoad = perp <= W.roadW / 2 && along >= W.plazaR - 2 && along <= W.houseDist - W.houseIn + 0.5;
+      if (hd <= W.houseIn) { kd = (hd > W.houseIn - 1 && perp <= W.roadW / 2 && along < W.houseDist) ? 5 : 3; id = h.k; break; } // 玄関のすぐ内側の1マスだけ kd=5（目印）
+      if (hd <= W.houseOut) { if (inRoad) { kd = 4; id = h.k; } else kd = 0; break; } // 家の壁（道が通る所だけ入口）
+      if (inRoad && kd === 0) kd = 2;
+    }
+    if (kd) { grid[ty][tx] = 1; kind[ty * width + tx] = kd; hid[ty * width + tx] = id; }
+  }
+  // 斜めの家では円の近似で目印(5)に隙間ができることがあるので、入口(4)に隣り合う家の中(3)も目印(5)にして、入口の内側をぐるっと塞ぐ
+  const fix = [];
+  for (let ty = oy; ty < oy + size; ty++) for (let tx = ox; tx < ox + size; tx++) {
+    const i = ty * width + tx; if (kind[i] !== 3) continue;
+    for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const j = (ty + ay) * width + tx + ax; if (kind[j] === 4 && hid[j] === hid[i]) { fix.push(i); break; } }
+  }
+  for (const i of fix) kind[i] = 5;
+  return { cx, cy, houses, kind, hid, w: width, h: height, ox, oy, size };
+}
+
 function generatePvpMap() {
-  const P = PVP, pr = P.prep, bt = P.battle;
-  const width = bt.x + bt.w + 2;
-  const height = Math.max(pr.y + pr.h, bt.y + bt.h) + 2;
+  const P = PVP, pr = P.prep, bt = P.battle, WW = P.werewolf;
+  const wox = bt.x + bt.w + WW.gap, woy = 2; // 人狼ゲームのマップ領域の左上
+  const width = wox + WW.size + 2;
+  const height = Math.max(pr.y + pr.h, bt.y + bt.h, woy + WW.size) + 2;
   const grid = Array.from({ length: height }, () => Array(width).fill(0));
   const fill = (r) => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) grid[y][x] = 1; };
   fill(pr); fill(bt);
@@ -941,11 +982,12 @@ function generatePvpMap() {
     pillars.push({ x, y, w, h });
     for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) grid[yy][xx] = 0;
   }
+  const werewolf = buildWerewolfRegion(grid, width, height, wox, woy);
   return {
     grid, width, height, rooms: [pr, bt], exitPos: null,
     playerStart: { x: pr.x + Math.floor(pr.w / 2), y: pr.y + pr.h - 3 },
     enemyBudget: 0,
-    pvp: { pillars, cx, cy },
+    pvp: { pillars, cx, cy }, werewolf,
   };
 }
 
@@ -1171,7 +1213,7 @@ const ENEMY_TYPES = [
     chaseErratic: true, chaseBias: 0.3 }, // プレイヤー追跡中もコウモリのようにランダムな揺れを混ぜてジグザグに動かす
   { key: 'charger', color: 0xff6b6b, radius: 16, hp: 28, speed: 55,  dashSpeed: 320, damage: 14, behavior: 'charge', minFloor: 2 },
   { key: 'brute',   color: 0xffa552, radius: 20, hp: 55, speed: 55,  damage: 18, behavior: 'chase', minFloor: 3 },
-  // 四つ腕（召喚術・改の最後の技）：丸い体の左右に大きな腕が2本ずつ。腕の画像は updateArms() が体に追従させて描く。
+  // 四つ腕（降魔術の最後の技）：丸い体の左右に大きな腕が2本ずつ。腕の画像は updateArms() が体に追従させて描く。
   // arms＝腕の設定（len：上側の腕の長さ(px)／up・low：上側・下側の腕の開き具合(rad。大きいほど横へ広げる)）。minFloor を大きくして、通常のダンジョンには出ない。
   { key: 'arms4', color: 0xffffff, radius: 40, hp: 480, speed: 62, damage: 30, behavior: 'chase', minFloor: 9999, aggroRange: 900,
     knockbackScale: 0, superArmor: true, arms: { len: 200, up: 1.2, low: 1.4, glow: true }, // glow：体の後ろに白い光を重ねて脈打たせる
@@ -1531,10 +1573,10 @@ const WEAPON_TYPES = [
   // 召喚術：すべての敵（ボス含む）の中からランダムに1体を味方として召喚する。
   // 弾数1・リロード60秒＝クールダウン。リロード中は「照準モード」になり、味方に指示を出せる。
   // レベルが上がるとクールダウンが4秒ずつ短くなる（最短30秒）。
-  { key: 'summon',  name: '召喚術', type: 'summon', damage: 0, cooldown: 0.5, minFloor: 5, maxAmmo: 1, reloadTime: 60, hidden: true }, // hidden: true＝旧召喚術。宝箱・武器選択画面には出さない（デベロッパーモードでは選べる）（召喚術・改に置き換え済み。コードは残してある）
-  // 召喚術・改（開発中）：スティックを持つと周りに8つの魔法陣が出て、倒した方向の魔法陣を選んで離すと技を発動する。
+  { key: 'summon',  name: '召喚術', type: 'summon', damage: 0, cooldown: 0.5, minFloor: 5, maxAmmo: 1, reloadTime: 60, hidden: true }, // hidden: true＝旧召喚術。宝箱・武器選択画面には出さない（デベロッパーモードでは選べる）（降魔術に置き換え済み。コードは残してある）
+  // 降魔術（開発中）：スティックを持つと周りに8つの魔法陣が出て、倒した方向の魔法陣を選んで離すと技を発動する。
   // 弾数1・リロード＝その技のクールダウン（SUMMON2.skills の cooldown）。技の中身は SUMMON2 を参照。
-  { key: 'summon2', name: '召喚術・改', type: 'summon2', damage: 0, cooldown: 0.5, minFloor: 6, maxAmmo: 1, reloadTime: 10 },
+  { key: 'summon2', name: '降魔術', type: 'summon2', damage: 0, cooldown: 0.5, minFloor: 6, maxAmmo: 1, reloadTime: 10 },
   // スナイパー：召喚術のリロード中「照準モード」と同じ操作感（スティックを倒す/押している間、
   // 赤い点がプレイヤーの位置から動く）で狙いを付け、離した瞬間に発射する特殊武器。
   // 弾が実際に飛ぶ（当たり判定を持つ）わけではなく、離した時に赤い点の下に敵がいれば
@@ -1759,12 +1801,12 @@ function pickSummonType() {
   for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r < 0) return pool[i]; }
   return pool[pool.length - 1];
 }
-// 召喚術・改の設定。魔法陣は画面の向きに固定（上から時計回りに slot 0〜7：上・右上・右・右下・下・左下・左・左上）。
+// 降魔術の設定。魔法陣は画面の向きに固定（上から時計回りに slot 0〜7：上・右上・右・右下・下・左下・左・左上）。
 // skills に書いた slot だけが使える技で、書いていない魔法陣は灰色（未実装）で表示される。
 // 並べ方：左下（slot 5）を起点に、時計回りに解放が早い順（コウモリ→ブルート→ゴースト→カルテット→ウロボロス→ツインウロボロス→シマハル）。空きの slot 4（下）は、これから足す強い技の置き場所。
 // 【確認用・一時】調伏の儀の戦闘中、敵ごとに「誰を狙っているか」を線と文字で表示する。原因が分かったらfalseにするか、この行と下の目印の処理を消す。
 const S2_DEBUG_AIM = false;
-// 【テスト用】true の間は、調伏の儀を飛ばして召喚術・改の全ての技を最初から使える。試し終わったら false に戻す（セーブには書き込まない）。
+// 【テスト用】true の間は、調伏の儀を飛ばして降魔術の全ての技を最初から使える。試し終わったら false に戻す（セーブには書き込まない）。
 const S2_TEST_UNLOCK_ALL = false;
 // 四つ腕の形態変化：HPの割合がこの値以下になると次の形態へ（第2形態＝70%以下 / 第3形態＝30%以下）。いちど上がった形態は戻らない
 const ARMS4_FORMS = { hp: [0.7, 0.3], skin: 0xc8a692, white: 0xffffff };
@@ -1806,7 +1848,7 @@ const SUMMON2 = {
   globalPerSkill: 0.5, // 解放済みの技が2つ目以降1つ増えるごとに、全体クールダウンに足す秒数
   ringRadius: 96,     // プレイヤーから魔法陣の中心までの距離(px)
   circleRadius: 26,   // 魔法陣1つの大きさ(px)
-  levelGrowth: 0.15,  // 召喚術・改のレベルが1つ上がるごとに、味方のHPとダメージが増える割合（他の武器のダメージ成長 +15%/レベル と同じ。味方の強さは階層ではなくレベルだけで決まる）
+  levelGrowth: 0.15,  // 降魔術のレベルが1つ上がるごとに、味方のHPとダメージが増える割合（他の武器のダメージ成長 +15%/レベル と同じ。味方の強さは階層ではなくレベルだけで決まる）
   bossRushFloorBonus: 10, // ボスラッシュの調伏の儀の敵の強さを決める階層に足す数（味方の強さには使わない）
   selectScale: 1.6,   // 選択中の魔法陣の拡大倍率
   // 調伏の儀：コウモリ以外の技は、最初は灰色（双剣マーク）。選ぶと黒い魔法陣＋カウントダウン → ボスラッシュと同じ部屋へワープして、
@@ -1837,7 +1879,7 @@ const SUMMON2 = {
     6: { key: 'brutes', trial: [{ key: 'brute', n: 3 }], name: 'ブルート', count: 3, life: 10, hpMult: 1, dmgMult: 0.5, cooldown: 15, minLevel: 2, // 左：守りの技（召喚術Lv2以降）
          orbitRadius: 52, orbitSpeed: 2.6, knockback: 500, hitInterval: 0.35 },
     5: { key: 'bats', name: 'コウモリ', count: 3, interval: 0.3, life: 5, hpMult: 3, dmgMult: 2, cooldown: 11 }, // slot 5＝左下（一番早く使える技）
-    4: { key: 'arms4', trial: [{ key: 'arms4', n: 1 }], name: '螟ｩ菴ｿ', life: 20, hpMult: 1, dmgMult: 1, cooldown: 65, minLevel: 8 }, // 下：丸い体に大きな腕が4本ある味方を1体召喚する（召喚術Lv8以降）
+    4: { key: 'arms4', trial: [{ key: 'arms4', n: 1 }], name: '天使', life: 20, hpMult: 1, dmgMult: 1, cooldown: 65, minLevel: 8 }, // 下：丸い体に大きな腕が4本ある味方を1体召喚する（召喚術Lv8以降）
     3: { key: 'simaharbeam', trial: [{ key: 'simahar', n: 2 }], name: 'シマハル', cooldown: 25, dmgMult: 1, minLevel: 7, // 右下：ボスのシマハル本体を体の向きの左右にダブルで召喚 → スティックを持って startDelay 秒後に、2体がそれぞれ、ボスの黒いビーム攻撃（beamAttack）と全く同じ手順で、自分の周りに黒い星を出し、スティックを倒している向きへビームを撃つ。1発ごとに向きは固定され、そのまま消えていく。minLevel: 7＝召喚術Lv7以降で使える
          baseDamage: 14, tickInterval: 0.3, // baseDamage＝シマハルの黒いビーム（beamAttack）と同じ1発のダメージ（階層に応じて強くなる）。ビームに触れている敵へ tickInterval 秒ごとに当たる（複数のビームに触れると、その分重なる）
          convergeDist: 450, convergeScatter: 110, // ビームが収束する先＝スティックを倒している向きの、プレイヤーから convergeDist px 先 / convergeScatter＝その収束点のランダムなずれの半径（大きいほどバラける。0なら1点に集まる）
@@ -1852,7 +1894,7 @@ const SUMMON2_SLOT_NAMES = ['上', '右上', '右', '右下', '下', '左下', '
 const ALLY_NAMES = {
   slime: 'スライム', bat: 'コウモリ', spore: '胞子', charger: 'チャージャー', brute: 'ブルート',
   shooter: 'シューター', ghost: 'ゴースト', overlord: 'オーバーロード', quartet: 'カルテット',
-  detonator: 'デトネーター', quartet_shooter: 'カルテットの射手', simahar: 'シマハル', arms4: '螟ｩ菴ｿ',
+  detonator: 'デトネーター', quartet_shooter: 'カルテットの射手', simahar: 'シマハル', arms4: '天使',
 };
 
 // リザルト用：敵の種類 → 日本語名（味方の名前表に、ゾートロープを足したもの）
@@ -2216,6 +2258,7 @@ class GameScene extends Phaser.Scene {
     // テストプレイを始められる。協力プレイでは部屋側の階を優先する。
     this.bossRush = !this.mp && !!app.bossRush; // ボスラッシュ（ソロ専用）
     this.pvp = !!app.pvp && this.mp; // PvPモード（協力ルーム専用）
+    this.pvpTest = this.pvp && !!(app.net && app.net.offline); // 一人・通信なしのテスト（開始人数・終了判定の人数条件を緩める）
     this.pv = null;
     this.frontline = !!app.frontline; // 最北戦線（ソロ／協力プレイ）
     this.tx = null; this.fl = null;
@@ -2295,9 +2338,9 @@ class GameScene extends Phaser.Scene {
     this._warpCd = 0; // ワープのクールダウン残り秒（SUMMON_BALANCE.warpCooldown）
     this.remoteAllies = {}; // マルチ：他のプレイヤーの味方の表示（キーは 持ち主uid_味方id）
     this._aimCursor = null; this._aimArmed = false;
-    this.s2Gfx = this.add.graphics().setDepth(10); // 召喚術・改の魔法陣メニュー
+    this.s2Gfx = this.add.graphics().setDepth(10); // 降魔術の魔法陣メニュー
     this._s2Open = false; this._s2Sel = -1; this._s2Label = null; this._s2Cursor = null; this.s2Quartet = null; this.s2Snake = null; this.s2Rush = []; this.s2Beam = null; this.s2RushAim = null;
-    this._s2GCd = 0; this._s2SkCd = {}; // 召喚術・改のクールダウン残り秒（全体 / 技のkeyごと）
+    this._s2GCd = 0; this._s2SkCd = {}; // 降魔術のクールダウン残り秒（全体 / 技のkeyごと）
     this.s2Unlocked = this.s2InitUnlocked(); this.s2Trial = null; this.rt = null; this._rtGfx = null; this._rtTxt = null; this._rtSeq = 0; this._s2TrialGfx = null; this._s2TrialTxt = null; // 調伏の儀：このゲームで解放済みの技 / 進行中の儀
     this._sniperCursor = null; // スナイパーの赤い照準点（召喚術の照準と同じ仕組み・同じaimGfxを使い回す）
     this.aimGfx = this.add.graphics().setDepth(10); // 召喚術・スナイパーの照準ポインター
@@ -2361,7 +2404,7 @@ class GameScene extends Phaser.Scene {
       // 離した瞬間に発射する（マジックボムと同じ「押し続けて離すと発動」の系統）。
       // ここではtryAttack()を呼ばず、照準モードを起動するだけにする。
       if (this.weapon && this.weapon.type === 'sniper') { this._aimArmed = true; return; }
-      // 召喚術・改：押している間は魔法陣メニューを出し、離した時に選んだ技を発動する（updateSummon2Menu）
+      // 降魔術：押している間は魔法陣メニューを出し、離した時に選んだ技を発動する（updateSummon2Menu）
       if (this.weapon && this.weapon.type === 'summon2') { this._aimArmed = true; return; }
       // 幽体離脱：押している間はupdateAstral()がゴーストにしておく（離すと体へ戻る）。攻撃入力としては扱わない
       if (this.weapon && this.weapon.type === 'astral') { this._aimArmed = true; return; }
@@ -2377,7 +2420,7 @@ class GameScene extends Phaser.Scene {
       // スナイパーも同様に、離した時の発射はupdateSniperAim()側で「赤い点の位置」込みで処理する
       // （この向きだけの即時発射はしない）。
       if (this.weapon && this.weapon.type === 'sniper') return;
-      if (this.weapon && this.weapon.type === 'summon2') return; // 召喚術・改：離した時の処理は updateSummon2Menu 側
+      if (this.weapon && this.weapon.type === 'summon2') return; // 降魔術：離した時の処理は updateSummon2Menu 側
       if (this.weapon && this.weapon.type === 'astral') return; // 幽体離脱：離した時の処理は updateAstral 側
       this.tryAttack(e.detail.angle);
     };
@@ -3706,8 +3749,95 @@ class GameScene extends Phaser.Scene {
     return { x: (r.x + r.w / 2) * TILE, y: (r.y + r.h / 2) * TILE };
   }
 
+  // ===== 人狼ゲーム：視界 =====
+  // 夜は見える距離が nightViewR に縮み、光の外は夜の闇で覆われて、自分の周りだけがランタンの光で見える（範囲外の他プレイヤーも見えない）。
+  // 自分から光線を放射状に飛ばし、壁に当たるまでを「見える範囲」にする。見えない所は黒で塗りつぶす（敵・他のプレイヤー・床の上の物もまとめて隠れる）。
+  // 家の中は、その家の中（玄関前の1マスを含む）にいる時だけ見える。入口の2マスに立っている間は外扱い（家の中は見えない）。
+  // 家の中にいる間は、入口（玄関の2マス）までは見えて、その外は見えない。
+  wwUpdateVision() {
+    const pv = this.pv, ww = this.dungeon && this.dungeon.werewolf;
+    if (!(pv && ww && pv.phase === 'battle' && pv.mode === 'werewolf')) { if (this._wwG && this._wwG.scene) this._wwG.clear(); this.wwUpdateLantern(false); return; }
+    if (!this._wwG || !this._wwG.scene) this._wwG = this.add.graphics().setDepth(12);
+    const g = this._wwG, grid = this.dungeon.grid, W = ww.w, H = ww.h;
+    const night = !!(this.wwPhaseInfo() || {}).night; // 夜：光の外は夜の闇（不透明＝他プレイヤーも隠れる）、自分の周りはランタンの光
+    const ox = this.player.x / TILE, oy = this.player.y / TILE, ptx = Math.floor(ox), pty = Math.floor(oy);
+    let inside = -1, foot = -1; // inside：今いる家の中の番号／foot：家の中か入口にいる時のその家の番号
+    if (ptx >= 0 && pty >= 0 && ptx < W && pty < H) {
+      const i = pty * W + ptx, k = ww.kind[i];
+      if (k === 3 || k === 5) { inside = foot = ww.hid[i]; } // 家の中・玄関前(5)は「中」。入口(4)に立っている時は「外」扱い（家の中は見えない）
+    }
+    const opaque = (tx, ty) => {
+      if (tx < 0 || ty < 0 || tx >= W || ty >= H || grid[ty][tx] === 0) return true;
+      const i = ty * W + tx, k = ww.kind[i];
+      if (k === 3 || k === 5) return ww.hid[i] !== foot;   // 家の中・玄関前：その家にいる時だけ見える（外や入口からは見えない）
+      if (k === 4) return ww.hid[i] === inside; // 入口：家の中にいる間は、ここから先（外）は見えない
+      return false;
+    };
+    const wv = this.cameras.main.worldView, farPx = Math.hypot(wv.width, wv.height) + 100; // 画面のどこまでも覆える距離
+    const screenT = farPx / TILE, farT = screenT * 1.05, maxT = Math.min(night ? PVP.werewolf.nightViewR * PVP.werewolf.nightHole : PVP.werewolf.viewR, screenT), N = PVP.werewolf.rays, TAU = Math.PI * 2; // maxT：光線を追う最大の距離（見える距離の上限）
+    const dist = new Float32Array(N), cs = this._wwCos && this._wwCos.length === N ? this._wwCos : (this._wwCos = new Float32Array(N).map((_, i) => Math.cos(TAU * i / N))), sn = this._wwSin && this._wwSin.length === N ? this._wwSin : (this._wwSin = new Float32Array(N).map((_, i) => Math.sin(TAU * i / N)));
+    for (let i = 0; i < N; i++) {
+      const dx = cs[i], dy = sn[i];
+      const sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, tdx = dx === 0 ? Infinity : Math.abs(1 / dx), tdy = dy === 0 ? Infinity : Math.abs(1 / dy);
+      let tx = ptx, ty = pty, tmx = dx === 0 ? Infinity : (dx > 0 ? tx + 1 - ox : ox - tx) * tdx, tmy = dy === 0 ? Infinity : (dy > 0 ? ty + 1 - oy : oy - ty) * tdy, t = 0, hit = false, door = false;
+      for (;;) {
+        if (tmx < tmy) { t = tmx; tmx += tdx; tx += sx; } else { t = tmy; tmy += tdy; ty += sy; }
+        if (t >= maxT) break;
+        if (inside >= 0 && tx >= 0 && ty >= 0 && tx < W && ty < H && grid[ty][tx] !== 0) {
+          // 家の中から：自分の家の玄関（入口の2マス）は見える＝出口が分かる。その外側（玄関を抜けた先）は見えない
+          const ii = ty * W + tx;
+          if (ww.kind[ii] === 4 && ww.hid[ii] === inside) { door = true; continue; }
+          if (door) { hit = true; break; }
+        }
+        if (opaque(tx, ty)) { hit = true; break; }
+      }
+      dist[i] = hit ? t : maxT; // 壁に当たらなくても、見える距離の上限より先は黒くする
+    }
+    g.clear(); g.fillStyle(night ? 0x06091f : 0x000000, 1); // 夜の闇の色（ランタン画像の暗さと同じ色）
+    this.wwUpdateLantern(night);
+    for (let i = 0; i < N; i++) {
+      const j = (i + 1) % N;
+      if (dist[i] >= screenT && dist[j] >= screenT) continue; // どちらも画面の外まで見える：隠す所なし
+      const ax = (ox + cs[i] * dist[i]) * TILE, ay = (oy + sn[i] * dist[i]) * TILE, bx = (ox + cs[j] * dist[j]) * TILE, by = (oy + sn[j] * dist[j]) * TILE;
+      const fx = (ox + cs[i] * farT) * TILE, fy = (oy + sn[i] * farT) * TILE, gx = (ox + cs[j] * farT) * TILE, gy = (oy + sn[j] * farT) * TILE;
+      g.fillTriangle(ax, ay, bx, by, fx, fy); g.fillTriangle(bx, by, gx, gy, fx, fy);
+    }
+  }
+
+  // 人狼ゲーム：i番目(全n人)の家。人数が家より少ない時は、家が均等に離れるように割り当てる
+  wwHouseFor(i, n) {
+    const hs = this.dungeon.werewolf.houses;
+    return hs[Math.round(i * hs.length / Math.max(1, n)) % hs.length];
+  }
+
+  // 人狼ゲーム：広場の、各家へ続く道の入口の前に、その家の人の体の色の看板を立てる（横長の板に縦長の細い柱が刺さった形）
+  wwBuildSigns() {
+    this.wwClearSigns();
+    const pv = this.pv, ww = this.dungeon && this.dungeon.werewolf;
+    if (!(pv && ww && pv.mode === 'werewolf')) return;
+    const my = this.net.uid, ps = this.latestPlayers || {}, n = pv.ids.length, d = PVP.werewolf.plazaR - 1.2; // d：広場の中心から看板の足元まで（タイル）
+    this._wwSigns = pv.ids.map((id, i) => {
+      const h = this.wwHouseFor(i, n);
+      const col = id === my ? this.playerColor : (ps[id] && typeof ps[id].color === 'number') ? ps[id].color : 0xffffff;
+      const c = this.add.container((ww.cx + h.ux * d) * TILE, (ww.cy + h.uy * d) * TILE).setDepth(3); // 足元が原点。夜の闇(depth 12)より下なので、見えない所では隠れる
+      const post = this.add.rectangle(0, -13, 6, 26, 0x6b4a2a).setStrokeStyle(1, 0x2a1a0c); // 柱（板の裏まで刺さっている）
+      const board = this.add.rectangle(0, -22, 36, 16, col).setStrokeStyle(2, 0x1a1208);    // 板（プレイヤーの体の色）
+      c.add([post, board]);
+      return c;
+    });
+  }
+
+  wwClearSigns() {
+    if (this._wwSigns) for (const c of this._wwSigns) c.destroy();
+    this._wwSigns = null;
+  }
+
   // i番目(全n人)のスタート位置：バトルフィールド中央を中心にした円周上に等間隔
   pvpSpawn(i, n) {
+    if (this.pv && this.pv.mode === 'werewolf' && this.dungeon.werewolf) { // 人狼ゲーム：家の中心
+      const h = this.wwHouseFor(i, n);
+      return { x: h.x * TILE, y: h.y * TILE };
+    }
     const c = this.dungeon.pvp, a = -Math.PI / 2 + (Math.PI * 2 * i) / Math.max(1, n);
     return { x: (c.cx + Math.cos(a) * PVP.ringR) * TILE, y: (c.cy + Math.sin(a) * PVP.ringR) * TILE };
   }
@@ -3905,14 +4035,23 @@ class GameScene extends Phaser.Scene {
     const pv = this.pv;
     if (!pv || !this.net) return;
     this.pvpSyncProxies();
+    this.wwUpdateVision();
     this.pvpUpdateWinLabels();
     this.pvpUpdateWeaponZone(dt);
     this.pvpUpdateTimer();
+    this.wwUpdateClockUi();
     if (pv.phase === 'prep') {
+      // 一人・通信なしのテスト：入ったら円に入らず直接、人狼ゲームを始める（最初の1回だけ。自分の情報が届いてから）
+      if (this.pvpTest && !pv.testAutoStarted && this.latestPlayers && this.latestPlayers[this.net.uid]) {
+        pv.testAutoStarted = true; pv.phase = 'starting';
+        const round = (pv.round = (pv.round || 0) + 1);
+        this.net.sendPvp({ a: 'start', ids: [this.net.uid], round, mode: 'werewolf' });
+        return;
+      }
       if (!this.isHost) return;
       const list = this.pvpPlayerPositions(), R = PVP.circleR * TILE;
       // 全員が同じ1つの円に入っているときだけ、その円のモードでカウントダウン
-      const hit = list.length >= 1 ? this.pvpCircles().find(c => !c.disabled && list.length >= (c.minPlayers || PVP.minPlayers) && list.every(q => Math.hypot(q.x - c.x, q.y - c.y) <= R)) : null;
+      const hit = list.length >= 1 ? this.pvpCircles().find(c => !c.disabled && list.length >= (this.pvpTest ? 1 : (c.minPlayers || PVP.minPlayers)) && list.every(q => Math.hypot(q.x - c.x, q.y - c.y) <= R)) : null;
       if (hit) {
         if (pv.cdMode !== hit.key) { pv.cdMode = hit.key; pv.cd = PVP.countdown; pv.cdShown = -1; } // 別の円に移ったらやり直し
         pv.cd -= dt;
@@ -3925,6 +4064,14 @@ class GameScene extends Phaser.Scene {
       }
     } else if (pv.phase === 'battle') {
       if (pv.grace > 0) pv.grace -= dt;
+      if (this.isHost) { // ラウンド途中で部屋に入ってきた人（このラウンドの参加者でない人）に、参加できないことを知らせる
+        pv.lateT = (pv.lateT || 0) - dt;
+        if (pv.lateT <= 0) {
+          pv.lateT = 2;
+          const uids = Object.keys(this.latestPlayers || {}).filter(u => pv.ids.indexOf(u) < 0);
+          if (uids.length) this.net.sendPvp({ a: 'late', uids });
+        }
+      }
       if (pv.mode === 'bodycount') {
         // 死んでいる間はリスポーンまでのカウントダウン
         if (pv.dead) {
@@ -3961,10 +4108,15 @@ class GameScene extends Phaser.Scene {
   pvpCheckEnd() {
     const pv = this.pv, present = this.latestPlayers || {};
     if (pv.endSent) return;
+    if (pv.mode === 'werewolf') { // ルール未実装の間：時間切れ、または参加者が1人以下になったら勝者なしで終了
+      const here = pv.ids.filter(id => present[id]);
+      if (performance.now() >= pv.endAt || here.length <= (this.pvpTest ? 0 : 1)) { pv.endSent = true; this.net.sendPvp({ a: 'end', w: null, ws: [] }); }
+      return;
+    }
     if (pv.mode === 'bodycount') {
       // 時間切れ、または参加者が1人以下になったら終了。キル数が最多の人（同数なら全員）が勝者、最多が0キルなら勝者なし
       const here = pv.ids.filter(id => present[id]);
-      if (performance.now() >= pv.endAt || here.length <= 1) {
+      if (performance.now() >= pv.endAt || here.length <= (this.pvpTest ? 0 : 1)) {
         pv.endSent = true;
         const top = Math.max(0, ...pv.ids.map(id => pv.kills[id] || 0));
         const ws = top > 0 ? pv.ids.filter(id => (pv.kills[id] || 0) === top) : [];
@@ -3973,7 +4125,7 @@ class GameScene extends Phaser.Scene {
       return;
     }
     for (const id of Array.from(pv.alive)) if (!present[id]) pv.alive.delete(id);
-    if (pv.alive.size <= 1) {
+    if (pv.alive.size <= (this.pvpTest ? 0 : 1)) {
       pv.endSent = true;
       this.net.sendPvp({ a: 'end', w: Array.from(pv.alive)[0] || null });
     }
@@ -3983,8 +4135,17 @@ class GameScene extends Phaser.Scene {
     const pv = this.pv;
     if (!pv || !m) return;
     const my = this.net.uid;
+    // ラウンド途中で入った人は 'start' を受け取っていないので、準備室(prep)のまま。バトル中のメッセージ（撃破表示・リザルトなど）は無視して、準備室で待つ。
+    if (pv.phase === 'prep' && (m.a === 'dead' || m.a === 'end' || m.a === 'burn' || m.a === 'resp' || m.a === 'hit')) {
+      if (m.a === 'end' && pv.waiting) { pv.waiting = false; this.showBanner('ラウンドが終わりました。全員が同じ円に入ると次のバトルです', 3500); }
+      return;
+    }
+    if (m.a === 'late') { // ホストからの「ラウンド進行中に入った人」の通知
+      if (pv.phase === 'prep' && !pv.waiting && m.uids && m.uids.indexOf(my) >= 0) { pv.waiting = true; this.showBanner('ラウンド進行中のため参加できません\n終わるまで準備室でお待ちください', 5000); }
+      return;
+    }
     if (m.a === 'cd') {
-      if (m.n >= 0) { pv.counting = true; const c = PVP.circles.find(c => c.key === m.mode); this.showBanner((c ? c.label + '：' : '') + 'バトルフィールドまで ' + m.n, 1200); }
+      if (m.n >= 0) { pv.counting = true; const c = PVP.circles.find(c => c.key === m.mode); this.showBanner((c ? c.label + '：' : '') + (m.mode === 'werewolf' ? 'マップへワープまで ' : 'バトルフィールドまで ') + m.n, 1200); }
       else if (pv.counting) { pv.counting = false; this.showBanner('全員が同じ円に入ってください', 1500); }
     } else if (m.a === 'wcd') {
       if (m.n >= 0) this.showBanner('武器変更まで ' + m.n, 1200);
@@ -3998,18 +4159,20 @@ class GameScene extends Phaser.Scene {
       // 武器選択画面を開いたままバトルが始まった場合は閉じる
       pv.wzOpen = false; pv.wpicking = false;
       { const ws = document.getElementById('weaponSelect'); if (ws) ws.style.display = 'none'; }
-      pv.phase = 'battle'; pv.counting = false; pv.endSent = false;
+      pv.phase = 'battle'; pv.counting = false; pv.endSent = false; pv.waiting = false;
       pv.mode = m.mode || 'survival'; // 選ばれたモード（ボディカウント／レースは未実装：今はサバイバルと同じ進行）
       pv.ids = m.ids || []; pv.alive = new Set(pv.ids); pv.out = {}; pv.dead = false; pv.grace = PVP.spawnGrace;
       pv.kills = {}; pv.deaths = {}; pv.dmg = {}; pv.info = {}; pv.winners = null; // リザルト用：撃破数・死亡数・与ダメージ・名前と武器
-      pv.endAt = performance.now() + PVP.bodycount.time * 1000; pv.nextPotion = 1; pv.respLeft = 0; pv.respShown = -1; // ボディカウントの終了時刻など
+      pv.endAt = performance.now() + (pv.mode === 'werewolf' ? PVP.werewolf.time : PVP.bodycount.time) * 1000; pv.nextPotion = 1; pv.respLeft = 0; pv.respShown = -1; // ボディカウント／人狼ゲーム（ルール未実装の間）の終了時刻など
       for (const id of pv.ids) {
         const p = (this.latestPlayers || {})[id] || {};
         pv.info[id] = { name: p.name || '???', weapon: id === my ? this.weapon.name : (p.weaponName || '?') };
         pv.kills[id] = 0; pv.deaths[id] = 0; pv.dmg[id] = 0;
       }
       pv.round = m.round || ((pv.round || 0) + 1);
-      this.pvpSpawnPotions(pv.round); // 回復アイテムを配置（全員が同じ位置）
+      if (pv.mode === 'werewolf') this.wwBuildSigns(); else this.wwClearSigns(); // 人狼ゲーム：各家の道の前に看板
+      if (pv.mode === 'werewolf' && pv.accStash === undefined) { pv.accStash = this.accKey || ''; this.equipRunAccessory(''); } // 人狼ゲームでは装飾品なし（付けていたものは覚えておき、準備室に戻ったら戻す）
+      if (pv.mode !== 'werewolf') this.pvpSpawnPotions(pv.round); // 回復アイテムを配置（全員が同じ位置）。人狼ゲームには置かない
       const i = pv.ids.indexOf(my);
       if (i >= 0) {
         const sp = this.pvpSpawn(i, pv.ids.length);
@@ -4017,7 +4180,8 @@ class GameScene extends Phaser.Scene {
         this.playerHp = this.playerMaxHp;
         this.updateHud();
         const mc = PVP.circles.find(c => c.key === pv.mode);
-        if (pv.mode === 'bodycount') this.showBanner('ボディカウント開始！ ' + Math.round(PVP.bodycount.time / 60) + '分間でキル数を競います\nやられても' + PVP.bodycount.respawnTime + '秒でリスポーンします', 3200);
+        if (pv.mode === 'werewolf') this.showBanner('人狼ゲーム（ルール未実装）\n自分の家からスタート。昼' + PVP.werewolf.dayTime + '秒のあと夜' + PVP.werewolf.nightTime + '秒', 3500);
+        else if (pv.mode === 'bodycount') this.showBanner('ボディカウント開始！ ' + Math.round(PVP.bodycount.time / 60) + '分間でキル数を競います\nやられても' + PVP.bodycount.respawnTime + '秒でリスポーンします', 3200);
         else this.showBanner((pv.mode === 'survival' ? 'バトル開始！ ' : (mc ? mc.label : '') + '（未実装：サバイバルとして開始）') + ' 回復アイテムが' + PVP.potionCount + '個落ちています', 2800);
       } else {
         this.pvpSetSpectator(true);
@@ -4059,7 +4223,7 @@ class GameScene extends Phaser.Scene {
 
   pvpTakeHit(d, from) {
     const pv = this.pv;
-    if (pv.phase !== 'battle' || pv.dead || pv.grace > 0 || !(d > 0)) return;
+    if (pv.phase !== 'battle' || pv.dead || pv.grace > 0 || !(d > 0) || pv.mode === 'werewolf') return; // 人狼ゲームは今はダメージなし（ルール未実装）
     this.playerHp = Math.max(0, this.playerHp - d); // 盾の軽減は攻撃した側が済ませて送ってくる（pvpOnHit）
     this.spawnBurst(this.player.x, this.player.y, 0xff3b3b, 6);
     this.updateHud();
@@ -4117,6 +4281,66 @@ class GameScene extends Phaser.Scene {
     this.net.sendPvp({ a: 'resp', uid: my });
   }
 
+  // 人狼ゲームの昼夜。開始から dayTime 秒は昼、続く nightTime 秒は夜で、以後くり返す。人狼ゲーム中でなければ null。
+  // 経過時間は終了時刻(endAt)から逆算する（開始メッセージを受けた時点で全員が同じ長さにそろう）。night：夜か／left：夜の残り秒数
+  wwPhaseInfo() {
+    const pv = this.pv, W = PVP.werewolf;
+    if (!(pv && pv.phase === 'battle' && pv.mode === 'werewolf')) return null;
+    const el = Math.max(0, W.time - (pv.endAt - performance.now()) / 1000), cyc = W.dayTime + W.nightTime, tt = el % cyc;
+    const night = tt >= W.dayTime;
+    return { night, left: Math.ceil(night ? cyc - tt : W.dayTime - tt) }; // left：今の昼（または夜）の残り秒数
+  }
+
+  // 人狼ゲーム中、画面上部に「☀️ 昼 残り○秒」／「🌙 夜 残り○秒」を出す。昼夜が切り替わった時はバナーで知らせる。
+  wwUpdateClockUi() {
+    const info = this.wwPhaseInfo(), night = !!(info && info.night);
+    let el = document.getElementById('wwClock');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'wwClock';
+      el.style.cssText = 'position:fixed; top:1.2vh; left:50%; transform:translateX(-50%); z-index:21; font-size:5vh; font-weight:bold; line-height:1.1; white-space:nowrap;'
+        + 'font-family:sans-serif; font-variant-numeric:tabular-nums; pointer-events:none; display:none;'
+        + 'text-shadow:0 0 1.4vh rgba(0,0,0,0.9), 0 0.3vh 0.3vh rgba(0,0,0,0.95);';
+      document.body.appendChild(el);
+    }
+    el.style.display = info ? 'block' : 'none';
+    if (info) { el.textContent = (night ? '🌙 夜 残り' : '☀️ 昼 残り') + info.left + '秒'; el.style.color = night ? '#cfd8ff' : '#ffe9a8'; }
+    if (info && night !== !!this._wwWasNight) this.showBanner(night ? '🌙 夜になった…\nランタンの光の中しか見えません' : '☀️ 朝になった', 2200);
+    this._wwWasNight = night; // 人狼ゲーム中でなくなったら false に戻る（次のゲームの開始で誤ってバナーを出さない）
+  }
+
+  // 夜のランタン：光の輪の画像（暗さのグラデーションと、暖色のぼんやりした光）を、canvasで1回だけ作る。
+  wwLanternTex(key, draw) {
+    if (this.textures.exists(key)) return;
+    const S = 512, c = this.textures.createCanvas(key, S, S), ctx = c.getContext('2d');
+    draw(ctx, S); c.refresh();
+  }
+  // 夜の間、自分の位置にランタンの光を置く（on=false なら隠す）。暗さの色は視界の闇（NIGHT_DARK）と同じなので継ぎ目が出ない。
+  wwUpdateLantern(on) {
+    if (!on) { if (this._wwDarkImg) this._wwDarkImg.setVisible(false); if (this._wwGlowImg) this._wwGlowImg.setVisible(false); return; }
+    if (!this._wwDarkImg || !this._wwDarkImg.scene) {
+      this.wwLanternTex('wwLanternDark', (ctx, S) => { // 中心は透明→外へなめらかに暗くなり、縁(=見える距離の端)で完全な闇になる
+        const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+        g.addColorStop(0, 'rgba(6,9,31,0)'); g.addColorStop(0.28, 'rgba(6,9,31,0.04)'); g.addColorStop(0.6, 'rgba(6,9,31,0.5)');
+        g.addColorStop(0.85, 'rgba(6,9,31,0.9)'); g.addColorStop(1, 'rgba(6,9,31,1)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+      });
+      this.wwLanternTex('wwLanternGlow', (ctx, S) => { // ランタンの暖色の明かり（足し算で重ねる）
+        const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+        g.addColorStop(0, 'rgba(255,190,90,0.34)'); g.addColorStop(0.35, 'rgba(255,160,60,0.16)'); g.addColorStop(1, 'rgba(255,140,40,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+      });
+      this._wwGlowImg = this.add.image(0, 0, 'wwLanternGlow').setDepth(11).setBlendMode(Phaser.BlendModes.ADD);
+      this._wwDarkImg = this.add.image(0, 0, 'wwLanternDark').setDepth(12);
+    }
+    const R = PVP.werewolf.nightViewR * TILE, tm = this.time.now / 1000;
+    // 炎のゆらぎ：光の大きさを縁の手前で少しだけ変える（縁は視界の端より外に出ない＝継ぎ目なし）
+    const fl = 0.5 + 0.5 * Math.sin(tm * 9.3) * 0.6 + 0.5 * Math.sin(tm * 23.1 + 1.7) * 0.4;
+    const s = 2 * R * (1 - 0.035 * (1 - fl)), px = this.player.x, py = this.player.y;
+    this._wwDarkImg.setVisible(true).setPosition(px, py).setDisplaySize(s, s);
+    this._wwGlowImg.setVisible(true).setPosition(px, py).setDisplaySize(s * 0.95, s * 0.95).setAlpha(0.8 + 0.2 * fl);
+  }
+
   // 画面上部に出す残り時間（ボディカウントのバトル中だけ表示）
   pvpUpdateTimer() {
     const pv = this.pv;
@@ -4149,9 +4373,11 @@ class GameScene extends Phaser.Scene {
     this.player.y = s.y * TILE + TILE / 2;
     this.updateHud();
     this.pvpClearPotions();
+    this.wwClearSigns();
     clearTimeout(this._pvpFadeTimer);
     const fdEl = document.getElementById('pvpFade'); if (fdEl) fdEl.style.display = 'none';
     const ov = document.getElementById('pvpResult'); if (ov) ov.style.display = 'none';
+    if (pv.accStash !== undefined) { const a = pv.accStash; pv.accStash = undefined; this.equipRunAccessory(a); } // 人狼ゲーム中に外した装飾品を戻す
     this.showBanner('準備室に戻りました。全員が同じ円に入ると次のバトルです', 3000);
   }
 
@@ -4746,7 +4972,8 @@ class GameScene extends Phaser.Scene {
   // 頭の上のアイコン・周りの演出・ドクロの鬼火・ブラックホールのビームも作り直し、協力プレイなら他の人の画面にも反映する。
   equipRunAccessory(key) {
     if (this.arms4Ritual) return; // 四つ腕の調伏の儀は装飾品なし
-    if (!accessoryByKey(key) || this.accKey === key) return;
+    key = key || ''; // ''＝装飾品なし（人狼ゲーム中に外す時に使う）
+    if ((key && !accessoryByKey(key)) || (this.accKey || '') === key) return;
     this.accKey = key;
     this.skullRevives = key === 'skull' ? SKULL_WISPS : 0; // ドクロ：鬼火 SKULL_WISPS 個（1回のゲームごと）
     this.skullAuraT = 0;
@@ -4757,7 +4984,7 @@ class GameScene extends Phaser.Scene {
     if (this.player) {
       const px = this.player.x, py = this.player.y;
       if (accHeadIcon(key)) this.accText = this.add.text(px, py - 13, accHeadIcon(key), { fontSize: '13px', fontFamily: 'sans-serif' }).setOrigin(0.5).setResolution(2).setDepth(6);
-      this.accFx = accFxCreate(this);
+      this.accFx = key ? accFxCreate(this) : null;
     }
     if (this.mp && this.net) this.net.setAccessory(key);
   }
@@ -5304,6 +5531,20 @@ class GameScene extends Phaser.Scene {
     return this.dungeon.grid[ty][tx] === 0;
   }
 
+  // 人狼ゲームのマップの床の色（広場・道・家の中・入口。人狼ゲームの領域の外は今までと同じ色）
+  wwFloorColor(x, y) {
+    const ww = this.dungeon.werewolf, k = ww.kind[y * ww.w + x];
+    if (k === 1) { // 広場：草地。タイルごとに緑を少しだけ変えて、草むらっぽく見せる（座標から決まるので全員同じ見た目）
+      const v = ((x * 73856093) ^ (y * 19349663)) & 7; // 0〜7
+      return (0x30 + v * 2) * 0x10000 + (0x6a + v * 3) * 0x100 + (0x2c + v);
+    }
+    if (k === 3) { // 家の中：木の床。板が横に並んでいるように、1行ごとに明暗を少し変える（座標から決まるので全員同じ見た目）
+      const v = ((y * 2654435761) >>> 0) % 5; // 0〜4
+      return (0x6e + v * 3) * 0x10000 + (0x4c + v * 2) * 0x100 + (0x2a + v);
+    }
+    return k === 2 ? 0x6b5236 : (k === 4 || k === 5) ? 0xd2b077 : 0x33333f; // 4＋5＝玄関（外側の入口2マス＋内側の玄関前1マス＝合計3マス）は家の中より明るくして目立たせる
+  }
+
   // 床(1)/出口(3)タイルをまとめて描き直す。buildFloor時の初回描画に加えて、
   // 爆弾で壁を壊した後の再描画にも使う（壊れた壁は床(1)として扱われるので、
   // ここで自動的に「壁が消えて床が出現した」ように見える）。
@@ -5332,7 +5573,8 @@ class GameScene extends Phaser.Scene {
           }
           if (t === 3) k = 1;
           const red = this.nextIsBoss; // ボス階への出口は白ではなく赤く染める
-          g.fillStyle(lerpColor(0x33333f, red ? 0xb02a2a : 0x9a9aaa, k), 1);
+          const base = dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f; // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
+          g.fillStyle(lerpColor(base, red ? 0xb02a2a : 0x9a9aaa, k), 1);
           g.fillRect(x * TILE, y * TILE, TILE, TILE);
           g.lineStyle(t === 3 ? 2 : 1, lerpColor(0x26262e, red ? 0xff6b6b : 0xdcdce8, k), 1);
           g.strokeRect(x * TILE, y * TILE, TILE, TILE);
@@ -5513,7 +5755,7 @@ class GameScene extends Phaser.Scene {
     // スナイパー：マジックボムと同じく、通常の攻撃入力では発射しない特殊武器。
     // 発射はupdateSniperAim()側の「照準の点を離した瞬間」の処理でのみ行う。
     if (this.weapon && this.weapon.type === 'sniper') return;
-    if (this.weapon && this.weapon.type === 'summon2') return; // 召喚術・改：通常の攻撃入力では発動しない
+    if (this.weapon && this.weapon.type === 'summon2') return; // 降魔術：通常の攻撃入力では発動しない
     if (this.weapon && this.weapon.type === 'astral') return; // 幽体離脱：通常の攻撃入力では発動しない（updateAstral が担当）
     if (this.reloading) {
       // 弾が残っていれば、リロードを中断して撃てる武器（マシンガン）。弾が0の時（自動リロード中）は撃てない
@@ -8884,7 +9126,7 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  // ================= 召喚術・改 =================
+  // ================= 降魔術 =================
   // 魔法陣メニュー：スティック（PCは押しっぱなし）を持つとプレイヤーの周りに8つの魔法陣が出る。
   // 倒した方向（PCはマウスの方向）の魔法陣が選ばれ、離した時にその技を発動する。何も選ばずに離せばキャンセル。
   updateSummon2Menu(dt) {
@@ -9080,7 +9322,7 @@ class GameScene extends Phaser.Scene {
     return this._s2Label;
   }
 
-  // 召喚術・改のゴースト（生きているもの）
+  // 降魔術のゴースト（生きているもの）
   s2LiveGhost() {
     return (this.allies || []).find(a => a.s2Ghost && !a.dead) || null;
   }
@@ -9890,7 +10132,7 @@ class GameScene extends Phaser.Scene {
     this.syncAllyGfx(a);
   }
 
-  // ===== 調伏の儀（召喚術・改）=====
+  // ===== 調伏の儀（降魔術）=====
   // コウモリ以外の技は、最初は使えない。選ぶと自分の周りに黒い魔法陣と5秒のカウントダウンが出て、0でボスラッシュと同じ部屋へワープ。
   // 技に応じた敵を倒すと、そのゲーム中はずっと使えるようになり、ダンジョンの元の位置へ（進捗そのまま）戻る。
   s2NeedsTrial(sk) {
@@ -9898,7 +10140,7 @@ class GameScene extends Phaser.Scene {
     return !!(sk && sk.trial && !(this.s2Unlocked || {})[sk.key] && !this.frontline && !this.pvp && (!this.mp || sk.key === 'arms4' || !!(this.dungeon && this.dungeon.ritual)));
   }
 
-  // 調伏の儀に挑める召喚術・改のレベルか（技ごとの minLevel。書いていない技は制限なし）
+  // 調伏の儀に挑める降魔術のレベルか（技ごとの minLevel。書いていない技は制限なし）
   s2TrialLevelOk(sk) { return !sk || !sk.minLevel || this.summon2Level() >= sk.minLevel; }
 
   // 【期間限定】四つ腕の調伏の儀ボタンから始めた時：階が出来たら、少し待ってすぐ四つ腕との調伏の儀（カウントダウン）に入る
@@ -13529,7 +13771,7 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  // 召喚術・改のクールダウン：「発動そのもの（全体）」と「技ごと」の2種類。どちらも明けていれば発動できる
+  // 降魔術のクールダウン：「発動そのもの（全体）」と「技ごと」の2種類。どちらも明けていれば発動できる
   s2CdRemain(sk) { return Math.max(this._s2GCd || 0, (sk && this._s2SkCd && this._s2SkCd[sk.key]) || 0); }
   s2CanCast(sk) { return this.s2CdRemain(sk) <= 0; }
   // 全体クールダウンの長さ：解放済み（調伏の儀が要らない）技の数が増えるほど長くなる
@@ -13874,15 +14116,15 @@ class GameScene extends Phaser.Scene {
     } });
   }
 
-  // 召喚術・改のレベル（武器を持ち替えている間も、所持レベルで数える）
+  // 降魔術のレベル（武器を持ち替えている間も、所持レベルで数える）
   summon2Level() {
     const w = this.weapon;
     if (w && w.type === 'summon2') return Math.max(1, w.level || 1);
     return Math.max(1, (this.weaponLevels && this.weaponLevels.summon2) || 1);
   }
 
-  // 召喚術・改の味方の強さ：今の階層の通常の敵と同じHP・攻撃力（HPは sk.hpMult 倍、攻撃力は sk.dmgMult 倍）。ボスラッシュでは階層の認識に+10
-  // 味方の強さ：階層ではなく召喚術・改のレベルで決まる（レベルごとに HP・ダメージが levelGrowth 割合ずつ増える。Lv1が基準）
+  // 降魔術の味方の強さ：今の階層の通常の敵と同じHP・攻撃力（HPは sk.hpMult 倍、攻撃力は sk.dmgMult 倍）。ボスラッシュでは階層の認識に+10
+  // 味方の強さ：階層ではなく降魔術のレベルで決まる（レベルごとに HP・ダメージが levelGrowth 割合ずつ増える。Lv1が基準）
   summon2Stats(t, sk, baseDmg) {
     const m = 1 + (this.summon2Level() - 1) * SUMMON2.levelGrowth;
     return {
@@ -14286,7 +14528,7 @@ class GameScene extends Phaser.Scene {
   // attacker: 攻撃してきた敵（分かる場合）。プレイヤーのターゲット指定（forced）がない時は、その敵を狙い返す。
   damageAlly(a, dmg, attacker) {
     if (a.dead || a.spawnDelay > 0) return;
-    if (a.invulnerable) return; // 召喚術・改のゴースト：ダメージを受けない
+    if (a.invulnerable) return; // 降魔術のゴースト：ダメージを受けない
     a.hp -= dmg;
     this.spawnBurst(a.gfx.x, a.gfx.y, 0xff5b5b, 5);
     this.syncAllyGfx(a);
@@ -14314,7 +14556,7 @@ class GameScene extends Phaser.Scene {
   // 味方がやられた時のペナルティ：召喚者の最大HPの何割かを失う（ボス級は重い）。HPは最低1残るので、これで死ぬことはない。
   // 時間切れ（expireAlly）では呼ばれない。カルテットの射手は、同じ本体から分裂した最後の1体がやられた時だけ。
   applyAllyDeathPenalty(a) {
-    if (a.noPenalty) return; // 召喚術・改の味方はやられてもペナルティ無し
+    if (a.noPenalty) return; // 降魔術の味方はやられてもペナルティ無し
     const B = SUMMON_BALANCE;
     const bossClass = isSummonBossClass(a.type);
     const pct = bossClass ? B.bossDeathPenalty : B.deathPenalty;
@@ -14461,7 +14703,7 @@ class GameScene extends Phaser.Scene {
     return list.length ? list : null;
   }
 
-  // マルチ：召喚術・改の技のうち、「味方」ではなく専用の絵で描いているもの（ウロボロス／ツインウロボロスの体、シマハル本体・黒い星・ビーム、カルテットの射手）を
+  // マルチ：降魔術の技のうち、「味方」ではなく専用の絵で描いているもの（ウロボロス／ツインウロボロスの体、シマハル本体・黒い星・ビーム、カルテットの射手）を
   // 他のプレイヤーの画面にも見せるための送信データ。位置は整数に丸めた文字列にして通信量を抑える。何も出していなければ null（＝受け手側で削除）。
   buildS2FxPayload() {
     const o = {}; let any = false;
@@ -14501,7 +14743,7 @@ class GameScene extends Phaser.Scene {
     return any ? o : null;
   }
 
-  // マルチ：他のプレイヤーの召喚術・改の技の見た目を描く（見た目だけ。ダメージは持ち主の画面で処理済み）。毎フレーム描き直す
+  // マルチ：他のプレイヤーの降魔術の技の見た目を描く（見た目だけ。ダメージは持ち主の画面で処理済み）。毎フレーム描き直す
   renderRemoteS2Fx() {
     if (!this._rS2G || !this._rS2G.scene) this._rS2G = this.add.graphics().setDepth(5);
     if (!this._rS2G2 || !this._rS2G2.scene) this._rS2G2 = this.add.graphics().setDepth(6);
@@ -14638,7 +14880,7 @@ class GameScene extends Phaser.Scene {
       // 存在時間：尽きたら消える
       a.life -= dt;
       if (a.life <= 0) { this.expireAlly(a); continue; }
-      if (a.orbit) { this.updateOrbitAlly(a, dt); continue; } // 召喚術・改：周回する味方は通常のAIを使わない
+      if (a.orbit) { this.updateOrbitAlly(a, dt); continue; } // 降魔術：周回する味方は通常のAIを使わない
       a.atkTimer = Math.max(0, a.atkTimer - dt);
       a.fireTimer = Math.max(0, a.fireTimer - dt);
       a.holdTimer = Math.max(0, a.holdTimer - dt);
@@ -14807,7 +15049,7 @@ class GameScene extends Phaser.Scene {
     }
     this.enemyProjectiles = this.enemyProjectiles.filter(p => {
       if (p.life <= 0 || this.isWall(p.gfx.x, p.gfx.y)) { p.gfx.destroy(); return false; }
-      // 召喚術・改のウロボロス：体に当たった敵の弾は、その場で消える（とぐろ・振り回しの間は盾にもなる）
+      // 降魔術のウロボロス：体に当たった敵の弾は、その場で消える（とぐろ・振り回しの間は盾にもなる）
       if ((this.s2Snake || (this.s2Rush && this.s2Rush.length)) && this.s2SnakeBlocks(p.gfx.x, p.gfx.y, p.gfx.radius, p.ox, p.oy)) {
         this.spawnBurst(p.gfx.x, p.gfx.y, 0x8cf06a, 4);
         p.gfx.destroy();
@@ -16273,7 +16515,7 @@ class GameScene extends Phaser.Scene {
           downedTimer: this.isDowned ? Math.ceil(Math.max(0, this.downedTimer)) : 0,
           reviveTimer: this.isDowned ? Math.round(this.reviveTimer * 10) / 10 : 0,
           allies: this.buildAlliesPayload(), // 召喚した味方（いなければnull＝削除）
-          s2fx: this.buildS2FxPayload(), // 召喚術・改の技の見た目（ウロボロスの体・シマハル・ビーム・カルテットの射手）。いなければnull＝削除
+          s2fx: this.buildS2FxPayload(), // 降魔術の技の見た目（ウロボロスの体・シマハル・ビーム・カルテットの射手）。いなければnull＝削除
           // マジックボムを溜め中かどうか（呼び寄せゴーストの湧き判定＝updateChargeGhostSpawns、
           // 他プレイヤーへの溜め演出の再現＝updateRemoteCharges の両方で使う）
           charging: !!(this.charge && this.charge.active),
@@ -16800,7 +17042,7 @@ class GameScene extends Phaser.Scene {
     document.getElementById('resultLobby').onclick = () => { location.reload(); };
   }
 
-  // 「もう一度」：召喚術・改まわりを完全に最初の状態へ戻す（解放済みの技・進行中の調伏の儀・預けてあった元のダンジョンも破棄）
+  // 「もう一度」：降魔術まわりを完全に最初の状態へ戻す（解放済みの技・進行中の調伏の儀・預けてあった元のダンジョンも破棄）
   resetS2ForRestart() {
     const tr = this.s2Trial, sv = tr && tr.saved;
     if (sv) { // 儀式の最中にやり直した：預けてあった元のダンジョン（隠れたまま残っている見た目）を捨てる
@@ -16833,7 +17075,7 @@ class GameScene extends Phaser.Scene {
     // buildFloor()内などで想定外のエラーが起きても、フェードインだけは必ず実行して
     // 画面が真っ暗なまま固まらないようにする（エラー自体はコンソールに出す）。
     try {
-      this.resetS2ForRestart(); // 召喚術・改：調伏の儀の途中経過・解放済みの技・技の状態を全て初期化
+      this.resetS2ForRestart(); // 降魔術：調伏の儀の途中経過・解放済みの技・技の状態を全て初期化
       this.clearAllies();
       this.runStats = { time: 0, kills: 0, bosses: 0 };
       this.playerInvuln = 0; this.isDowned = false; this.isGhost = false;
@@ -18038,6 +18280,61 @@ class Net {
 }
 
 // ============== ロビー画面 ==============
+// ============== PvPテスト用：通信なしの偽Net ==============
+// Firebase/WebRTCを一切使わず、Netと同じメソッド名だけを持つ。自分の送信(sendPvp等)は自分にだけ折り返し、
+// プレイヤーは自分1人だけ。GameScene側は app.net.offline を見て「一人テスト用の緩和」(this.pvpTest)を有効にする。
+class OfflineNet {
+  constructor() {
+    this.enabled = true; this.offline = true;
+    this.roomId = 'TEST'; this.uid = 'offline_me';
+    this.isHost = true; this.isConnected = true; this.lastAckAt = Date.now();
+    this._hostUid = this.uid; this._base = null; this._hot = {};
+    this._playersCb = null; this._eventCbs = {};
+    this.onConnStatus = null; this.onConnectFail = null; this.onRelayUsed = null;
+    this._dropSeq = 0;
+  }
+  _emit() {
+    if (!this._playersCb || !this._base) return;
+    this._playersCb({ [this.uid]: Object.assign({}, this._base, this._hot) });
+  }
+  _fireLocal(kind, payload) { const cb = this._eventCbs[kind]; if (cb) cb(payload); }
+  async getRoomPlayers() { return {}; }
+  async registerPlayer(name, color, extra) {
+    this._base = Object.assign({
+      x: 0, y: 0, angle: 0, hp: 100, maxHp: 100, weaponName: '剣', floor: 1,
+      joinedAt: 1, updatedAt: Date.now(), name, color,
+    }, (extra && extra.acc) ? { acc: extra.acc } : {}, extra || {});
+    this._emit();
+  }
+  listenPlayers(cb) { this._playersCb = cb; this._emit(); }
+  updateOwnState(data) {
+    for (const k in data) { if (data[k] === null) delete this._hot[k]; else this._hot[k] = data[k]; }
+    this.lastAckAt = Date.now();
+    this._emit();
+  }
+  setHostUid(uid, isHost) { this.isHost = !!isHost; this._hostUid = uid; }
+  // 送信系：selfEcho のあるものだけ自分に折り返す（本物のNetと同じ）
+  sendPvp(p) { this._fireLocal('pvp', p); }
+  sendAttack(p) { this._fireLocal('attack', p); }
+  sendEnemyShot(p) { this._fireLocal('eshot', p); }
+  sendShot() {}
+  broadcastRevive(pos, clear) { this._fireLocal('revive', Object.assign({}, pos || {}, clear ? { clear: true } : {})); }
+  // 購読系
+  listenPvp(cb) { this._eventCbs.pvp = cb; }
+  listenAttacks(cb) { this._eventCbs.attack = cb; }
+  listenShots(cb) { this._eventCbs.shot = cb; }
+  listenEnemyShots(cb) { this._eventCbs.eshot = cb; }
+  listenRevive(cb) { this._eventCbs.revive = (val) => cb(val && typeof val.x === 'number' ? { x: val.x, y: val.y, clear: !!val.clear } : null); }
+  listenFloor() {} listenFrontline() {} listenDrops() {} listenLoot() {} listenEnemies() {}
+  // 何もしないもの
+  publishEnemies() {} publishFrontline() {} offFloor() {} setAccessory() {} setRoomFixedWeapon() {}
+  leaveRoom() {} deleteRoom() {} restoreRoom() {}
+  forceReconnect() { return false; }
+  sendDrop() { return { id: 'off' + (++this._dropSeq), ref: { remove() {}, set() {}, update() {} } }; }
+  async claimLoot() { return true; }
+  async requestFloorAdvance() { return null; }
+}
+
 const netInstance = new Net(FIREBASE_CONFIG);
 
 function randomName() { return '冒険者' + Math.floor(1000 + Math.random() * 9000); }
@@ -18182,15 +18479,26 @@ function setLobbyStatus(msg) { document.getElementById('lobbyStatus').textConten
 
 // ルーム作成・参加の通信中は他のロビー操作を一切できないようにする。
 // （連打での二重作成や、入力途中でのボタン誤操作を防ぐため）
-const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput'];
-// 四つ腕の調伏の儀ボタン：一度でも四つ腕の調伏の儀をプレイするまでは灰色で押せない（通信中の解除でも、未解放なら押せないまま）
+const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpOfflineTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput'];
+// ロビーの上に出る短いバナー（ゲーム画面のバナーとは別）
+function showLobbyBanner(text, ms) {
+  let el = document.getElementById('lobbyBanner');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'lobbyBanner';
+    el.style.cssText = 'position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:9999;padding:12px 22px;background:rgba(20,20,30,0.92);color:#fff;border:2px solid #b26bff;border-radius:10px;font-size:16px;font-weight:bold;text-align:center;max-width:90vw;pointer-events:none;transition:opacity 0.3s;opacity:0;';
+    document.body.appendChild(el);
+  }
+  el.textContent = text; el.style.opacity = '1';
+  clearTimeout(showLobbyBanner._t); showLobbyBanner._t = setTimeout(() => { el.style.opacity = '0'; }, ms || 2200);
+}
+// 四つ腕の調伏の儀ボタン：一度でも四つ腕の調伏の儀をプレイするまでは灰色。押すと解放条件のバナーが出る
 function updateArms4RitualBtn() {
   const b = document.getElementById('arms4RitualBtn'); if (!b) return;
   const ok = !!loadSave().arms4RitualPlayed;
   b.style.background = ok ? '#b26bff' : '#777';
   b.style.color = ok ? '' : '#ccc';
-  b.title = ok ? '' : '四つ腕の調伏の儀を一度プレイすると解放されます';
-  if (!ok) b.disabled = true;
+  b.style.opacity = ok ? '' : '0.6';
+  b.title = '';
 }
 function setLobbyBusy(busy) {
   LOBBY_CONTROL_IDS.forEach(id => { document.getElementById(id).disabled = busy; });
@@ -18208,7 +18516,7 @@ function startGame(mode, extra) {
     name: nameInput.value.trim() || randomName(),
     color: selectedColor,
     acc: currentAccKey(), // 付けている装飾品
-    net: netInstance,
+    net: (extra && extra.net) || netInstance, // PvPテストは通信なしの偽Net(OfflineNet)を渡す
     baseSeed: extra && extra.baseSeed,
     floor: extra && extra.floor,
     roomId: extra && extra.roomId,
@@ -18292,10 +18600,10 @@ let askWeapon = null;
   document.getElementById('bossRushBtn').addEventListener('click', () => {
     askWeapon('ボスラッシュ', w => startGame('solo', { bossRush: true, weaponKey: w.key }));
   });
-  // 【期間限定】螟ｩ菴ｿ・調伏の儀：武器選択なしで、召喚術・改（四つ腕の調伏の儀に挑めるLv）で始まり、すぐ四つ腕との調伏の儀に入る
+  // 【期間限定】天使・調伏の儀：武器選択なしで、降魔術（四つ腕の調伏の儀に挑めるLv）で始まり、すぐ四つ腕との調伏の儀に入る
   updateArms4RitualBtn(); // 起動時：未解放なら灰色にする
   document.getElementById('arms4RitualBtn').addEventListener('click', () => {
-    if (!loadSave().arms4RitualPlayed) return; // 未解放
+    if (!loadSave().arms4RitualPlayed) { showLobbyBanner('天使の調伏の儀を一度でも開始したら解放'); return; } // 未解放
     startGame('solo', { weaponKey: 'summon2', arms4Ritual: true });
   });
   document.getElementById('frontlineBtn').addEventListener('click', () => {
@@ -18349,6 +18657,14 @@ document.getElementById('createPvpRoomBtn').addEventListener('click', () => {
       setLobbyStatus('失敗: ' + e.message);
       setLobbyBusy(false);
     }
+  }, null, PVP_ROOM_WEAPONS);
+});
+
+// PvPテスト（一人・通信なし）：Firebaseを使わず、自分1人だけのPvPルームを作る。人狼ゲームの円に一人で入ってもワープできる
+document.getElementById('pvpOfflineTestBtn').addEventListener('click', () => {
+  askWeapon('人狼ゲームテスト（一人・通信なし）で使う武器（Lv.5）', w => {
+    const net = new OfflineNet();
+    startGame('mp', { net, roomId: net.roomId, baseSeed: (Math.random() * 1e9) | 0, floor: 1, pvp: true, weaponKey: w.key });
   }, null, PVP_ROOM_WEAPONS);
 });
 
