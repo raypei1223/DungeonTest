@@ -1831,7 +1831,7 @@ const A4_TEST_FORM_KEYS = false;     // テスト用：true の間、四つ腕�
 const A4_TEST_FORM = 0;            // テスト用：1〜3を入れると、四つ腕は最初からその形態以上になる（0で無効）
 const ARM_TURN_MAX = 11;          // 腕が向きを変える最高速度(rad/秒)。小さいほどゆっくり動く（大きな向きの変化でも飛ばない）。四つ腕の腕全般に効く
 const SKULL_WISPS = 20;            // ドクロの鬼火の数＝1回の挑戦で生き返れる回数（元は3）
-const A4_TEST_ONLY = null;      // テスト用：技名（'dense'）か技名の配列（['dense','rake']）を入れると、四つ腕はその技だけを繰り返す（追加した技も元の技も指定できる）。''（空）か null で無効
+const A4_TEST_ONLY = 'smash';      // テスト用：技名（'dense'）か技名の配列（['dense','rake']）を入れると、四つ腕はその技だけを繰り返す（追加した技も元の技も指定できる）。''（空）か null で無効
 const A4_OPENING = ['spear4', 'dense', 'fanarms', 'shot']; // 戦闘の最初に、この順で技を出す（四本黒槍 → 腕の壁 → 腕の濁流 → 波動弾）。第1形態で出ない技（腕の壁など）でも、このリストに入っていれば最初のこの時だけ出る。そのあとは今まで通りランダム。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
 const A4_EXTRA = { on: true, maxActive: 1 }; // 第3形態で増える4本の腕（slot 4〜7）が、本体とは別に技を出す。on：false で無効／技の間隔と最初の技までの時間は本体の四本の腕と同じ（ARMS4_ATK の cdMin・cdMax・firstCd）／maxActive：同時に技を出す追加腕の最大数
 const A4_FORM2_OPENING = ['smash', 'tomahawk4', 'spiral']; // 第2形態になった直後に、この順で技を出す（殴り飛ばし → 四連黒斧 → 螺旋弾）。そのあとは今まで通り。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
@@ -1842,7 +1842,7 @@ const A4_TEST_ORDER = [['wall','壁から腕'],['shot','波動弾'],['ring','全
 const A4_FORM1_NUMS = [1, 2, 5, 9, 11, 13, 16, 17, 18, 20, 22, 27, 29, 30, 31, 32, 28, 39, 42, 44, 49, 55]; // 第1形態で出る技の番号（A4_TEST_ORDER の番号）。第2形態以降は全ての技から出る
 const A4_FORM1_KEYS = new Set(A4_FORM1_NUMS.map(n => A4_TEST_ORDER[n - 1][0]));
 const A4_TEST_NEW_ONLY = false;   // テスト用：true の間、四つ腕の攻撃は「追加した腕技（a4Pool の20種）」だけが出る。元に戻す時は false
-const A4_TEST_SKIP_INTRO = false; // テスト用：true の間、調伏の儀の導入演出（廊下・逃走・投げ飛ばし）を飛ばして、ボス部屋で戦闘から始まる。元に戻す時は false
+const A4_TEST_SKIP_INTRO = true; // テスト用：true の間、調伏の儀の導入演出（廊下・逃走・投げ飛ばし）を飛ばして、ボス部屋で戦闘から始まる。元に戻す時は false
 // 四つ腕の調伏の儀：演出のあと「逃げる → 追いつかれて掴まれる → 投げ飛ばされて下の部屋へ着地」の調整値。
 const ARMS4_FLEE = {
   approach: 60,    // 演出の最後に、四つ腕が前へ詰める距離(px)。小さいほど、逃げ始めの間が空く（＝追いつかれるまで長く走れる）
@@ -13032,13 +13032,14 @@ class GameScene extends Phaser.Scene {
       const first = !F.broke; // 最初の1枚＝部屋の右の壁を突き破った瞬間：破片・揺れ・フラッシュを強くして、ここから床が流れ始める
       if (first) { F.broke = true; F.base = FLOOR_SPD; }
       F.kick = 1; // 壁を砕くたびに、床の流れが一瞬だけ速くなる
-      for (let i = 0, n = first ? 34 : 14; i < n; i++) {
+      const big = first || sl.big;
+      for (let i = 0, n = big ? 34 : 14; i < n; i++) {
         const w = 10 + Math.random() * 22, pc = this.add.rectangle(cx + (Math.random() - 0.5) * 30, cy + (Math.random() - 0.5) * 260, w, w * 0.6, Math.random() < 0.5 ? 0x2a2a36 : 0x191922).setDepth(9).setRotation(Math.random() * 3);
         this.tweens.add({ targets: pc, x: pc.x - 120 - Math.random() * 380, y: pc.y + (Math.random() - 0.5) * 200, rotation: pc.rotation + (Math.random() - 0.5) * 8, alpha: 0, duration: 400 + Math.random() * 400, ease: 'Cubic.easeOut', onComplete: () => pc.destroy() });
       }
       const fl = this.add.rectangle(cx, cy, 60, cam.worldView.height, 0xffffff, 0.7).setDepth(9);
       this.tweens.add({ targets: fl, alpha: 0, scaleX: 3, duration: 200, onComplete: () => fl.destroy() });
-      if (first) { cam.shake(420, 0.035); cam.flash(160, 255, 255, 255); } else cam.shake(160, 0.016);
+      if (big) { cam.shake(420, 0.035); cam.flash(160, 255, 255, 255); } else cam.shake(160, 0.016);
     };
     const landFx = (x, y) => { // 着地の演出（揺れ・フラッシュ・衝撃の輪・土煙）
       cam.shake(500, 0.03); cam.flash(120, 255, 255, 255);
@@ -13077,13 +13078,20 @@ class GameScene extends Phaser.Scene {
       F.ctrl = false; F.landing = true; F.shooting = false;
       k.objs.forEach(o => o && o.scene && o.destroy()); F.stripes = []; F.slabs = [];
       restoreOthers();
-      cam.centerOn(back.x, back.y);
+      let leftX = back.x; while (leftX > back.x - 4000 && !this.isWall(leftX, back.y)) leftX -= 8; // 左へ進んで最初にぶつかる壁＝部屋の左端
+      const startX = leftX + (pl.radius || 14) + 6;
+      cam.centerOn(startX + 200, back.y);
       const v = cam.worldView; let sN = 0;
       a4.gfx.setPosition(v.x - 700, home.y); a4._armOv = {}; floating = false; bob = 0; // 四つ腕は画面の外へ（あとで戻ってくる）
       away = true; bar(false); // 戻ってくるまでHPバーも消しておく
-      pl.setPosition(v.x - 80, back.y);
-      cam.flash(150, 255, 255, 255);
-      F.landTw = this.tweens.add({ targets: pl, x: back.x, duration: ENTER * 1000, ease: 'Cubic.easeOut',
+      pl.setPosition(startX, back.y);
+      for (let n = 0; n < 26; n++) { // 壁を破り終えた直後に見えるよう、部屋の左壁の位置から破片と土煙が右へ飛び散る
+        const w = 8 + Math.random() * 20, pc = this.add.rectangle(leftX + Math.random() * 20, back.y + (Math.random() - 0.5) * 120, w, w * 0.6, Math.random() < 0.5 ? 0x2a2a36 : 0x191922).setDepth(9).setRotation(Math.random() * 3);
+        this.tweens.add({ targets: pc, x: pc.x + 80 + Math.random() * 360, y: pc.y + (Math.random() - 0.5) * 220, rotation: pc.rotation + (Math.random() - 0.5) * 8, alpha: 0, duration: 400 + Math.random() * 500, ease: 'Cubic.easeOut', onComplete: () => pc.destroy() });
+      }
+      this.spawnBurst(leftX + 12, back.y, 0xffffff, 18); cam.flash(150, 255, 255, 255); cam.shake(300, 0.025);
+      cam.startFollow(pl, true, 0.15, 0.15); // 元の場所まで飛んでくる間、カメラが追う
+      F.landTw = this.tweens.add({ targets: pl, x: back.x, duration: Phaser.Math.Clamp((back.x - startX) * 0.8, ENTER * 1000, 1200), ease: 'Cubic.easeOut',
         onUpdate: () => { if ((++sN) % 2 === 0) streak(pl.x, pl.y, 1); },
         onComplete: () => {
           if (!F) return;
@@ -13092,7 +13100,7 @@ class GameScene extends Phaser.Scene {
           this.time.delayedCall(450, () => { if (F) finish(); }); // 余韻のあと操作が戻る
         } });
     };
-    const WALL_W = TILE * 2, FLOOR_SPD = 1500; // 壁の厚さ＝2マス / 床が流れる速さ(px/秒)
+    const WALL_W = TILE * 2, THICK_N = 5, FLOOR_SPD = 750; // THICK_N：最初に突き破る厚い壁の枚数（5枚×2マス＝10マス）。 // 壁の厚さ＝2マス / 床が流れる速さ(px/秒)
     const drawFloor = () => { // ダンジョンの床（0x33333f＋暗い線のマス目）を、スクロール量ぶんずらして描く
       if (!F || !F.floor || !F.floor.scene) return;
       const V = F.view, g = F.floor; g.clear();
@@ -13110,29 +13118,36 @@ class GameScene extends Phaser.Scene {
       g.lineStyle(3, 0x50506a, 1).lineBetween(-hw, top, -hw, top + rows * TILE).lineBetween(hw, top, hw, top + rows * TILE);
       g.setPosition(x, y); return g;
     };
-    const startFly = (k) => { // 殴り飛ばしは必ず当たる
-      back = { x: pl.x, y: pl.y };
-      this.a4HurtAim(DMG, 1.0);
+    const beginFly = (k) => { // 部屋の右の壁に着いた：ここから視覚効果（流れる床）に切り替え、右の壁を「壊せる厚い壁（THICK_N×2マス）」に置き換えて突き破る
+      if (!F || F.landing) return;
+      cam.stopFollow(); cam.shake(500, 0.04); cam.flash(160, 255, 255, 255);
       const v = cam.worldView, X0 = v.x, Y0 = v.y, W = v.width, H = v.height;
-      cam.stopFollow(); cam.shake(300, 0.02); cam.flash(120, 255, 255, 255);
-      F = this._a4Fly = { ctrl: false, t: 0, slabT: 0, bt: 0, shooting: false, stripes: [], slabs: [], bx: X0 + W * 0.28, minX: -1e9 };
-      // 元の世界にいる他の敵は、飛行中は隠す（背景の暗幕より手前に出てしまうため）
-      (this.enemies || []).forEach(e => { if (e !== a4 && e.gfx && e.gfx.scene && e.gfx.visible) { hidden.push({ e, v: e.gfx.visible, b: e.hpBar ? e.hpBar.visible : false }); e.gfx.setVisible(false); if (e.hpBar && e.hpBar.scene) e.hpBar.setVisible(false); } });
-      // 暗幕・筋・壁は四つ腕（深度4）とその腕（3.7〜3.9）より奥に置く
-      const floorG = this.add.graphics().setDepth(3.5).setAlpha(0); k.objs.push(floorG); F.floor = floorG; F.scroll = 0; F.base = 0; F.kick = 0; F.broke = false; F.view = { x: X0, y: Y0, w: W, h: H }; // 床：ダンジョンの床と同じ色・マス目が左へ流れる
-      this.tweens.add({ targets: floorG, alpha: 1, duration: 60 });
+      pl.x = X0 + W * 0.3; // 壁が必ず画面内に入るよう、画面の左寄りへ（白フラッシュで隠れる）。戻る位置は back に覚えてある
+      F.bx = X0 + W * 0.28; F.view = { x: X0, y: Y0, w: W, h: H }; F.fly = true;
+      const floorG = this.add.graphics().setDepth(3.5); k.objs.push(floorG); F.floor = floorG; F.scroll = 0; F.base = 0; F.kick = 0; F.broke = false; // 床：ダンジョンの床と同じ色・マス目。壁を破った瞬間から左へ流れる
       drawFloor();
-      for (let i = 0; i < 30; i++) { // 流れる筋
-        const len = 120 + Math.random() * 320, st = this.add.rectangle(X0 + Math.random() * W, Y0 + Math.random() * H, len, 2 + Math.random() * 3, 0xffffff, 0.05 + Math.random() * 0.12).setDepth(3.55);
+      for (let i = 0; i < 30; i++) { // 速さ感の白い線（壁を破るまでは非表示）
+        const len = 120 + Math.random() * 320, st = this.add.rectangle(X0 + Math.random() * W, Y0 + Math.random() * H, len, 2 + Math.random() * 3, 0xffffff, 0.05 + Math.random() * 0.12).setDepth(3.55).setVisible(false);
         k.objs.push(st); F.stripes.push({ r: st, sp: 1800 + Math.random() * 1600 });
       }
-      const w1 = Math.min(X0 + W * 0.8, Math.max(X0 + W * 0.45, pl.x + 160)); // 最初の壁は、プレイヤーの少し右（画面内）に置く
-      [w1, w1 + 180, w1 + 360].forEach(wx => { // 最初の1枚(0.5)が部屋の右の壁 // 殴り飛ばされて最初に突き破る壁（その場に立っている）
-        const r = mkWall(wx, v.centerY, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 0 });
-      });
-      this.tweens.add({ targets: pl, x: Math.max(X0 + W * 0.93, w1 + 360 + 60), duration: 420, ease: 'Quad.easeIn', // 右へ吹き飛ぶ
+      const wx0 = pl.x + 16; // 厚い壁：2マス幅の壁をTHICK_N枚つなげる。1枚ずつ順に砕けていく
+      for (let n = 0; n < THICK_N; n++) { const r = mkWall(wx0 + WALL_W * (n + 0.5), v.centerY, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 0 }); }
+      this.tweens.add({ targets: pl, x: wx0 + WALL_W * THICK_N + 80, duration: 560, ease: 'Quad.easeIn',
         onUpdate: () => { if (F) F.slabs.forEach(sl => { if (!sl.dead && pl.x >= sl.r.x - WALL_W / 2) breakSlab(sl); }); },
-        onComplete: () => { if (F && !F.landing) F.ctrl = true; } }); // ここから画面内を自由に動ける
+        onComplete: () => { if (F && !F.landing) F.ctrl = true; } }); // 突き抜けたら操作できる＋壁が迫ってくる
+    };
+    const startFly = (k) => { // まず、プレイヤーが部屋の右の壁まで殴り飛ばされる（実際の部屋のまま）
+      back = { x: pl.x, y: pl.y };
+      this.a4HurtAim(DMG, 1.0);
+      cam.shake(300, 0.02); cam.flash(120, 255, 255, 255);
+      F = this._a4Fly = { fly: false, ctrl: false, t: 0, slabT: 0, bt: 0, shooting: false, stripes: [], slabs: [], bx: 0, minX: -1e9 };
+      (this.enemies || []).forEach(e => { if (e !== a4 && e.gfx && e.gfx.scene && e.gfx.visible) { hidden.push({ e, v: e.gfx.visible, b: e.hpBar ? e.hpBar.visible : false }); e.gfx.setVisible(false); if (e.hpBar && e.hpBar.scene) e.hpBar.setVisible(false); } });
+      let wallX = pl.x; while (wallX < pl.x + 4000 && !this.isWall(wallX, pl.y)) wallX += 8; // 右へ進んで最初にぶつかる壁
+      const target = Math.max(pl.x, wallX - (pl.radius || 14) - 4), dist = target - pl.x;
+      let sN = 0;
+      this.tweens.add({ targets: pl, x: target, duration: Phaser.Math.Clamp(dist * 0.5, 120, 650), ease: 'Cubic.easeIn',
+        onUpdate: () => { if ((++sN) % 2 === 0) streak(pl.x, pl.y, 1); },
+        onComplete: () => { this.spawnBurst(wallX, pl.y, 0xffffff, 16); beginFly(k); } });
     };
     const fire = () => { // 4つの手から、遅くて密集した弾を撃つ。手は左右に振れ、弾は壁で消えない
       const v = cam.worldView, life = (v.width + 160) / BSPD + 0.5;
@@ -13143,7 +13158,7 @@ class GameScene extends Phaser.Scene {
       }
     };
     const flyTick = (k, dt) => {
-      if (F.landing) return;
+      if (F.landing || !F.fly) return;
       const v = cam.worldView, X0 = v.x, Y0 = v.y, W = v.width, H = v.height;
       F.t += dt; F.kick = Math.max(0, F.kick - dt * 3); F.scroll += F.base * (1 + 1.2 * F.kick) * dt; drawFloor(); // 壁を破るまでは床は止まっている（部屋の中）
       F.stripes.forEach(st => { st.r.setVisible(!!F.broke); st.r.x -= st.sp * dt; if (st.r.x < X0 - st.r.width) { st.r.x = X0 + W + st.r.width * 0.5 + Math.random() * W * 0.3; st.r.y = Y0 + Math.random() * H; } });
@@ -13156,10 +13171,14 @@ class GameScene extends Phaser.Scene {
       if (F.shooting) { F.bt -= dt; while (F.bt <= 0) { F.bt += BINT; fire(); } }
       if (F.ctrl) { // 右から壁が流れてくる → プレイヤーに触れると砕ける（ダメージなし）
         F.slabT -= dt;
-        if (F.slabT <= 0 && F.t < FLY - 1.0) {
+        if (F.slabT <= 0 && F.t < FLY - 2.2) {
           F.slabT = 2.0;
           const r = mkWall(X0 + W + WALL_W, v.centerY, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 1500 });
         }
+      }
+      if (F.ctrl && !F.finalSlabs && F.t >= FLY - 1.6) { // 飛行の最後：右から10マス厚の壁が流れてくる。突き破り終えたら、部屋の左端から元の場所へ飛んでくる
+        F.finalSlabs = [];
+        for (let n = 0; n < THICK_N; n++) { const r = mkWall(X0 + W + WALL_W * (n + 0.5) + 40, v.centerY, H * 1.3); k.objs.push(r); const sl = { r, sp: 1500, big: true }; F.slabs.push(sl); F.finalSlabs.push(sl); }
       }
       F.slabs.forEach(sl => { // 壁は1フレームで数十px動くので、動いた区間（前の位置〜今の位置）がプレイヤーに触れたかで判定する（フレームが落ちた時のすり抜け防止）
         if (sl.dead) return;
@@ -13167,7 +13186,8 @@ class GameScene extends Phaser.Scene {
         if (F.ctrl && sl.sp && sl.r.x - WALL_W / 2 < pl.x + 20 && x0 - WALL_W / 2 > pl.x - 20) { if (sl.r.x - WALL_W / 2 < pl.x) sl.r.x = pl.x + WALL_W / 2; breakSlab(sl); }
         else if (sl.r.x < X0 - WALL_W) { sl.r.destroy(); sl.dead = true; }
       });
-      if (F.t >= FLY) land(k);
+      if (F.finalSlabs && F.finalSlabs.every(sl => sl.dead)) { if (F.doneT == null) F.doneT = F.t; } // 最後の壁を全部砕いた
+      if ((F.doneT != null && F.t - F.doneT > 0.3) || F.t >= FLY + 2) land(k);
     };
     const t0 = 0.2, tWarp = t0 + WARN;
     this.a4Script(S, 90, [
