@@ -1821,7 +1821,7 @@ function pickSummonType() {
 // 【確認用・一時】調伏の儀の戦闘中、敵ごとに「誰を狙っているか」を線と文字で表示する。原因が分かったらfalseにするか、この行と下の目印の処理を消す。
 const S2_DEBUG_AIM = false;
 // 【テスト用】true の間は、調伏の儀を飛ばして降魔術の全ての技を最初から使える。試し終わったら false に戻す（セーブには書き込まない）。
-const S2_TEST_UNLOCK_ALL = true;
+const S2_TEST_UNLOCK_ALL = false;
 // 四つ腕の形態変化：HPの割合がこの値以下になると次の形態へ（第2形態＝70%以下 / 第3形態＝30%以下）。いちど上がった形態は戻らない
 const ARMS4_FORMS = { hp: [0.7, 0.3], skin: 0xc8a692, white: 0xffffff };
 const A4_TEST_FORM_KEYS = false;     // テスト用：true の間、四つ腕の戦闘中に Z＝次の形態へ（演出つき）／X＝第1形態に戻す。完成したら false
@@ -2005,7 +2005,10 @@ const DEFAULT_SAVE = {
   bossRushBestBosses: 0, // ボスラッシュ（ソロ）で1回の挑戦中に倒したボス数の最高記録
   accUnlocked: {},       // 入手済みの装飾品 { key: true }
   accEquipped: '',       // 付けている装飾品のkey（''なら何も付けない）
+  armorFloor10Fast: 0,   // ダンジョン（ソロ）を始めてから ARMOR_UNLOCK.sec 秒以内に10階層のボスを倒したか（0/1）。1で装飾品「鎧」を入手（デベロッパーモード・協力プレイを除く）
   arms4RitualPlayed: false, // 四つ腕の調伏の儀を一度でも始めたか（デベロッパーモードを除く）。trueで、ロビーの「四つ腕の調伏の儀」ボタンが解放される
+  arms4RitualClears: 0, // ダンジョン（ソロ）で天使の調伏の儀に成功した回数（デベロッパーモード・協力プレイ・【期間限定】調伏の儀モードを除く）。1回で装飾品「エンジェルヘイロー」を入手
+  soloClears: 0,        // ダンジョン（ソロ）を全クリア（25階オールクリア）した回数（デベロッパーモード・協力プレイ・ボスラッシュを除く）。1回で装飾品「時計」を入手
 };
 function loadSave() {
   try {
@@ -2031,10 +2034,14 @@ const ACCESSORIES = [
   { key: 'shield', icon: '🛡️', name: '盾',         stat: 'soloBestFloor',    goal: 15,  unit: '階',  desc: 'ダンジョン（ソロ）で15階層に到達', effect: '受けるダメージ-5' },
   { key: 'crown',  icon: '👑', name: '王冠',       stat: 'soloBestFloor',    goal: 20,  unit: '階',  desc: 'ダンジョン（ソロ）で20階層に到達', effect: '近くの敵の速度を半減' },
   { key: 'skull',  icon: '💀', name: 'ドクロ',     stat: 'soloBestFloor',    goal: 25,  unit: '階',  desc: 'ダンジョン（ソロ）で25階層に到達', effect: '三度、HP1で生き返る' },
+  { key: 'clock', icon: '🕒', name: '時計', stat: 'soloClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）をクリア', effect: '10秒間時を止める能力を獲得' }, // 入手条件：ダンジョン（ソロ）を25階まで全クリアする（soloClears）。効果：画面下の時計ボタン（またはQキー）で発動。敵・敵の弾・自分の弾が10秒止まる。リロード60秒（ACC_CLOCK）
   { key: 'flame',  icon: '🔥', name: '炎',         stat: 'bossRushBestBosses', goal: 15,  unit: '体',  desc: 'ボスラッシュで15体目のボスを倒す', effect: '攻撃した敵が燃える（合計21ダメージ）' },
   { key: 'blackhole', icon: '🕳️', name: 'ブラックホール', stat: 'bossRushBestBosses', goal: 20, unit: '体', desc: 'ボスラッシュで20体目のボスを倒す', effect: '10秒に一度simaharのビームを撃つ' },
   { key: 'swords', icon: '⚔️', name: '交差した剣', stat: 'soloTotalKills',   goal: 500, unit: '体',  desc: 'ダンジョン（ソロ）で雑魚敵を累計500体倒す', effect: 'ノックバックが2倍になる' },
   { key: 'snow',   icon: '❄️', name: '雪の結晶',   stat: 'frontlineBestSec', goal: 300, unit: '秒',  desc: '最北戦線（ソロ）で5分間生き残る', effect: '移動速度+10%' },
+  { key: 'armor', icon: '🪖', name: '鎧', stat: 'armorFloor10Fast', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で10階層を4分以内にクリア', effect: '最大HPが2倍' }, // 入手条件：ダンジョン（ソロ）を始めてから、10階層のボスを倒すまでが4分以内（armorFloor10Fast。ARMOR_UNLOCK）
+  { key: 'angelhalo', icon: '🪽', name: 'エンジェルヘイロー', stat: 'arms4RitualClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で天使を調伏する', effect: '1分ごとに50%の確率で天使を召喚' }, // 入手条件：ダンジョン（ソロ）で降魔術の天使の調伏の儀に成功する（arms4RitualClears。デベロッパーモード・協力プレイ・【期間限定】調伏の儀モードでは入手できない）
+  { key: 'serialkiller', icon: '🔪', name: 'シリアルキラー', all: true, goal: 0, unit: '個', desc: '他のすべての装飾品を獲得', effect: '近づいた敵を切り刻む' }, // 入手条件：他の装飾品をすべて入手済み（all:true。進捗は入手済みの個数）。効果：範囲内の敵へ絶え間なく斬撃（ACC_SERIALKILLER）。斬られた敵に白と赤の斬撃線が出る。必ず表の最後に置く
 ];
 function accessoryByKey(key) { return ACCESSORIES.find(a => a.key === key) || null; }
 // 受け取ったkeyが正しい装飾品なら絵文字を返す（他のプレイヤーから届いた値は、必ずこの表を通して描く）
@@ -2100,6 +2107,15 @@ function accFxStar(g, x, y, size, a) {
   }
   g.closePath(); g.fillPath(); g.strokePath();
 }
+// 🪽 エンジェルヘイロー：first＝ゲーム開始から何秒後に最初の1回を必ず発動するか／cooldown＝それ以降、何秒に一度、抽選するか／chance＝その時に発動する確率
+// 🪖 鎧：maxHpMult＝最大HPの倍率／ARMOR_UNLOCK＝入手条件（ダンジョンを始めてから sec 秒以内に floor 階のボスを倒す）
+const ACC_ARMOR = { maxHpMult: 2 };
+const ARMOR_UNLOCK = { floor: 10, sec: 240 };
+const ACC_ANGELHALO = { first: 30, cooldown: 60, chance: 0.5 };
+// 🕒 時計：duration＝時が止まる秒数／cooldown＝止まっていた時間が終わってから、次に使えるようになるまでの秒数
+// 🔪 シリアルキラー：range＝プレイヤーから敵の縁までの距離（px）／interval＝何秒ごとに斬るか／damage＝1回の斬撃のダメージ（範囲内の敵それぞれに）
+const ACC_SERIALKILLER = { range: 90, interval: 0.15, damage: 15 }; // 最強の装飾品：範囲内の敵1体あたり毎秒100ダメージ
+const ACC_CLOCK = { duration: 10, cooldown: 60 };
 const ACC_FX = {
   // 🌱 新芽：緑の光の粒がふわふわ立ちのぼる
   sprout(g, fx, x, y, t, dt, a) {
@@ -2119,6 +2135,73 @@ const ACC_FX = {
   crown(g, fx, x, y, t, dt, a) {
     accFxMagicCircle(g, x, y, ACC_CROWN_RADIUS, t, 0xffd54c, a);
     accFxEmit(fx, dt, 3, () => ({ x: x + accR(-22, 22), y: y + accR(-6, 20), vx: 0, vy: accR(-22, -12), life: accR(0.7, 1.1), size: accR(2, 3), color: 0xfff0a0, kind: 'spark' }));
+  },
+  // 🪖 鎧：灰色の四角い枠が体を囲み、ゆっくり回りながら、大きくなったり小さくなったりを繰り返す（体は半径11なので、いちばん小さい時でも体より外側）
+  armor(g, fx, x, y, t, dt, a) {
+    // 外側の四角：辺の半分の長さ16〜26／ゆっくり回る。内側の四角：12〜15（体は半径11）／外側と逆向きに少し速く回る
+    const square = (half, rot, scale) => {
+      const pts = [];
+      for (let k = 0; k < 4; k++) { const th = rot + Math.PI / 4 + k * Math.PI / 2, r = half * Math.SQRT2; pts.push([x + Math.cos(th) * r, y + Math.sin(th) * r]); }
+      const sq = (w, col, al) => { g.lineStyle(w * scale, col, al); g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (let k = 1; k < 4; k++) g.lineTo(pts[k][0], pts[k][1]); g.closePath(); g.strokePath(); };
+      sq(6, 0x4a4f55, 0.55 * a);  // 影（外側の暗い灰色）
+      sq(3.5, 0x9aa0a6, 0.95 * a); // 枠
+      sq(1, 0xd8dce0, 0.8 * a);   // 枠のふちの光
+      pts.forEach(q => { g.fillStyle(0xd8dce0, 0.9 * a); g.fillCircle(q[0], q[1], 1.6 * scale); }); // 角のびょう
+    };
+    square(21 + Math.sin(t * 1.1) * 5, t * 0.55, 1);
+    square(13.5 + Math.sin(t * 1.3 + 1) * 1.5, -t * 0.9, 0.7); // 内側・逆回り
+  },
+  // 🕒 時計：体のまわりに文字盤が浮かび、長針・短針・秒針が回る。1秒ごとに光の輪が広がり、金と水色の粒が舞う
+  clock(g, fx, x, y, t, dt, a) {
+    const GOLD = 0xffd98a, CYAN = 0x8ad9ff, RED = 0xff5b5b;
+    const gt = fx.gt || g;
+    const R = 30;
+    // 文字盤：外周のぼんやりした光と、12個の目盛り（3・6・9・12時は長い）
+    g.lineStyle(7, GOLD, 0.12 * a); g.strokeCircle(x, y, 19);
+    g.lineStyle(1.6, 0xfff3d0, 0.85 * a); g.strokeCircle(x, y, 19);
+    for (let k = 0; k < 12; k++) {
+      const ang = (k * Math.PI) / 6 - Math.PI / 2, long = k % 3 === 0, r0 = long ? 14.5 : 16.5;
+      g.lineStyle(long ? 2.4 : 1.2, long ? 0xffffff : GOLD, (long ? 0.95 : 0.7) * a);
+      g.lineBetween(x + Math.cos(ang) * r0, y + Math.sin(ang) * r0, x + Math.cos(ang) * 19, y + Math.sin(ang) * 19);
+    }
+    // 針（体より上に描く）：短針・長針・赤い秒針
+    const hand = (ang, len, w, col, al) => { gt.lineStyle(w, col, al * a); gt.lineBetween(x, y, x + Math.cos(ang) * len, y + Math.sin(ang) * len); };
+    hand(t * 0.12 - Math.PI / 2, 9, 3, 0xffffff, 0.95);
+    hand(t * 0.9 - Math.PI / 2, 15, 2, 0xfff3d0, 0.95);
+    const sec = t * 2.6 - Math.PI / 2;
+    hand(sec, 18, 1.4, RED, 1);
+    gt.fillStyle(RED, a); gt.fillCircle(x, y, 2);
+    // 1秒ごとに、光の輪がふわっと広がって消える
+    {
+      const fr = t % 1;
+      g.lineStyle(2.2, CYAN, (1 - fr) * 0.7 * a); g.strokeCircle(x, y, 17 + fr * 22);
+    }
+    accFxEmit(fx, dt, 14, () => {
+      const ang = accR(0, Math.PI * 2), r = accR(14, 30);
+      return { x: x + Math.cos(ang) * r, y: y + Math.sin(ang) * r * 0.9, vx: Math.cos(ang + Math.PI / 2) * accR(10, 26), vy: accR(-26, -8), life: accR(0.6, 1.2), size: accR(1.6, 3), color: Math.random() < 0.5 ? 0xffe9a8 : 0xbfe9ff, kind: 'spark' };
+    });
+  },
+  // 🪽 エンジェルヘイロー：頭の上に天使の輪が浮かび、ゆっくり上下する。ときどき光の粒がこぼれる
+  angelhalo(g, fx, x, y, t, dt, a) {
+    const cy = y - 15 + Math.sin(t * 2.2) * 1.2, rx = 11, ry = 4; // 頭のすぐ上（体の上端は y-11 あたり）
+    const ring = (w, col, al) => { g.lineStyle(w, col, al); g.beginPath(); for (let k = 0; k <= 24; k++) { const th = k / 24 * Math.PI * 2, px = x + Math.cos(th) * rx, py = cy + Math.sin(th) * ry; if (k === 0) g.moveTo(px, py); else g.lineTo(px, py); } g.strokePath(); };
+    // 体から出る金色のオーラ：脈打つ光の輪を重ね、ゆっくり回る光の筋を出し、体の縁から金色の粒を立ちのぼらせる
+    {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
+      g.lineStyle(10, 0xffd54c, (0.07 + 0.05 * pulse) * a); g.strokeCircle(x, y, 22 + pulse * 2);
+      g.lineStyle(7, 0xffe27a, (0.12 + 0.07 * pulse) * a); g.strokeCircle(x, y, 17 + pulse * 1.5);
+      g.lineStyle(3, 0xfff3b0, (0.25 + 0.12 * pulse) * a); g.strokeCircle(x, y, 13.5);
+      for (let k = 0; k < 10; k++) { // 光の筋（長さが交互に変わる）
+        const ang = t * 0.5 + (k * Math.PI) / 5, r0 = 15, r1 = r0 + (k % 2 === 0 ? 9 : 5) + pulse * 3;
+        g.lineStyle(k % 2 === 0 ? 2 : 1.2, 0xffe27a, (k % 2 === 0 ? 0.4 : 0.28) * a);
+        g.lineBetween(x + Math.cos(ang) * r0, y + Math.sin(ang) * r0, x + Math.cos(ang) * r1, y + Math.sin(ang) * r1);
+      }
+      accFxEmit(fx, dt, 9, () => { const ang = accR(0, Math.PI * 2); return { x: x + Math.cos(ang) * 12, y: y + Math.sin(ang) * 12, vx: Math.cos(ang) * accR(4, 12), vy: accR(-26, -12), life: accR(0.7, 1.2), size: accR(2, 3.6), color: Math.random() < 0.5 ? 0xffd54c : 0xfff0a0, kind: 'spark' }; });
+    }
+    ring(7, 0xfff3b0, 0.22 * a); // ぼんやりした光
+    ring(3, 0xffe27a, 0.95 * a); // 輪
+    ring(1, 0xffffff, 0.8 * a);  // 輪の芯
+    accFxEmit(fx, dt, 2.5, () => ({ x: x + accR(-9, 9), y: cy + accR(-3, 3), vx: accR(-4, 4), vy: accR(-14, -6), life: accR(0.6, 1.0), size: accR(1.8, 2.8), color: 0xfff0a0, kind: 'spark' }));
   },
   // 🔥 炎：足元から炎がゆらめく
   flame(g, fx, x, y, t, dt, a) {
@@ -2183,6 +2266,20 @@ const ACC_FX = {
     }
     accFxEmit(fx, dt, 9, () => ({ x: x + accR(-20, 20), y: y - accR(26, 34), vx: accR(-8, 8), vy: accR(16, 28), life: accR(1.3, 1.9), size: accR(1.5, 2.5), color: Math.random() < 0.6 ? 0xffffff : 0xbfe9ff, kind: 'dot' }));
   },
+  // 🔪 シリアルキラー：体の正面側（向いている方向）に、赤く光る2つの目。ゆらゆら脈打つ
+  serialkiller(g, fx, x, y, t, dt, a) {
+    const f = (typeof fx.face === 'number') ? fx.face : 0, gg = fx.gt || g;
+    const cx = x + Math.cos(f) * 7, cy = y + Math.sin(f) * 7;      // 体の正面寄り
+    const nx = -Math.sin(f), ny = Math.cos(f);                       // 向きと直角（左右）
+    const pulse = 0.82 + 0.18 * Math.sin(t * 9);
+    for (let i = -1; i <= 1; i += 2) {
+      const ex = cx + nx * 4.6 * i, ey = cy + ny * 4.6 * i;
+      gg.fillStyle(0xff0000, 0.16 * pulse * a); gg.fillCircle(ex, ey, 6.5);   // 外のにじむ光
+      gg.fillStyle(0xff1a1a, 0.35 * pulse * a); gg.fillCircle(ex, ey, 4);     // 内の光
+      gg.fillStyle(0xff3030, 0.95 * a);         gg.fillCircle(ex, ey, 2.3);   // 目
+      gg.fillStyle(0xffd0d0, 0.9 * pulse * a);  gg.fillCircle(ex, ey, 0.9);   // 中心の白っぽい光
+    }
+  },
   // 🕳️ ブラックホール：シマハルと同じ黒い星（先の尖った＋形）が周りをうろつき、細かく伸び縮みして震える
   blackhole(g, fx, x, y, t, dt, a) {
     for (let i = 0; i < 2; i++) {
@@ -2224,12 +2321,13 @@ function accFxUpdate(fx, key, x, y, dt, alpha) {
 }
 // 【テスト用】true の間は、条件に関係なく全ての装飾品（エフェクト）を入手済みにして試せる。試し終わったら false に戻す。
 // 注意：起動時に入手済みとしてセーブへ書き込まれるので、false に戻しても解放済みのままになる（ロビーの「リセット」で消せる）。
-const TEST_UNLOCK_ALL_ACC = false;
+const TEST_UNLOCK_ALL_ACC = true;
 // 条件を満たした装飾品を入手済みにする。今回新しく入手したものの配列を返す（save自体は呼び出し側で保存する）。
 function unlockAccessories(save) {
   const added = [];
   ACCESSORIES.forEach(a => {
-    if (!save.accUnlocked[a.key] && (TEST_UNLOCK_ALL_ACC || (save[a.stat] || 0) >= a.goal)) { save.accUnlocked[a.key] = true; added.push(a); }
+    const ok = a.all ? ACCESSORIES.every(o => o === a || save.accUnlocked[o.key]) : (save[a.stat] || 0) >= a.goal; // all:true＝他の装飾品をすべて入手済みなら
+    if (!save.accUnlocked[a.key] && (TEST_UNLOCK_ALL_ACC || ok)) { save.accUnlocked[a.key] = true; added.push(a); }
   });
   return added;
 }
@@ -2265,6 +2363,10 @@ class GameScene extends Phaser.Scene {
     this.playerColor = (typeof app.color === 'number') ? app.color : 0x5bd1ff;
     this._bh = null; // ブラックホールのビームの状態（毎回作り直す）
     this.accKey = (!app.arms4Ritual && accessoryByKey(app.acc)) ? app.acc : ''; // 付けている装飾品のkey（無ければ''）。四つ腕の調伏の儀は装飾品なし
+    this._skFx = []; this._skG = null; this._skT = 0; // 🔪 シリアルキラーの斬撃線
+    this._clkOn = false; this._clkMine = false; this._clkCd = 0; this._clkLeft = 0; // 🕒 時計：発動中か／次に使えるまでの秒数（最初は使える）
+    try { if (this.time) this.time.timeScale = 1; if (this.tweens) this.tweens.timeScale = 1; } catch (e) { /* 初回起動前 */ }
+    { const o = document.getElementById('clockOverlay'); if (o) o.style.display = 'none'; const cb = document.getElementById('clockBtn'); if (cb) cb.style.display = 'none'; }
     this.skullRevives = this.accKey === 'skull' ? SKULL_WISPS : 0; // ドクロ：残りの鬼火の数＝あと何回生き返れるか（1回の挑戦ごとに SKULL_WISPS 個）
 
     this.baseSeed = this.mp ? app.baseSeed : ((Math.random() * 1e9) | 0);
@@ -2300,8 +2402,8 @@ class GameScene extends Phaser.Scene {
     this.arms4Ritual = !this.mp && !!app.arms4Ritual; this._ritualWon = false; // 【期間限定】四つ腕の調伏の儀
     this.devWeaponLevel = this.arms4Ritual ? ((Object.values(SUMMON2.skills).find(k => k && k.key === 'arms4') || {}).minLevel || 8) : (app.devWeaponLevel || null); // デベロッパーモードで指定した開始時の武器レベル（create()で使う）。四つ腕の調伏の儀は、挑めるLvで始める
     this.isDevMode = !!app.devMode; // リザルト画面の表示切り替え用（デベロッパーモードで遊んだかどうか）
-    this.playerMaxHp = 100;
-    this.playerHp = 100;
+    this.playerMaxHp = Math.round(100 * (this.accKey === 'armor' ? ACC_ARMOR.maxHpMult : 1)); // 🪖 鎧：最大HPが2倍
+    this.playerHp = this.playerMaxHp;
     this.transitioning = false;
 
     // 協力プレイ用の状態
@@ -2392,6 +2494,9 @@ class GameScene extends Phaser.Scene {
     this.bandage = null;       // 包帯使用中の状態：{ timer, ticksLeft }。nullなら未使用中
 
     this.rKey = this.input.keyboard.addKey('R');
+    this.clockKey = this.input.keyboard.addKey('Q'); // 🕒 時計の発動
+    const _clkCleanup = () => { try { this.endClock(); } catch (e) {} const cb = document.getElementById('clockBtn'); if (cb) cb.style.display = 'none'; };
+    this.events.once('shutdown', _clkCleanup); this.events.once('destroy', _clkCleanup);
     if (A4_TEST_FORM_KEYS) { // テスト用：四つ腕の戦闘中、Z＝次の形態へ（演出つき） / X＝第1形態に戻す
       this.input.keyboard.on('keydown-Z', () => {
         const o = this.a4FormTestBoss(); if (!o) return;
@@ -2625,7 +2730,10 @@ class GameScene extends Phaser.Scene {
     // クライアントが damageEnemy() 経由で処理済みなので、ここでは当たり判定を取らない。
     if (!payload || payload.floor !== this.floor) return;
     if (payload.ritual) { this.onRitualMsg(payload); return; } // 協力プレイの調伏の儀の合図
+    if (payload.clockFx) { this.startClock(payload.dur, false); return; } // 他プレイヤーの時計：自分の画面でも時を止める
+    if (payload.skFx) { this.onSkFx(payload); return; } // 他プレイヤーのシリアルキラーの斬撃線（見た目だけ）
     if (payload.bhFx) { this.onBhFx(payload); return; } // 他プレイヤーのブラックホールのビーム（見た目だけ）
+    if (payload.a4Fx) { this.onA4Fx(payload); return; } // 他プレイヤーの天使の演出（降魔術の天使／エンジェルヘイロー。見た目だけ）
     // burnFx:true は「炎の装飾品で敵が燃え始めた／燃え続けている」という通知（見た目だけ）。
     // ダメージは火をつけた本人の画面が1秒ごとに与えて報告済みなので、ここでは炎の演出の残り時間を伸ばすだけ。
     if (payload.burnFx) {
@@ -2940,6 +3048,7 @@ class GameScene extends Phaser.Scene {
           rp.accFx.wisps = (typeof p.skw === 'number') ? Math.max(0, Math.min(SKULL_WISPS, p.skw)) : undefined;
           rp.accFx.rage = (typeof p.skr === 'number') ? Math.max(0, Math.min(1, p.skr)) : 0;
         }
+        rp.accFx.face = ang; // 向き（シリアルキラーの目の位置）
         accFxUpdate(rp.accFx, p.acc, rp.gfx.x, rp.gfx.y, dt, rp.gfx.alpha);
       }
       this.updateRemoteBlackhole(rp, dt); // ブラックホールのビーム（他プレイヤーの分）
@@ -3258,6 +3367,8 @@ class GameScene extends Phaser.Scene {
 
     if (this.mp && this.net) this.net.offFloor(this._prevFloorForListeners);
 
+    this._floorT0 = (this.runStats && this.runStats.time) || 0;
+    this.hideClearTime(); // 前の階のクリア時間表示を消す
     const seed = this.baseSeed + this.floor * 7919;
     this.bossFloor = !this.bossRush && !this.frontline && !this.pvp && this.isBossFloor(this.floor); // ダンジョンの5階ごと（10・15・20…）はボス階
     const dungeon = (this.bossRush || this.bossFloor) ? generateBossArena() : (this.pvp ? generatePvpMap() : (this.frontline ? generateFrontlineMap() : generateDungeon(seed, this.floor)));
@@ -6546,7 +6657,299 @@ class GameScene extends Phaser.Scene {
       g.lineStyle(2, 0xffe680, (0.75 + 0.2 * pulse) * a); g.strokeCircle(e.gfx.x, e.gfx.y, r);
     }
   }
-  updateAccEffects(dt) { this.updateBurning(dt); this.updateBlackholeBeam(dt); this.updateCrownSlowFx(dt); }
+  // 🕒 時計：画面下の時計ボタン（またはQキー）で発動。ACC_CLOCK.duration 秒のあいだ、敵（動き・攻撃・接触ダメージ）・敵の弾・自分の弾・演出（tween）と遅延処理が止まる。
+  // 止まっていた時間が終わってから ACC_CLOCK.cooldown 秒たつと、また使える。協力プレイでは発動した人が全員に通知（sendShot の clockFx）し、全員の画面で止まる。PvPでは出ない
+  clockBtnEl() {
+    let b = document.getElementById('clockBtn');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'clockBtn';
+      b.style.cssText = 'position:fixed;bottom:2.5vh;left:50%;transform:translateX(-50%);z-index:25;width:9vh;height:9vh;border-radius:50%;background:rgba(10,10,16,0.75);border:0.35vh solid rgba(255,255,255,0.35);display:none;align-items:center;justify-content:center;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;';
+      b.innerHTML = '<span class="ci" style="font-size:5.5vh;line-height:1;">🕒</span><span class="ct" style="position:absolute;font-size:3.6vh;font-weight:bold;color:#fff;text-shadow:0 0 0.8vh #000,0 0 0.8vh #000;"></span>';
+      const go = ev => { ev.preventDefault(); ev.stopPropagation(); if (b._scene && b._scene.activateClock) b._scene.activateClock(); };
+      b.addEventListener('pointerdown', go);
+      b.addEventListener('touchstart', go, { passive: false });
+      document.body.appendChild(b);
+    }
+    b._scene = this;
+    return b;
+  }
+  clockOverlayEl() {
+    let o = document.getElementById('clockOverlay');
+    if (!o) {
+      o = document.createElement('div');
+      o.id = 'clockOverlay';
+      o.style.cssText = 'position:fixed;inset:0;z-index:9;pointer-events:none;display:none;background:rgba(110,140,255,0.10);backdrop-filter:grayscale(0.85) contrast(1.05);-webkit-backdrop-filter:grayscale(0.85) contrast(1.05);';
+      document.body.appendChild(o);
+    }
+    return o;
+  }
+  activateClock() {
+    if (this.accKey !== 'clock' || this.pvp || this._clkOn) return;
+    if (this._resultOpen || this.transitioning || this.isGhost || this.isDowned) return;
+    if ((this._clkCd || 0) > 0) return;
+    this.startClock(ACC_CLOCK.duration, true);
+    if (this.mp && this.net) { try { this.net.sendShot({ clockFx: true, dur: ACC_CLOCK.duration, floor: this.floor }); } catch (err) { /* 通信の失敗で戦闘を止めない */ } } // 協力プレイ：全員の画面で時を止める
+  }
+  // 時を止める（自分が発動した時も、協力プレイで他のプレイヤーが発動した通知を受けた時も、ここを通る）。mine＝自分が発動したか（自分の時だけリロードが始まる）
+  startClock(dur, mine) {
+    dur = Math.min(Math.max(+dur || ACC_CLOCK.duration, 0), 15);
+    this._clkOn = true; this._clkLeft = Math.max(this._clkLeft || 0, dur); if (mine) this._clkMine = true;
+    this.time.timeScale = 0; this.tweens.timeScale = 0; // 遅延処理（delayedCall）と演出（tween）も止める
+    this.clockOverlayEl().style.display = 'block';
+  }
+  endClock() {
+    if (!this._clkOn) return;
+    if (this._clkMine) this._clkCd = ACC_CLOCK.cooldown; // 自分が発動した時だけ、リロードを始める
+    this._clkOn = false; this._clkLeft = 0; this._clkMine = false;
+    try { this.time.timeScale = 1; this.tweens.timeScale = 1; } catch (e) { /* シーン終了時 */ }
+    const o = document.getElementById('clockOverlay'); if (o) o.style.display = 'none';
+  }
+  updateClock(dt) {
+    if (this._clkOn) { // 時が止まっている間の残り時間（自分が発動した時も、他のプレイヤーが発動した時も数える）。dtは時間が止まっていてもゲーム本体の経過時間
+      this._clkLeft -= dt;
+      if (this._clkLeft <= 0 || this._resultOpen || this.transitioning) this.endClock();
+    } else if ((this._clkCd || 0) > 0) {
+      this._clkCd = Math.max(0, this._clkCd - dt);
+    }
+    const b = document.getElementById('clockBtn');
+    const usable = this.accKey === 'clock' && !this.pvp && !this._resultOpen && !this.transitioning && !this.isGhost && !this.isDowned && !this.arms4Ritual;
+    if (!usable) { if (b) b.style.display = 'none'; return; }
+    const btn = this.clockBtnEl();
+    if (this.clockKey && Phaser.Input.Keyboard.JustDown(this.clockKey)) this.activateClock();
+    const ready = !this._clkOn && !(this._clkCd > 0);
+    btn.style.display = 'flex';
+    btn.style.borderColor = this._clkOn ? '#8ad9ff' : (ready ? '#ffd54c' : 'rgba(255,255,255,0.35)');
+    btn.style.boxShadow = ready ? '0 0 1.6vh rgba(255,213,76,0.8)' : (this._clkOn ? '0 0 1.6vh rgba(138,217,255,0.8)' : 'none');
+    btn.firstChild.style.opacity = ready ? '1' : (this._clkOn ? '0.35' : '0.3');
+    const txt = this._clkOn ? String(Math.ceil(this._clkLeft)) : (ready ? '' : String(Math.ceil(this._clkCd)));
+    if (btn.lastChild.textContent !== txt) btn.lastChild.textContent = txt;
+  }
+
+  // 🔪 シリアルキラー：ACC_SERIALKILLER.interval 秒ごとに、プレイヤーから range 以内にいる敵全員へ damage のダメージを与え続ける（ノックバックなし）。斬られた敵には、白と赤の斬撃線を重ねて出す
+  updateSerialKiller(dt) {
+    this.drawSerialKillerFx(dt); // 斬撃線の描画（装飾品を外した後も、残っている線は消えるまで描く）
+    if (this.accKey !== 'serialkiller') { this._skT = 0; return; }
+    if (this.isGhost || this.isDowned || this._astral || this.transitioning || this._resultOpen || this.pvp || !this.player || !this.enemies || (this.pv && this.pv.dead)) return;
+    const C = ACC_SERIALKILLER;
+    this._skT = (this._skT || 0) + dt;
+    if (this._skT < C.interval) return;
+    this._skT = 0;
+    const px = this.player.x, py = this.player.y;
+    let killed = false;
+    const skSent = []; // マルチ：他プレイヤーの画面にも同じ斬撃線を出すための一覧
+    this._quietHit = true; // 敵に当たった時の標準の火花は出さず、代わりに斬撃線を出す
+    try {
+      for (const e of this.enemies.slice()) {
+        if (!e.gfx || !e.gfx.scene || e.hp <= 0 || e._pvp || e._introAnim || e.gfx.visible === false || e.type.invulnerable || isChargeGhostId(e.id)) continue;
+        if (Phaser.Math.Distance.Between(px, py, e.gfx.x, e.gfx.y) > C.range + (e.type.radius || 0)) continue;
+        const sp = this.addSerialKillerSlash(e.gfx.x, e.gfx.y, e.type.radius || 12);
+        if (sp && !this.rtOwn(e)) skSent.push([Math.round(e.gfx.x), Math.round(e.gfx.y), Math.round(e.type.radius || 12)].concat(sp)); // 儀式部屋の敵は本人の画面だけのもの
+        this.damageEnemy(e, C.damage, Math.atan2(e.gfx.y - py, e.gfx.x - px), 0, true); // isBurn=true：炎の延焼・ゾートロープのテレポートを起こさない
+        if (e.hp <= 0) killed = true;
+      }
+    } finally { this._quietHit = false; }
+    if (skSent.length && this.mp && this.net) { try { this.net.sendShot({ skFx: skSent.slice(0, 12), floor: this.floor }); } catch (err) { /* 通信の失敗で戦闘を止めない */ } }
+    if (killed) this.cleanupDeadEnemies(); // 倒した敵の後片付け（damageEnemyはHPを減らすだけ）
+  }
+  // 斬撃線を足す（敵の体の上をランダムな角度で横切る線を2本）
+  addSerialKillerSlash(x, y, r, params) {
+    const L = this._skFx || (this._skFx = []);
+    const used = []; // 使った [角度, ずれx, ずれy] ×2本。マルチで他プレイヤーに送り、同じ線を出す
+    for (let k = 0; k < 2; k++) {
+      if (L.length >= 160) break;
+      const q = params ? params.slice(k * 3, k * 3 + 3) : [Math.random() * Math.PI * 2, (Math.random() - 0.5) * r, (Math.random() - 0.5) * r];
+      if (q.length < 3 || q.some(v => typeof v !== 'number' || !isFinite(v))) continue;
+      const ang = q[0], len = r * 2.6 + 22, ox = q[1], oy = q[2];
+      L.push({ x0: x + ox - Math.cos(ang) * len / 2, y0: y + oy - Math.sin(ang) * len / 2, x1: x + ox + Math.cos(ang) * len / 2, y1: y + oy + Math.sin(ang) * len / 2, age: 0, life: 0.2 });
+      used.push(Math.round(ang * 100) / 100, Math.round(ox), Math.round(oy));
+    }
+    return used;
+  }
+  // 他プレイヤーから届いた斬撃線（見た目だけ。ダメージは斬った本人の画面が処理済み）
+  onSkFx(m) {
+    if (!m || !Array.isArray(m.skFx)) return;
+    for (const a of m.skFx.slice(0, 12)) {
+      if (!Array.isArray(a) || a.length < 9) continue;
+      this.addSerialKillerSlash(+a[0], +a[1], +a[2] || 12, a.slice(3, 9).map(Number));
+    }
+  }
+  drawSerialKillerFx(dt) {
+    const L = this._skFx;
+    if (!L || !L.length) { if (this._skG && this._skG.scene) this._skG.clear(); return; }
+    if (!this._skG || !this._skG.scene) this._skG = this.add.graphics().setDepth(8);
+    const g = this._skG; g.clear();
+    for (const q of L) q.age += dt;
+    this._skFx = L.filter(q => q.age < q.life);
+    for (const q of this._skFx) {
+      const k = q.age / q.life, head = Math.min(1, k * 5), tail = Math.max(0, (k - 0.2) / 0.8); // 線が走って、後ろから消えていく
+      const ax = q.x0 + (q.x1 - q.x0) * tail, ay = q.y0 + (q.y1 - q.y0) * tail, bx = q.x0 + (q.x1 - q.x0) * head, by = q.y0 + (q.y1 - q.y0) * head;
+      g.lineStyle(5, 0xd01010, 0.65 * (1 - k)); g.lineBetween(ax, ay, bx, by); // 赤い傷
+      g.lineStyle(2, 0xffffff, 1 - k * 0.5); g.lineBetween(ax, ay, bx, by);     // 白い刃の光
+    }
+  }
+
+  updateAccEffects(dt) { this.updateSerialKiller(dt); this.updateBurning(dt); this.updateBlackholeBeam(dt); this.updateCrownSlowFx(dt); this.updateAngelHalo(dt); }
+
+  // 🪽 エンジェルヘイロー：ACC_ANGELHALO.cooldown 秒ごとに chance の確率で抽選し、当たると、降魔術の天使の召喚（summon2Arms4）とまったく同じ演出・ダメージで天使を召喚する
+  updateAngelHalo(dt) {
+    if (this.accKey !== 'angelhalo') { this._ahCd = null; return; }
+    const C = ACC_ANGELHALO;
+    if (this._ahCd == null) { this._ahCd = C.first; this._ahFirst = true; } // ゲーム開始から C.first 秒後に、最初の1回は必ず発動する
+    if (this.isGhost || this.isDowned || !this.player || this.transitioning || (this.pv && this.pv.dead)) return;
+    this._ahCd -= dt;
+    if (this._ahCd > 0) return;
+    const sure = !!this._ahFirst; // 最初の1回は確定。以降は、そこから数えて C.cooldown 秒ごとに chance の確率で抽選
+    if (!sure && Math.random() >= C.chance) { this._ahCd = C.cooldown; return; }
+    if ((this.s2Any && this.s2Any()) || this.allies.some(a => !a.dead && a.type.key === 'arms4')) { // 調伏の儀の最中／天使が既にいる（同時に1体まで。降魔術と同じ）
+      this._ahCd = sure ? 1 : C.cooldown; // 確定の分は、出せるようになるまで1秒ごとに再挑戦
+      return;
+    }
+    const sk = Object.values(SUMMON2.skills).find(q => q && q.key === 'arms4');
+    if (!sk) { this._ahCd = C.cooldown; return; }
+    this._ahFirst = false; this._ahCd = C.cooldown;
+    this.summon2Arms4(sk);
+  }
+
+  // ===== マルチ：天使の演出の同期（降魔術の天使／エンジェルヘイロー）=====
+  // 演出を出した本人の画面では、画面内の敵を壁の腕／天使の手が掴み、チカチカ → 握りつぶし（血しぶき・画面の揺れ）→ 腕が消える。
+  // この「掴んだ敵の一覧とタイミング」を1回だけ送り、他のプレイヤーの画面でも同じ時間の流れで再現する（見た目だけ）。
+  // ダメージ（握りつぶし）は出した本人の画面が処理して通常の経路でホストに伝えるので、受け取った側はダメージを与えない。
+  sendA4Fx(kind, a, held) {
+    if (!this.mp || !this.net) return;
+    const list = [];
+    for (const h of held) {
+      const e = h.e; if (!e || this.rtOwn(e)) continue; // 儀式部屋の敵は出した本人の画面だけのもの
+      const d = { i: e.id };
+      if (h.slot != null) d.s = h.slot;
+      const w = h.wall;
+      if (w) d.w = [Math.round(w.bx), Math.round(w.by), Math.round(w.rot0 * 1000) / 1000, Math.round(w.ph * 100) / 100, w.sg || 1];
+      if (e._coil && e._coil.length) d.c = e._coil.map(b => b.id);
+      list.push(d);
+    }
+    const o = { a4Fx: kind, list, floor: this.floor };
+    if (a) { o.aid = a.id; o.ax = Math.round(a.gfx.x); o.ay = Math.round(a.gfx.y); }
+    try { this.net.sendShot(o); } catch (err) { /* 通信の失敗で戦闘を止めない */ }
+  }
+
+  // 協力プレイ（ゲスト）：天使が直接かき消した敵（無敵の敵・ウロボロスの胴体）は damageEnemy を通らないので、倒れたことをホストにも申告する
+  a4SyncBanish(e) {
+    if (!(this.mp && !this.isHost && this._enemySnapshotSeen) || !e || this.rtOwn(e)) return;
+    try { this.net.sendAttack({ enemyId: e.id, damage: 0, floor: this.floor, newHp: 0, killed: true, angle: 0, knockback: 0 }); } catch (err) { /* 次のスナップショットで揃う */ }
+    this._pendingDeathIds.add(e.id);
+  }
+
+  // 他のプレイヤーが出した天使の演出を、自分の画面でも同じタイミングで見せる（見た目だけ）
+  onA4Fx(m) {
+    const T = ENEMY_TYPES.find(x => x.key === 'arms4'), A = T && T.arms;
+    if (!A || !Array.isArray(m.list)) return;
+    const FLICKER = [0, 120, 200, 340, 430, 620, 700, 880], HOLD = 1100, T_CRUSH = 880 + HOLD, T_VANISH = T_CRUSH + 800, T_END = T_VANISH + 880 + 60;
+    const armTex = this.textures.exists('armUp');
+    const s0 = armTex ? A.len / this.textures.getFrame('armUp').height : 1; // 壁の腕の倍率＝出した本人の画面と同じ
+    const L0 = A.len * 0.92;
+    const key = m.aid != null ? m.uid + '_' + m.aid : null; // 降魔術の天使：他のプレイヤーの味方として届く天使の本体
+    const held = [], wallImgs = [];
+    for (const d of m.list) {
+      const e = this.enemyById && this.enemyById[d.i];
+      if (!e || e.hp <= 0 || e._removed || e._a4Held || e._pvp || !e.gfx || !e.gfx.scene || this.rtOwn(e)) continue;
+      const h = { e, slot: d.s != null ? d.s : null, wall: null };
+      if (Array.isArray(d.w)) {
+        const w = { bx: d.w[0], by: d.w[1], rot0: d.w[2], ph: d.w[3], img: null };
+        if (armTex) { w.img = this.add.image(w.bx, w.by, 'armUp').setOrigin(0.593, 0).setDepth(3.9).setVisible(false); w.img.setScale((d.w[4] < 0 ? -1 : 1) * s0, s0); wallImgs.push(w.img); }
+        h.wall = w;
+      } else if (h.slot == null) continue;
+      e._a4Held = true; e.trapStunTimer = 99; e._a4Sc = e.gfx.scaleX; // 掴まれている間は止まる（位置はこの演出が決める）
+      e._coil = (d.c || []).map(id => this.enemyById[id]).filter(b => b && b.hp > 0 && !b._removed && b.gfx && b.gfx.scene);
+      e._coil.forEach(b => { b._a4Held = true; b.trapStunTimer = 99; });
+      e.gfx.setScale(Math.min(1, 22 / e.type.radius)).setDepth(3.95);
+      held.push(h);
+    }
+    if (!held.length && key == null) return;
+    const focus = (typeof m.ax === 'number') ? { x: m.ax, y: m.ay } : (held[0] ? { x: held[0].e.gfx.x, y: held[0].e.gfx.y } : null);
+    const cam = this.cameras.main;
+    const near = () => { // 画面の揺れ・フラッシュは、演出が自分の画面の近くで起きている時だけ
+      if (!focus) return false; const v = cam.worldView;
+      return focus.x > v.x - 300 && focus.x < v.right + 300 && focus.y > v.y - 300 && focus.y < v.bottom + 300;
+    };
+    const shownAt = (el) => { // 出した本人の画面と同じ点滅（出現：奇数番目で見える／消える：偶数番目で見える）
+      const last = (arr, t) => { let k = -1; for (let i = 0; i < arr.length; i++) if (arr[i] <= t) k = i; return k; };
+      if (el < T_CRUSH) { const k = last(FLICKER, el); return k >= 0 && k % 2 === 1; }
+      if (el < T_VANISH) return true;
+      const k = last(FLICKER, el - T_VANISH); return k < 0 || k % 2 === 0;
+    };
+    const restore = (e) => { // 倒れていない敵は元の姿に戻す
+      e._a4Held = false; e.trapStunTimer = 0;
+      const coil = e._coil || []; coil.forEach(b => { b._a4Held = false; b.trapStunTimer = 0; });
+      if (!e.gfx || !e.gfx.scene || e._removed) return;
+      e.gfx.setScale(e._a4Sc || 1).setDepth(4);
+      this.arms4Vis(e, true);
+      if (e.hpBar && e.hpBar.scene && !e.type.hideHpBar) e.hpBar.setVisible(true);
+      if (e.label && e.label.scene) e.label.setVisible(true);
+      coil.forEach(b => { if (b.gfx && b.gfx.scene && !b._removed) { b.gfx.setDepth(4); if (b.hpBar && b.hpBar.scene && !b.type.hideHpBar) b.hpBar.setVisible(true); } });
+      e._coil = null;
+    };
+    const t0 = this.time.now, tm0 = () => this.time.now / 1000;
+    const evs = [];
+    FLICKER.forEach(ms => evs.push({ at: ms, k: 'f' }));
+    evs.push({ at: T_CRUSH, k: 'c' });
+    FLICKER.forEach(ms => evs.push({ at: T_VANISH + ms, k: 'f' }));
+    let ei = 0, crushed = false, done = false;
+    const crush = () => { // 握りつぶし：血しぶき・画面の揺れと赤いフラッシュ
+      if (near()) { cam.shake(700, 0.015); cam.flash(300, 200, 0, 0); }
+      held.forEach(h => {
+        const e = h.e; if (!e.gfx || !e.gfx.scene) return;
+        const x = e.gfx.x, y = e.gfx.y;
+        this.arms4Blood(x, y, 45);
+        this.time.delayedCall(120, () => this.arms4Blood(x, y, 30));
+        this.time.delayedCall(260, () => this.arms4Blood(x, y, 20));
+        (e._coil || []).forEach(b => { if (b.gfx && b.gfx.scene) this.arms4Blood(b.gfx.x, b.gfx.y, 3); });
+        this.arms4Vis(e, false); // 握りつぶされた敵はここで見えなくなる（倒れた敵は通常のスナップショットで片付く）
+        e._a4Held = false; e.trapStunTimer = 0;
+        (e._coil || []).forEach(b => { b._a4Held = false; b.trapStunTimer = 0; });
+      });
+      this.time.delayedCall(1500, () => held.forEach(h => { const e = h.e; if (e && !e._removed && e.hp > 0 && e.gfx && e.gfx.scene && this.enemyById[e.id] === e) restore(e); })); // 倒しきれなかった敵は戻す
+    };
+    const tick = this.time.addEvent({ delay: 16, loop: true, callback: () => {
+      const el = this.time.now - t0;
+      while (ei < evs.length && evs[ei].at <= el) {
+        const ev = evs[ei++];
+        if (ev.k === 'c') { crushed = true; crush(); } else if (near()) cam.flash(60, 255, 255, 255);
+      }
+      const on = shownAt(el);
+      const ra = key ? this.remoteAllies[key] : null; // 天使の本体（届いていれば）：点滅に合わせて出し入れする
+      if (ra && ra.gfx && ra.gfx.scene) {
+        if (!ra._a4) { ra._a4 = true; this.tweens.killTweensOf(ra.gfx); this.tweens.killTweensOf(ra.hpBar); ra.gfx.setAlpha(ra.type.alpha != null ? ra.type.alpha : 1); ra.hpBar.setAlpha(1); }
+        ra.gfx.setVisible(on); ra.hpBar.setVisible(on);
+      }
+      wallImgs.forEach(im => im.scene && im.setVisible(on));
+      if (!crushed) {
+        held.forEach(h => {
+          const e = h.e; if (!e.gfx || !e.gfx.scene || e._removed) return;
+          this.arms4Vis(e, on);
+          if (h.wall) { // 壁の腕：ゆらゆら揺れながら掴んでいる
+            const w = h.wall, r = w.rot0 + Math.sin(tm0() * 1.7 + w.ph) * 0.06;
+            if (w.img && w.img.scene) w.img.setPosition(w.bx, w.by).setRotation(r);
+            e.gfx.setPosition(w.bx - Math.sin(r) * L0, w.by + Math.cos(r) * L0);
+          } else { // 天使の手：手の位置に置き続ける
+            const hp0 = ra ? this.arms4HandPos(ra, h.slot) : null;
+            if (hp0) e.gfx.setPosition(hp0.x, hp0.y);
+            else if (ra && ra.gfx && ra.gfx.scene) e.gfx.setPosition(ra.gfx.x + (h.slot % 2 ? 90 : -90), ra.gfx.y + (h.slot >= 2 ? -120 : 60));
+            else if (focus) e.gfx.setPosition(focus.x + (h.slot % 2 ? 90 : -90), focus.y + (h.slot >= 2 ? -120 : 60));
+          }
+          (e._coil || []).forEach((b, k) => { // ウロボロス：頭の下でとぐろを巻く
+            if (!b.gfx || !b.gfx.scene) return;
+            const th = k * 0.62 + tm0() * 0.6, rr = 10 + k * 1.05;
+            b.gfx.setPosition(e.gfx.x + Math.cos(th) * rr, e.gfx.y + 30 + Math.sin(th) * rr * 0.85).setDepth(3.94 - k * 0.001);
+          });
+        });
+      }
+      if (el >= T_END && !done) { // 終わり：壁の腕を片付け、掴んだままの敵が残っていれば放す
+        done = true; tick.remove(false);
+        wallImgs.forEach(im => im.scene && im.destroy());
+        if (!crushed) held.forEach(h => h.e && h.e.gfx && h.e.gfx.scene && restore(h.e));
+      }
+    } });
+  }
 
   // 包帯の持続回復を毎フレーム進める。1秒経過するごとに10回復し、4回（=合計40）で自然に終わる。
   updateBandage(dt) {
@@ -7713,7 +8116,7 @@ class GameScene extends Phaser.Scene {
       if (this.pvpOnHit(enemy, damage) && this.accKey === 'flame' && damage > 0 && !isBurn) this.igniteEnemy(enemy);
       return;
     }
-    this.spawnBurst(enemy.gfx.x, enemy.gfx.y, enemy.type.color, 7);
+    if (!this._quietHit) this.spawnBurst(enemy.gfx.x, enemy.gfx.y, enemy.type.color, 7); // シリアルキラーの斬撃は見た目を出さない
 
     // 溜め中に呼び寄せたゴーストだけは特別に脆い：普通のゴーストは完全無敵だが、こちらは
     // ダメージ量やノックバックの有無に関係なく、何かしらの攻撃が少しでも当たった時点で
@@ -8312,6 +8715,7 @@ class GameScene extends Phaser.Scene {
     const S = this._gSnake || (this._gSnake = {}), now = this.time.now;
     for (const key in S) if (now - S[key].seen > 1000) delete S[key];
     const put = (e, x, y) => {
+      if (e._a4Held) return; // 天使に掴まれている間は演出が位置を決める
       e.gfx.x = x; e.gfx.y = y; e.hpBar.x = x; e.hpBar.y = y - e.type.radius - 8;
       if (e.label) { e.label.x = x; e.label.y = y - e.type.radius - 22; }
     };
@@ -8751,7 +9155,7 @@ class GameScene extends Phaser.Scene {
 
   // 敵が現在いずれかの魔法陣に触れている、またはトラップのスタン中かどうか（動きと攻撃を止める）
   isEnemyFrozen(e) {
-    return this.isEnemyInMagicCircle(e) || (e.trapStunTimer > 0);
+    return this.isEnemyInMagicCircle(e) || (e.trapStunTimer > 0) || (this._clkOn && this.enemies.includes(e)); // 🕒 時計で時が止まっている間は、敵は全員止まる
   }
   isEnemyInMagicCircle(e) {
     if (!this.magicCircles || !this.magicCircles.length) return false;
@@ -11224,7 +11628,7 @@ class GameScene extends Phaser.Scene {
   // コウモリ以外の技は、最初は使えない。選ぶと自分の周りに黒い魔法陣と5秒のカウントダウンが出て、0でボスラッシュと同じ部屋へワープ。
   // 技に応じた敵を倒すと、そのゲーム中はずっと使えるようになり、ダンジョンの元の位置へ（進捗そのまま）戻る。
   s2NeedsTrial(sk) {
-    if (S2_TEST_UNLOCK_ALL) return false; // テスト用：「？」＝arms4 とシマハル＝simaharbeam 以外の全技を解放扱いにする（この2つは通常どおり調伏の儀が必要）
+    if (S2_TEST_UNLOCK_ALL && !(sk && (sk.key === 'arms4' || sk.key === 'simaharbeam'))) return false; // テスト用：「？」＝arms4 とシマハル＝simaharbeam 以外の全技を解放扱いにする（この2つは通常どおり調伏の儀が必要）
     return !!(sk && sk.trial && !(this.s2Unlocked || {})[sk.key] && !this.frontline && !this.pvp && (!this.mp || sk.key === 'arms4' || !!(this.dungeon && this.dungeon.ritual)));
   }
 
@@ -11444,8 +11848,8 @@ class GameScene extends Phaser.Scene {
     }
     if (R < 1) return;
     g.fillStyle(0x000000, (rt.phase === 'count' ? 0.62 : 0.85) * a); g.fillCircle(x, y, R);
-    g.lineStyle(3, 0x7a3dd0, 0.95 * a); g.strokeCircle(x, y, R);
-    g.lineStyle(1.5, 0x9b6bff, 0.8 * a); g.strokeCircle(x, y, R * 0.78);
+    g.lineStyle(3, 0xffffff, 0.95 * a); g.strokeCircle(x, y, R);
+    g.lineStyle(1.5, 0xffffff, 0.8 * a); g.strokeCircle(x, y, R * 0.78);
     for (const off of [-Math.PI / 2, Math.PI / 2]) {
       const r2 = R * 0.78, a0 = off + rot, a1 = a0 + Math.PI * 2 / 3, a2 = a0 + Math.PI * 4 / 3;
       g.strokeTriangle(x + Math.cos(a0) * r2, y + Math.sin(a0) * r2, x + Math.cos(a1) * r2, y + Math.sin(a1) * r2, x + Math.cos(a2) * r2, y + Math.sin(a2) * r2);
@@ -11865,8 +12269,8 @@ class GameScene extends Phaser.Scene {
       tr.t -= dt;
       const px = this.player.x, py = this.player.y, R = SUMMON2.trial.circleRadius, rot = this.time.now / 1000 * 1.2;
       g.fillStyle(0x000000, 0.62); g.fillCircle(px, py, R);
-      g.lineStyle(3, 0x7a3dd0, 0.95); g.strokeCircle(px, py, R);
-      g.lineStyle(1.5, 0x9b6bff, 0.8); g.strokeCircle(px, py, R * 0.78);
+      g.lineStyle(3, 0xffffff, 0.95); g.strokeCircle(px, py, R);
+      g.lineStyle(1.5, 0xffffff, 0.8); g.strokeCircle(px, py, R * 0.78);
       for (const off of [-Math.PI / 2, Math.PI / 2]) {
         const r2 = R * 0.78, a0 = off + rot, a1 = a0 + Math.PI * 2 / 3, a2 = a0 + Math.PI * 4 / 3;
         g.strokeTriangle(px + Math.cos(a0) * r2, py + Math.sin(a0) * r2, px + Math.cos(a1) * r2, py + Math.sin(a1) * r2, px + Math.cos(a2) * r2, py + Math.sin(a2) * r2);
@@ -11891,6 +12295,11 @@ class GameScene extends Phaser.Scene {
         (this.s2Unlocked = this.s2Unlocked || {})[tr.sk.key] = true;
         tr.phase = 'clear'; tr.t = SUMMON2.trial.returnDelay;
         this.showBanner('⚔ ' + tr.sk.name + '・調伏成功！ この技が使えるようになった', 2000);
+        if (tr.sk.key === 'arms4' && !this.mp && !this.arms4Ritual && !this.isDevMode && !this.bossRush && !this.frontline && !this.pvp) { // ダンジョン（ソロ）で天使を調伏：装飾品「エンジェルヘイロー」の入手条件（デベロッパーモードでは記録しない）
+          const sv = loadSave(); sv.arms4RitualClears = (sv.arms4RitualClears || 0) + 1;
+          const got = unlockAccessories(sv); writeSave(sv);
+          if (got.length) { this._ritualNewAcc = (this._ritualNewAcc || []).concat(got); this.time.delayedCall(2100, () => this.showBanner('🪽 ' + got[0].name + 'を入手！', 2500)); }
+        }
       }
     } else if (tr.phase === 'clear') {
       if (this._s2TrialTxt) this._s2TrialTxt.setVisible(false);
@@ -14916,8 +15325,8 @@ class GameScene extends Phaser.Scene {
       g.clear();
       if (R < 1) return;
       g.fillStyle(0x000000, 0.7 * st.a); g.fillCircle(x, y, R);
-      g.lineStyle(4, 0x7a3dd0, st.a); g.strokeCircle(x, y, R);
-      g.lineStyle(2, 0x9b6bff, 0.85 * st.a); g.strokeCircle(x, y, R * 0.8);
+      g.lineStyle(4, 0xffffff, st.a); g.strokeCircle(x, y, R);
+      g.lineStyle(2, 0xffffff, 0.85 * st.a); g.strokeCircle(x, y, R * 0.8);
       for (const off of [-Math.PI / 2, Math.PI / 2]) {
         const r2 = R * 0.8, a0 = off + rot, a1 = a0 + Math.PI * 2 / 3, a2 = a0 + Math.PI * 4 / 3;
         g.strokeTriangle(x + Math.cos(a0) * r2, y + Math.sin(a0) * r2, x + Math.cos(a1) * r2, y + Math.sin(a1) * r2, x + Math.cos(a2) * r2, y + Math.sin(a2) * r2);
@@ -15031,7 +15440,7 @@ class GameScene extends Phaser.Scene {
       const rot0 = Math.atan2(-best.dx, best.dy); // 手の向きが (-sin r, cos r) になる角度
       const img = armTex ? this.add.image(hx - best.dx * L0, hy - best.dy * L0, 'armUp').setOrigin(0.593, 0).setDepth(3.9).setVisible(false) : null;
       if (img) { img.setScale((best.dx >= 0 ? 1 : -1) * s0, s0); wallImgs.push(img); }
-      return { img, bx: hx - best.dx * L0, by: hy - best.dy * L0, rot0, ph: Math.random() * 6 };
+      return { img, bx: hx - best.dx * L0, by: hy - best.dy * L0, rot0, ph: Math.random() * 6, sg: best.dx >= 0 ? 1 : -1 };
     };
     for (const e of cands) {
       const h = { e, slot: null, wall: null };
@@ -15052,6 +15461,7 @@ class GameScene extends Phaser.Scene {
       wallImgs.forEach(im => im.scene && im.setVisible(on));
     };
     setShown(false); // チカチカが始まるまで見せない
+    this.sendA4Fx('summon', a, held); // 協力プレイ：他の人の画面にも同じ演出を見せる
     const tm0 = () => this.time.now / 1000;
     let done = false;
     const release = (e) => {
@@ -15100,9 +15510,9 @@ class GameScene extends Phaser.Scene {
         const coil = e._coil || [], gid = e.bossGroupId;
         coil.forEach(b => { // ウロボロスの胴体も、血しぶきとともに潰す（死骸は残さない）
           if (b.gfx && b.gfx.scene) this.arms4Blood(b.gfx.x, b.gfx.y, 3);
-          b.trapStunTimer = 0; b._a4Held = false; b.hp = 0; b._banished = true;
+          b.trapStunTimer = 0; b._a4Held = false; b.hp = 0; b._banished = true; this.a4SyncBanish(b);
         });
-        if (e.type.invulnerable) { e.hp = 0; e._banished = true; } // 幽霊は無敵でダメージが通らないので、直接かき消す（倒した数には数えない）
+        if (e.type.invulnerable) { e.hp = 0; e._banished = true; this.a4SyncBanish(e); } // 幽霊は無敵でダメージが通らないので、直接かき消す（倒した数には数えない）
         else this.damageEnemy(e, e.maxHp * 10 + 9999, Math.atan2(y - a.gfx.y, x - a.gfx.x), 0); // 握りつぶす
         if (e.hp > 0) release(e); // 倒しきれなかった場合は放す
       });
@@ -17147,7 +17557,7 @@ class GameScene extends Phaser.Scene {
   update(time, delta) {
     // リザルト用：経過時間は、フロア移動の暗転中も含めて数える（リザルト表示中は止める）
     if (!this._resultOpen) this.runStats.time += delta / 1000;
-    if (this.transitioning) { if (this._astral) this.astralEnd(true); return; } // 階の移動中は幽体離脱を終える
+    if (this.transitioning) { if (this._clkOn) this.endClock(); if (this._astral) this.astralEnd(true); return; } // 階の移動中は幽体離脱・時計の時間停止を終える
     // panicMax:0 にした代わりに、極端に重いフレームでもdtが暴れないよう上限を付ける
     const dt = Math.min(delta, 50) / 1000;
 
@@ -17156,6 +17566,7 @@ class GameScene extends Phaser.Scene {
     if (!this.isGhost && !this.isDowned) this.updateBandage(dt);
     if (this.isDowned) this.updateDownedState(dt);
     this.updateArms(); // 四つ腕の腕の画像
+    this.updateClock(dt); // 🕒 時計：ボタン表示・発動中の残り時間
 
     // 召喚術：味方が生きている間は、常に「リロード中（＝照準モード）」の状態にしておく。
     // 武器を拾い直してリロードが解除された場合などでも、2体目を召喚できないようにするため。
@@ -17230,12 +17641,12 @@ class GameScene extends Phaser.Scene {
     this.updateMagicBombCharge(dt);
     this.updateChargeGhostSpawns(dt);
 
-    this.updateProjectiles(dt);
-    this.updateRemoteProjectiles(dt);
-    this.updateEnemyProjectiles(dt);
+    this.updateProjectiles(this._clkOn ? 0 : dt); // 🕒 時が止まっている間は自分の弾も止まる
+    this.updateRemoteProjectiles(this._clkOn ? 0 : dt); // 🕒 他プレイヤーの弾も止まる
+    this.updateEnemyProjectiles(this._clkOn ? 0 : dt); // 🕒 敵の弾も止まる
     this.updateArms4Atk(dt); // 四つ腕の攻撃（調伏の儀）
     if (this.bossRush || this.frontline || this.bossFloor || this._bossUiGroup) this.updateBossBar(); // ボスのバーが出ていれば更新（通常ダンジョンの調伏の儀もここ）
-    this.updateBombs(dt);
+    this.updateBombs(this._clkOn ? 0 : dt); // 🕒 時が止まっている間は、爆弾も動かず導火線も進まない
     this.updateTraps(dt);
     this.drawTrapVulnFx();
     this.updateMagicCircles(dt);
@@ -17320,7 +17731,7 @@ class GameScene extends Phaser.Scene {
     this.facing.rotation = faceAngle;
     { const bl = this.wwBloodyOn(this.net.uid); if (this._bloody !== bl) { this._bloody = bl; this.facing.setFillStyle(bl ? 0xd01010 : 0xffffff); } } // 人狼ゲーム：自分が殺した直後は線が赤い
     if (this.accText) { this.accText.x = this.player.x; this.accText.y = this.player.y - 13; this.accText.setAlpha(this.player.alpha); this.accText.setVisible(this.player.visible); }
-    if (this.accFx) { this.skullAuraT = Math.max(0, (this.skullAuraT || 0) - dt); this.accFx.rage = (this.accKey === 'skull' && this.skullAuraT > 0) ? Math.min(1, this.skullAuraT / 0.5) : 0; this.accFx.wisps = this.accKey === 'skull' ? this.skullRevives : undefined; accFxUpdate(this.accFx, this.accKey, this.player.x, this.player.y, dt, this.player.visible ? this.player.alpha : 0); }
+    if (this.accFx) { this.skullAuraT = Math.max(0, (this.skullAuraT || 0) - dt); this.accFx.rage = (this.accKey === 'skull' && this.skullAuraT > 0) ? Math.min(1, this.skullAuraT / 0.5) : 0; this.accFx.wisps = this.accKey === 'skull' ? this.skullRevives : undefined; this.accFx.face = faceAngle; accFxUpdate(this.accFx, this.accKey, this.player.x, this.player.y, dt, this.player.visible ? this.player.alpha : 0); }
     this.updateAccEffects(dt); // 装飾品の特殊効果（炎の燃焼・ブラックホールのビーム）
     this.updateSnakeDoom(dt); // スネーク：先頭が倒された後のカウントダウン（ホスト／ソロのみ動く）
 
@@ -17435,7 +17846,7 @@ class GameScene extends Phaser.Scene {
             if (Math.abs(e._predKbX) < 1 && Math.abs(e._predKbY) < 1) e._predicting = false;
           }
           const k = expSmooth(dt, 0.05);
-          if (!this.guestSnakeFollowing(e)) { // ウロボロスの胴体は、頭をなぞる位置を guestSnakeFollow が決める
+          if (!e._a4Held && !this.guestSnakeFollowing(e)) { // ウロボロスの胴体は、頭をなぞる位置を guestSnakeFollow が決める（天使に掴まれている間は演出が位置を決める）
             e.gfx.x = Phaser.Math.Linear(e.gfx.x, predX, k);
             e.gfx.y = Phaser.Math.Linear(e.gfx.y, predY, k);
           }
@@ -17841,6 +18252,7 @@ class GameScene extends Phaser.Scene {
       save.soloTotalKills += st.kills || 0;
       save.soloTotalBosses += st.bosses || 0;
       if (this.floor > save.soloBestFloor) save.soloBestFloor = this.floor;
+      if (this._allClear) save.soloClears = (save.soloClears || 0) + 1; // 🕒 ダンジョン（ソロ）クリア
     }
     const added = unlockAccessories(save);
     writeSave(save);
@@ -17856,6 +18268,32 @@ class GameScene extends Phaser.Scene {
     writeSave(save);
     if (added.length) this.announceAccessories(added);
   }
+
+  // 🪖 鎧の入手条件：ダンジョン（ソロ）を始めてから ARMOR_UNLOCK.sec 秒以内に、ARMOR_UNLOCK.floor 階のボスを倒す。デベロッパーモードなどでは記録しない
+  recordArmorClear() {
+    if (this.mp || this.pvp || this.bossRush || this.frontline || this.arms4Ritual || this.isDevMode) return;
+    if (this.floor !== ARMOR_UNLOCK.floor) return;
+    if (this.runStats.time > ARMOR_UNLOCK.sec) return;
+    const sv = loadSave(); if (sv.armorFloor10Fast) return;
+    sv.armorFloor10Fast = 1;
+    const got = unlockAccessories(sv); writeSave(sv);
+    if (got.length) { this._ritualNewAcc = (this._ritualNewAcc || []).concat(got); this.time.delayedCall(600, () => this.showBanner('🪖 ' + got[0].name + 'を入手！', 2500)); } // リザルトにも出す
+  }
+
+  // ダンジョン（ソロ）のボス撃破後、次の部屋に進むまで、開始からの経過時間を画面上部に出し続ける
+  showClearTime() {
+    let el = document.getElementById('clearTimeBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'clearTimeBanner';
+      el.style.cssText = 'position:fixed;top:6vh;left:50%;transform:translateX(-50%);z-index:20;color:#fff;font-size:4vh;font-weight:bold;text-align:center;white-space:nowrap;text-shadow:0 0 1.2vh rgba(0,0,0,0.85),0 0.3vh 0.3vh rgba(0,0,0,0.9);pointer-events:none;';
+      document.body.appendChild(el);
+    }
+    const t = Math.floor(this.runStats.time), m = Math.floor(t / 60), sec = t % 60;
+    el.textContent = '⏱ 経過時間 ' + m + ':' + (sec < 10 ? '0' : '') + sec;
+    el.style.display = 'block';
+  }
+  hideClearTime() { const el = document.getElementById('clearTimeBanner'); if (el) el.style.display = 'none'; }
 
   goNextFloor() {
     if (this.transitioning || this._advancing) return;
@@ -17972,7 +18410,7 @@ class GameScene extends Phaser.Scene {
   // （協力プレイのリザルトは showMpResult）
   showResult() {
     this._resultOpen = true;
-    const newAcc = this.commitRunStats();
+    const newAcc = this.commitRunStats().concat(this._ritualNewAcc || []); // 天使の調伏の儀で入手した装飾品も、リザルトに出す
     // 協力プレイ用の表示を隠して、ソロ用の表示に戻す
     document.getElementById('mpResultTop').style.display = 'none';
     document.getElementById('mpResultPlayers').style.display = 'none';
@@ -18535,6 +18973,8 @@ class GameScene extends Phaser.Scene {
     }
     if (this.bossFloor && !this.mp) { // ダンジョンのボス階：全てのボスを倒すと出口が開く。25階ならオールクリア（協力プレイは下の配信→onReviveで全員に処理）
       if (this.bossFloorAlive()) return;
+      this.recordArmorClear(); // 🪖 鎧の入手条件（開始から4分以内に10階層のボスを倒す）
+      this.showClearTime(); // 次の部屋に進むまで経過時間を上に出す
       if (this.floor >= 25) this.triggerAllClear(); else this.openBossRushExit(pos, true);
       return;
     }
@@ -19624,8 +20064,9 @@ function openAccModal() {
   const save = loadSave();
   document.getElementById('accModalList').innerHTML = ACCESSORIES.map(a => {
     const unlocked = !!save.accUnlocked[a.key];
-    const cur = Math.min(save[a.stat] || 0, a.goal);
-    const state = unlocked ? '獲得済み' : (cur + ' / ' + a.goal + a.unit);
+    const goal = a.all ? ACCESSORIES.length - 1 : a.goal;
+    const cur = a.all ? ACCESSORIES.filter(o => o !== a && save.accUnlocked[o.key]).length : Math.min(save[a.stat] || 0, a.goal);
+    const state = unlocked ? '獲得済み' : (cur + ' / ' + goal + a.unit);
     return '<div class="accRow' + (unlocked ? '' : ' locked') + '">'
       + '<div class="accIcon">' + escapeHtml(a.icon) + '</div>'
       + '<div class="accInfo"><div class="accName">' + escapeHtml(a.name) + '</div><div class="accDesc">' + escapeHtml(a.desc) + '</div>' + (a.effect ? '<div class="accDesc accEffect">' + escapeHtml(a.effect) + '</div>' : '') + '</div>'
