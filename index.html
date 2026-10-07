@@ -1902,8 +1902,8 @@ const SUMMON2 = {
          convergeDist: 450, convergeScatter: 110, // ビームが収束する先＝スティックを倒している向きの、プレイヤーから convergeDist px 先 / convergeScatter＝その収束点のランダムなずれの半径（大きいほどバラける。0なら1点に集まる）
          startDelay: 1, // startDelay＝スティックを持ってから撃ち始めるまでの秒数
          side: 48, waitLife: 8, // side＝プレイヤーからシマハル本体までの距離（体の向きに対して左右。シマハルは等倍＝半径30）/ waitLife＝召喚してからスティックを持つまで待つ秒数（過ぎると撃たずに消える）
-         starCount: 9, starDist: 130, starSize: 32, stagger: 0.2, // ボスの beamAttack と同じ。starCount＝シマハル1体が出す黒い星（＝ビーム）の数（2体で合計2倍）/ starDist＝シマハル本体から黒い星までの距離 / starSize＝黒い星の大きさ / stagger＝黒い星を1個ずつ出す間隔（秒）
-         warnDuration: 0.7, fireDuration: 1.8, shrinkDuration: 0.25, range: 900, // 警告線 → 発射 → 細くなって消える。fireDuration＝ビームを撃ち続ける秒数（ボスは1.1。撃つ時間を長くするためここだけボスより長い）
+         starCount: 6, starDist: 130, starSize: 32, stagger: 0.2, // ボスの beamAttack と同じ。starCount＝シマハル1体が出す黒い星（＝ビーム）の数（2体で合計2倍）/ starDist＝シマハル本体から黒い星までの距離 / starSize＝黒い星の大きさ / stagger＝黒い星を1個ずつ出す間隔（秒）
+         warnDuration: 0.7, fireDuration: 1.1, shrinkDuration: 0.25, range: 900, // 警告線 → 発射 → 細くなって消える。fireDuration＝ビームを撃ち続ける秒数（ボスと同じ1.1）
          widthMin: 15, widthMax: 19.5, vibrateSpeed: 45 }, // ビームの太さの振動（ボスと同じ）
   },
 };
@@ -13716,7 +13716,7 @@ class GameScene extends Phaser.Scene {
     }]);
     this.a4Script(S, CHARGE + 2 * GAP + 1.6, ev, (k) => { if (orb && orb.rel < 0) orb.k = Math.min(1, k.t / CHARGE); });
   }
-  a4Atk_orbstar(S) { this.a4OrbSolo(S, 3, 1.0, 3.2, 2.6, undefined, false, 1); }      // 黒星：＋形のビーム ×1（溜めて放つのは1回だけ。元は×3）
+  a4Atk_orbstar(S) { this.a4OrbSolo(S, 3, 1.0, 3.2, 2.6, undefined, false, 3); }      // 黒星：＋形のビーム ×3（溜めて放つのを3回くり返す）
   a4Atk_orbstar4(S) { this.a4OrbSolo(S, 3, 1.0, 2.2, 2.4, undefined, false, 4); } // 四連黒星：黒星（＋形のビームが回る）を、溜めて放つのを4回くり返す（第3形態の開幕用）。period 2.2＝十字ビームの予告0.8＋照射1.4（a4Cross の warn+on）。前のビームが終わると同時に、次のビームの予告が始まる。ビームの長さを変えたら period も合わせる
 
   // ===================== 分離攻撃 =====================
