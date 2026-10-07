@@ -382,6 +382,7 @@
       <div id="fbWarning">協力プレイが使えません（FirebaseのAPIキー未設定、または通信環境の制限でFirebaseの読み込みがブロックされている可能性があります）。「ダンジョン」だけ利用できます。</div>
       <button id="createRoomBtn">ルームを作成</button>
       <button id="createPvpRoomBtn" style="background:#e0533d;">PvPのルームを作成</button>
+      <button id="pvpTestBtn" style="background:#8a5cf5;">PvPを一人でテスト（通信なし）</button>
       <label style="display:flex; align-items:center; justify-content:center; gap:6px; margin:0 0 6px; cursor:pointer;"><input type="checkbox" id="pvpFixedWeaponChk" checked> 武器固定（全員が同じ武器）</label>
       <button id="createFrontlineRoomBtn" style="background:#4fd67a;">最北戦線のルームを作成</button>
       <div class="joinRow">
@@ -1820,13 +1821,13 @@ function pickSummonType() {
 // 【確認用・一時】調伏の儀の戦闘中、敵ごとに「誰を狙っているか」を線と文字で表示する。原因が分かったらfalseにするか、この行と下の目印の処理を消す。
 const S2_DEBUG_AIM = false;
 // 【テスト用】true の間は、調伏の儀を飛ばして降魔術の全ての技を最初から使える。試し終わったら false に戻す（セーブには書き込まない）。
-const S2_TEST_UNLOCK_ALL = false;
+const S2_TEST_UNLOCK_ALL = true;
 // 四つ腕の形態変化：HPの割合がこの値以下になると次の形態へ（第2形態＝70%以下 / 第3形態＝30%以下）。いちど上がった形態は戻らない
 const ARMS4_FORMS = { hp: [0.7, 0.3], skin: 0xc8a692, white: 0xffffff };
 const A4_TEST_FORM_KEYS = false;     // テスト用：true の間、四つ腕の戦闘中に Z＝次の形態へ（演出つき）／X＝第1形態に戻す。完成したら false
 const A4_TEST_FORM = 0;            // テスト用：1〜3を入れると、四つ腕は最初からその形態以上になる（0で無効）
 const ARM_TURN_MAX = 11;          // 腕が向きを変える最高速度(rad/秒)。小さいほどゆっくり動く（大きな向きの変化でも飛ばない）。四つ腕の腕全般に効く
-const SKULL_WISPS = 20;            // ドクロの鬼火の数＝1回の挑戦で生き返れる回数（元は3）
+const SKULL_WISPS = 3;            // ドクロの鬼火の数＝1回の挑戦で生き返れる回数（元は3）
 const A4_TEST_ONLY = null;      // テスト用：技名（'dense'）か技名の配列（['dense','rake']）を入れると、四つ腕はその技だけを繰り返す（追加した技も元の技も指定できる）。''（空）か null で無効
 const A4_OPENING = ['spear4', 'dense', 'fanarms', 'smash']; // 戦闘の最初に、この順で技を出す（四本黒槍 → 腕の壁 → 腕の濁流 → 殴り飛ばし）。第1形態で出ない技（腕の壁など）でも、このリストに入っていれば最初のこの時だけ出る。そのあとは今まで通りランダム。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
 const A4_EXTRA = { on: true, maxActive: 1 }; // 第3形態で増える4本の腕（slot 4〜7）が、本体とは別に技を出す。on：false で無効／技の間隔と最初の技までの時間は本体の四本の腕と同じ（ARMS4_ATK の cdMin・cdMax・firstCd）／maxActive：同時に技を出す追加腕の最大数
@@ -1838,7 +1839,7 @@ const A4_TEST_ORDER = [['wall','壁から腕'],['shot','波動弾'],['ring','全
 const A4_FORM1_NUMS = [1, 2, 5, 9, 11, 13, 17, 18, 20, 22, 27, 29, 30, 31, 32, 28, 39, 42, 44, 49, 55, 23]; // 第1形態で出る技の番号（A4_TEST_ORDER の番号）。第2形態以降は全ての技から出る
 const A4_FORM1_KEYS = new Set(A4_FORM1_NUMS.map(n => A4_TEST_ORDER[n - 1][0]));
 const A4_TEST_NEW_ONLY = false;   // テスト用：true の間、四つ腕の攻撃は「追加した腕技（a4Pool の20種）」だけが出る。元に戻す時は false
-const A4_TEST_SKIP_INTRO = true; // テスト用：true の間、調伏の儀の導入演出（廊下・逃走・投げ飛ばし）を飛ばして、ボス部屋で戦闘から始まる。元に戻す時は false
+const A4_TEST_SKIP_INTRO = false; // テスト用：true の間、調伏の儀の導入演出（廊下・逃走・投げ飛ばし）を飛ばして、ボス部屋で戦闘から始まる。元に戻す時は false
 // 四つ腕の調伏の儀：演出のあと「逃げる → 追いつかれて掴まれる → 投げ飛ばされて下の部屋へ着地」の調整値。
 const ARMS4_FLEE = {
   approach: 60,    // 演出の最後に、四つ腕が前へ詰める距離(px)。小さいほど、逃げ始めの間が空く（＝追いつかれるまで長く走れる）
@@ -1888,7 +1889,7 @@ const SUMMON2 = {
          fuse: 3.0, warnTime: 1.0, blastStride: 4, blastGap: 0.06, blastRadius: 70 }, // 爆発の威力・半径はデトネーターの爆薬（bombDamage／bombBlastRadius）と同じ（blastMult＝その威力への倍率、blastRadius＝デトネーターが見つからない時の予備）。 count・gap＝体の数と間隔（本物のウロボロスと同じ 28個・17px ＝ 全長およそ476px）/ aimWait＝向きを決めるのを待つ秒数 / side＝体から魔法陣までの横の距離 / fuse＝着地してから爆発までの秒数 / blastStride＝爆発は胴体3つに1つの位置だけ（重いので）
     0: { key: 'quartet', trial: [{ key: 'quartet', n: 1 }], name: 'カルテット', count: 4, life: 8, dmgMult: 0.5, cooldown: 20, minLevel: 4, // 上：背後に射手4体が並び、スティックを向けた方向へ一斉掃射（召喚術Lv4以降）
          arcRadius: 46, arcSpacing: 0.5, fireInterval: 0.55, projSpeed: 480, projLife: 1.2, projRadius: 5, stagger: 0.14, spread: 0.03 },
-    7: { key: 'ghost', trial: [{ key: 'ghost', n: 3 }], name: 'ゴースト', life: 15, hpMult: 3, dmgMult: 0.5, cooldown: 15, minLevel: 3 }, // 左上：ゴーストを出し、消えるまで狙う敵を指示できる（召喚術Lv3以降）
+    7: { key: 'ghost', trial: [{ key: 'ghost', n: 3 }], name: 'ゴースト', life: 15, hpMult: 12, dmgMult: 0.5, cooldown: 15, minLevel: 3 }, // 左上：ゴーストを出し、消えるまで狙う敵を指示できる（召喚術Lv3以降）
     6: { key: 'brutes', trial: [{ key: 'brute', n: 3 }], name: 'ブルート', count: 3, life: 10, hpMult: 1, dmgMult: 0.5, cooldown: 15, minLevel: 2, // 左：守りの技（召喚術Lv2以降）
          orbitRadius: 52, orbitSpeed: 2.6, knockback: 500, hitInterval: 0.35 },
     5: { key: 'bats', name: 'コウモリ', count: 3, interval: 0.3, life: 5, hpMult: 3, dmgMult: 2, cooldown: 11 }, // slot 5＝左下（一番早く使える技）
@@ -2004,7 +2005,7 @@ const DEFAULT_SAVE = {
   bossRushBestBosses: 0, // ボスラッシュ（ソロ）で1回の挑戦中に倒したボス数の最高記録
   accUnlocked: {},       // 入手済みの装飾品 { key: true }
   accEquipped: '',       // 付けている装飾品のkey（''なら何も付けない）
-  arms4RitualPlayed: false, // 四つ腕の調伏の儀を一度でも始めたか（どのモードでも可）。trueで、ロビーの「四つ腕の調伏の儀」ボタンが解放される
+  arms4RitualPlayed: false, // 四つ腕の調伏の儀を一度でも始めたか（デベロッパーモードを除く）。trueで、ロビーの「四つ腕の調伏の儀」ボタンが解放される
 };
 function loadSave() {
   try {
@@ -4167,13 +4168,50 @@ class GameScene extends Phaser.Scene {
   }
 
   // 役職のバナー：人狼は赤文字、村人は緑文字
+  // 役職ごとの、バナーの文章（1行目＝役職名／2行目以降＝説明）・色・表示時間
+  wwRoleBannerData(r) {
+    if (r === 'wolf') return { text: 'あなたは【人狼】です\n（人を殺した後、' + PVP.werewolf.bloodyTime + '秒間返り血が残ります）', color: '#ff4d4d', ms: 4500 };
+    if (r === 'villager') { const pv = this.pv, need = (pv && pv.wwQ) ? pv.wwQ.need : Math.max(1, ((pv && pv.ids) ? pv.ids.length : 2) - 1); return { text: 'あなたは【村人】です\n（ほかの村人と協力してノルマを' + need + '日達成しよう）', color: '#5be08a', ms: 4500 }; }
+    if (r === 'seer') return { text: 'あなたは【占い師】です\n（夜、誰かの家でその人と5秒いっしょにいると、役職が分かる）', color: '#c9a6ff', ms: 4500 };
+    if (r === 'watchman') return { text: 'あなたは【見張り番】です\n（油の量と視界が2倍）', color: '#ffd21f', ms: 4500 };
+    if (r === 'detective') return { text: 'あなたは【探偵】です\n（死体のそばに5秒いると、死んだ時刻と犯人の足どりが分かる。昼もできる）', color: '#5bc8ff', ms: 4500 };
+    return null;
+  }
+
+  // 最初に夜になるまで（＝最初の昼の間）か。役職と説明を出し続ける期間
+  wwRoleInfoActive(info) {
+    const pv = this.pv; info = info || this.wwPhaseInfo();
+    return !!(pv && pv.mode === 'werewolf' && pv.myRole && info && info.phase === 'day' && info.n === 0 && !this.isGhost && !pv.dead);
+  }
+
+  // 最初に夜になるまで、役職とその説明を画面に出し続ける（毎フレーム wwUpdateClockUi から呼ぶ。夜になる・ラウンドが終わると消える）
+  wwRoleInfoUi(info) {
+    const on = this.wwRoleInfoActive(info), d = on ? this.wwRoleBannerData(this.pv.myRole) : null;
+    let el = document.getElementById('wwRoleInfo');
+    if (!el) {
+      if (!d) return;
+      el = document.createElement('div');
+      el.id = 'wwRoleInfo';
+      el.style.cssText = 'position:fixed; top:22vh; left:50%; transform:translateX(-50%); z-index:20; text-align:center; max-width:92vw; font-weight:bold; font-family:sans-serif; white-space:pre-line; pointer-events:none; display:none;'
+        + 'text-shadow:0 0 1.2vh rgba(0,0,0,0.85), 0 0.3vh 0.3vh rgba(0,0,0,0.9);';
+      document.body.appendChild(el);
+    }
+    if (!d) { el.style.display = 'none'; el._k = null; return; }
+    el.style.display = 'block';
+    if (el._k === d.text) return;
+    el._k = d.text;
+    const lines = d.text.split('\n');
+    el.textContent = '';
+    const head = document.createElement('div'); head.textContent = lines[0]; head.style.cssText = 'font-size:4.6vh; color:' + d.color + ';';
+    el.appendChild(head);
+    if (lines.length > 1) { const sub = document.createElement('div'); sub.textContent = lines.slice(1).join('\n'); sub.style.cssText = 'font-size:2.8vh; color:#ffffff; margin-top:0.6vh;'; el.appendChild(sub); }
+  }
+
+  // 役職のバナー：人狼は赤文字、村人は緑文字。最初の昼の間は、バナーではなく夜になるまで出し続ける表示（wwRoleInfoUi）にする
   wwShowRoleBanner() {
-    const r = this.pv && this.pv.myRole;
-    if (r === 'wolf') this.showBanner('あなたは【人狼】です', 4000, '#ff4d4d');
-    else if (r === 'villager') this.showBanner('あなたは【村人】です', 4000, '#5be08a');
-    else if (r === 'seer') this.showBanner('あなたは【占い師】です\n（夜、誰かの家でその人と5秒いっしょにいると、役職が分かる）', 4500, '#c9a6ff');
-    else if (r === 'watchman') this.showBanner('あなたは【見張り番】です\n（油の量と視界が2倍）', 4500, '#ffd21f');
-    else if (r === 'detective') this.showBanner('あなたは【探偵】です\n（死体のそばに5秒いると、死んだ時刻と犯人の足どりが分かる。昼もできる）', 4500, '#5bc8ff');
+    const d = this.wwRoleBannerData(this.pv && this.pv.myRole); if (!d) return;
+    if (this.wwRoleInfoActive()) { this.wwRoleInfoUi(); return; }
+    this.showBanner(d.text, d.ms, d.color);
   }
 
   // 人狼ゲーム中、人狼以外と、夜以外の人狼は攻撃できない（スティックは体の向きを変えるだけ。向きの更新は攻撃とは別なので、そのまま動く）
@@ -4797,6 +4835,7 @@ class GameScene extends Phaser.Scene {
   // 人狼ゲーム中、画面上部に「☀️ 昼 残り○秒」／「🌙 夜 残り○秒」を出す。昼夜が切り替わった時はバナーで知らせる。
   wwUpdateClockUi() {
     const info = this.wwPhaseInfo(), night = !!(info && info.night);
+    this.wwRoleInfoUi(info); // 最初に夜になるまで、役職とその説明を出し続ける
     let el = document.getElementById('wwClock');
     if (!el) {
       el = document.createElement('div');
@@ -5004,7 +5043,7 @@ class GameScene extends Phaser.Scene {
   }
 
   // ===== 人狼ゲーム：村人側のノルマ =====
-  // 夜のはじめに、ホストが「生きている人数」個のノルマ品(◆)を出す（'quota'）。場所は、誰もいない家の中・どこかの家の道中・広場のどこか。
+  // 夜のはじめに、ホストが「生きている人数」個のノルマ品(◆)を出す（'quota'）。場所は、道か広場のどこか（家の中には出ない）。
   // 村人陣営（見張り番も）だけが、触れて拾える（'quotaGet'）。人狼は拾えない。
   // 翌朝、ホストが集計して（'quotaRes'）、拾った数が「夜が始まった時点の生きている人数」（＝出たノルマ品の数）以上ならノルマ達成。達成の日が (人数-1) 日になれば村人の勝ち。
   // 達成必要日数＋3日が過ぎても終わらなければ人狼の勝ち。上の点は、灰色＝これからの日／達成するたびに左から緑色。
@@ -5015,9 +5054,14 @@ class GameScene extends Phaser.Scene {
     this.wwQuotaUi();
   }
 
+  // ノルマ品1個を消す（光の輪のtweenも止めてから破棄する）
+  wwQuotaItemDestroy(it) {
+    for (const o of [it.gfx, it.label, ...(it.fx || [])]) { try { this.tweens.killTweensOf(o); o.destroy(); } catch (err) { /* 破棄済み */ } }
+  }
+
   wwQuotaClearItems() {
     const q = this.pv && this.pv.wwQ; if (!q) return;
-    for (const it of q.items) { try { it.gfx.destroy(); it.label.destroy(); } catch (err) { /* 破棄済み */ } }
+    for (const it of q.items) this.wwQuotaItemDestroy(it);
     q.items = []; q.itemsN = -1;
   }
 
@@ -5025,11 +5069,12 @@ class GameScene extends Phaser.Scene {
     this.wwQuotaClearItems();
     if (this.pv) this.pv.wwQ = null;
     const el = document.getElementById('wwQuota'); if (el) { el.style.display = 'none'; el._k = null; }
+    const ec = document.getElementById('wwQuotaCount'); if (ec) ec.style.display = 'none';
     clearTimeout(this._wwQuotaBannerT);
     this.wwQuotaBar(null);
   }
 
-  // ノルマ品を置ける場所の一覧（マップごとに1回だけ作る）：広場／道／家の中（家の番号ごと）
+  // ノルマ品を置ける場所の一覧（マップごとに1回だけ作る）：広場／道／家の中（家の中は、誰も住んでいない家だけ wwQuotaSpawn が選ぶ）
   wwQuotaCands() {
     const ww = this.dungeon && this.dungeon.werewolf; if (!ww) return null;
     if (ww._qc) return ww._qc;
@@ -5049,17 +5094,18 @@ class GameScene extends Phaser.Scene {
     if (!q || !qc) return;
     this.wwQuotaClearItems();
     q.itemsN = n;
-    const total = pv.ids.length, used = new Set(pv.ids.map((id, i) => this.wwHouseFor(i, total).k));
-    const empties = Object.keys(qc.house).map(Number).filter(h => !used.has(h) && qc.house[h].length); // 誰も住んでいない家
+    // 候補：道・広場・誰も住んでいない家の中（住んでいる家の中には出さない）。住人は参加者の人数で決まるので、出すたびに数える
+    const wwd = this.dungeon.werewolf, occ = new Set(pv.ids.map((id, i) => this.wwHouseFor(i, pv.ids.length).k)), emptyTiles = [];
+    for (const h of wwd.houses) if (!occ.has(h.k)) for (const t of (qc.house[h.k] || [])) emptyTiles.push(t);
     const cats = [];
-    if (empties.length) cats.push('house');
     if (qc.road.length) cats.push('road');
     if (qc.plaza.length) cats.push('plaza');
+    if (emptyTiles.length) cats.push('empty');
     if (!cats.length) return;
     const rand = mulberry32((this.baseSeed || 1) + (pv.round || 0) * 7717 + n * 131 + 17), picks = [];
     for (let tries = 0; picks.length < cnt && tries < cnt * 80; tries++) {
       const cat = cats[Math.floor(rand() * cats.length)];
-      const list = cat === 'house' ? qc.house[empties[Math.floor(rand() * empties.length)]] : qc[cat];
+      const list = cat === 'empty' ? emptyTiles : qc[cat];
       const t = list[Math.floor(rand() * list.length)];
       if (picks.some(pk => Math.hypot(pk[0] - t[0], pk[1] - t[1]) < 3)) continue; // 近すぎる所には置かない
       picks.push(t);
@@ -5067,15 +5113,21 @@ class GameScene extends Phaser.Scene {
     q.spawnCnt = picks.length;
     q.items = picks.map(t => {
       const px = (t[0] + 0.5) * TILE, py = (t[1] + 0.5) * TILE;
-      const gfx = this.add.circle(px, py, 11, 0x7ad7ff, 0.95).setDepth(3).setStrokeStyle(2, 0xffffff, 0.8);
-      const label = this.add.text(px, py, '◆', { fontSize: '14px', color: '#ffffff', fontStyle: 'bold', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(3);
-      return { gfx, label, x: px, y: py, taken: false, pend: 0 };
+      // 夜の闇（depth 12）より手前に出す＝暗くて見えない所にあっても、光って遠くからでも分かる（人狼にも見える）
+      const gfx = this.add.circle(px, py, 11, 0x7ad7ff, 0.95).setDepth(13).setStrokeStyle(2, 0xffffff, 0.8);
+      const label = this.add.text(px, py, '◆', { fontSize: '14px', color: '#ffffff', fontStyle: 'bold', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(13);
+      const halo = this.add.circle(px, py, 34, 0x7ad7ff, 0.28).setDepth(13).setBlendMode(Phaser.BlendModes.ADD); // ぼんやり脈打つ光
+      const ring = this.add.circle(px, py, 14, 0x7ad7ff, 0).setStrokeStyle(3, 0xbff0ff, 0.95).setDepth(13).setBlendMode(Phaser.BlendModes.ADD); // 外へ広がって消える輪
+      this.tweens.add({ targets: halo, alpha: 0.1, scale: 1.35, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      this.tweens.add({ targets: ring, scale: 6, alpha: 0, duration: 1500, repeat: -1, ease: 'Cubic.easeOut' });
+      return { gfx, label, fx: [halo, ring], x: px, y: py, taken: false, pend: 0 };
     });
   }
 
   wwQuotaUpdate(dt) {
     const pv = this.pv, q = pv && pv.wwQ;
     this.wwQuotaUi();
+    this.wwQuotaCountUi(); // 夜の間じゅう「ノルマ：拾った数／ノルマ数」を出す
     if (!q || pv.phase !== 'battle' || pv.mode !== 'werewolf') { this.wwQuotaBar(null); return; }
     const info = this.wwPhaseInfo(); if (!info) { this.wwQuotaBar(null); return; }
     const my = this.net.uid, present = this.latestPlayers || {};
@@ -5143,7 +5195,7 @@ class GameScene extends Phaser.Scene {
     const it = q.items[m.i];
     if (!it || it.taken) return;
     it.taken = true;
-    try { it.gfx.destroy(); it.label.destroy(); } catch (err) { /* 破棄済み */ }
+    this.wwQuotaItemDestroy(it);
     q.got[m.n] = (q.got[m.n] || 0) + 1;
     if (m.from === this.net.uid) this.showBanner('◆ ノルマ品を回収！', 900, '#7ad7ff');
   }
@@ -5181,6 +5233,27 @@ class GameScene extends Phaser.Scene {
     let h = '';
     for (let i = 0; i < q.need; i++) h += '<span style="width:2.4vh; height:2.4vh; border-radius:50%; border:0.25vh solid rgba(0,0,0,0.65); box-shadow:0 0 0.8vh rgba(0,0,0,0.7); background:' + (i < q.done ? '#3ddc6a' : '#8a8f98') + ';"></span>';
     el.innerHTML = h;
+  }
+
+  // 夜の間じゅう、進捗の点の下に「ノルマ：（今夜拾った数）／（ノルマ数）」を出す（村人陣営だけ。人狼には出さない）。拾った数は全員の画面で同じ（'quotaGet' が全員に届く）
+  wwQuotaCountUi() {
+    const pv = this.pv, q = pv && pv.wwQ, info = (q && pv.phase === 'battle' && pv.mode === 'werewolf') ? this.wwPhaseInfo() : null;
+    const on = !!(info && info.night && pv.myRole && this.wwTeam(pv.myRole) === 'villager');
+    let el = document.getElementById('wwQuotaCount');
+    if (!el) {
+      if (!on) return;
+      el = document.createElement('div');
+      el.id = 'wwQuotaCount';
+      el.style.cssText = 'position:fixed; top:11.5vh; left:50%; transform:translateX(-50%); z-index:21; display:none; color:#d6f3ff; font-weight:bold; font-size:3vh; font-family:sans-serif; white-space:nowrap; pointer-events:none; text-shadow:0 0 1vh rgba(0,0,0,0.9), 0 0.2vh 0.2vh rgba(0,0,0,0.95);';
+      document.body.appendChild(el);
+    }
+    el.style.display = on ? 'block' : 'none';
+    if (!on) return;
+    const present = this.latestPlayers || {}, my = this.net.uid, spawned = q.itemsN === info.n;
+    const need = (spawned && q.spawnCnt) ? q.spawnCnt : pv.ids.filter(id => pv.alive.has(id) && (present[id] || id === my)).length; // ノルマ品がまだ出ていない間は、バナーと同じ式で数える
+    const got = spawned ? (q.got[info.n] || 0) : 0;
+    const txt = 'ノルマ：' + got + '／' + need;
+    if (el.textContent !== txt) el.textContent = txt;
   }
 
   // 陣営 side の全員（死んだ人も）を勝者として終了を通知（ホストだけ。ノルマの決着用）
@@ -10270,21 +10343,25 @@ class GameScene extends Phaser.Scene {
           g.beginPath(); g.moveTo(cx + ux * k0, cy + uy * k0); g.lineTo(cx + ux * k1, cy + uy * k1); g.strokePath();
         }
       }
-      if (sk && !trialLock && sk.key === 'brutes') { // ブルート：中心を回る3つの点で「周回」を表す
-        const spin = (this.time.now / 1000) * sk.orbitSpeed; // sk＝ブルート本人の設定（スロット番号を直接書かない）
+      if (sk && !trialLock && sk.key === 'brutes') { // ブルート：中心のまわりに並ぶ3つの点（回転はしない。上に1つ）
+        const spin = -Math.PI / 2;
         g.fillStyle(locked ? 0x777777 : 0xffa552, usable ? 1 : 0.55);
         for (let k = 0; k < 3; k++) {
           const aa = spin + k * Math.PI * 2 / 3;
           g.fillCircle(cx + Math.cos(aa) * R * 0.42, cy + Math.sin(aa) * R * 0.42, Math.max(3, R * 0.15));
         }
       }
-      if (sk && !trialLock && sk.key === 'simaharbeam') { // シマハル：黒い丸（シマハル本体）2体と、そこから上へ伸びる紫のビーム
-        for (const ox of [-0.28, 0.28]) {
-          const col = locked ? 0x777777 : 0x9b6bff;
-          g.lineStyle(2, col, usable ? 0.95 : 0.5);
-          g.beginPath(); g.moveTo(cx + ox * R, cy + 0.3 * R); g.lineTo(cx + ox * R, cy - 0.62 * R); g.strokePath();
-          g.fillStyle(0x0d0d10, usable ? 1 : 0.5); g.fillCircle(cx + ox * R, cy + 0.3 * R, Math.max(4, R * 0.2));
-          g.lineStyle(2, col, usable ? 0.95 : 0.5); g.strokeCircle(cx + ox * R, cy + 0.3 * R, Math.max(4, R * 0.2));
+      if (sk && !trialLock && sk.key === 'simaharbeam') { // シマハル：シマハルが出す黒い星2つだけ（drawSimaharStar と同じ形：4方向に尖った星。中は黒、縁は紫）
+        const sz = Math.max(6, R * 0.46), edge = locked ? 0x777777 : 0x9b6bff; // 星の大きさ（魔法陣の円からはみ出さない範囲で最大）
+        for (const ox of [-0.48, 0.48]) {
+          g.fillStyle(0x000000, usable ? 1 : 0.5); g.lineStyle(Math.max(1.5, sz * 0.14), edge, usable ? 0.95 : 0.5);
+          g.beginPath();
+          for (let k = 0; k < 8; k++) {
+            const aa = (Math.PI / 4) * k - Math.PI / 2, rr = (k % 2 === 0) ? sz : sz * 0.28;
+            const sx = cx + ox * R + Math.cos(aa) * rr, sy = cy + Math.sin(aa) * rr;
+            if (k === 0) g.moveTo(sx, sy); else g.lineTo(sx, sy);
+          }
+          g.closePath(); g.fillPath(); g.strokePath();
         }
       }
       if (sk && !trialLock && sk.key === 'arms4') { // 四つ腕：丸い体と、左右2本ずつの腕
@@ -11147,7 +11224,7 @@ class GameScene extends Phaser.Scene {
   // コウモリ以外の技は、最初は使えない。選ぶと自分の周りに黒い魔法陣と5秒のカウントダウンが出て、0でボスラッシュと同じ部屋へワープ。
   // 技に応じた敵を倒すと、そのゲーム中はずっと使えるようになり、ダンジョンの元の位置へ（進捗そのまま）戻る。
   s2NeedsTrial(sk) {
-    if (S2_TEST_UNLOCK_ALL && !(sk && (sk.key === 'arms4' || sk.key === 'simaharbeam'))) return false; // テスト用：「？」＝arms4 とシマハル＝simaharbeam 以外の全技を解放扱いにする（この2つは通常どおり調伏の儀が必要）
+    if (S2_TEST_UNLOCK_ALL) return false; // テスト用：「？」＝arms4 とシマハル＝simaharbeam 以外の全技を解放扱いにする（この2つは通常どおり調伏の儀が必要）
     return !!(sk && sk.trial && !(this.s2Unlocked || {})[sk.key] && !this.frontline && !this.pvp && (!this.mp || sk.key === 'arms4' || !!(this.dungeon && this.dungeon.ritual)));
   }
 
@@ -11166,7 +11243,7 @@ class GameScene extends Phaser.Scene {
   startS2Trial(sk) {
     if (!this.s2TrialLevelOk(sk)) { this.showBanner(sk.name + 'の調伏の儀には Lv' + sk.minLevel + ' が必要', 1200); return; }
     if (this.mp && !(this.dungeon && this.dungeon.ritual)) { this.showBanner('この場所では調伏の儀は行えない', 1200); return; } // 協力プレイは儀式部屋のある階だけ（四つ腕も同じ。導入演出は省いて、儀式部屋で戦闘から始まる）
-    if (sk.key === 'arms4') { const sv = loadSave(); if (!sv.arms4RitualPlayed) { sv.arms4RitualPlayed = true; writeSave(sv); } } // 四つ腕の調伏の儀をプレイした記録（ロビーのボタンの解放条件）。デベロッパーモードでも記録される
+    if (sk.key === 'arms4' && !this.isDevMode) { const sv = loadSave(); if (!sv.arms4RitualPlayed) { sv.arms4RitualPlayed = true; writeSave(sv); } } // 四つ腕の調伏の儀をプレイした記録（ロビーのボタンの解放条件）。デベロッパーモードでは記録しない（解放されない）
     if (this.mp) { this.rtRequest(sk); return; } // 協力プレイ：遠くの儀式部屋で行う（ホストが進める）
     if (this.s2Trial) { this.showBanner('調伏の儀の最中は行えない', 900); return; }
     if (this.isDowned || this.isGhost || this.transitioning) return;
@@ -14904,7 +14981,7 @@ class GameScene extends Phaser.Scene {
     else if (sk.key === 'arms4') this.summon2Arms4(sk);
   }
 
-  // 四つ腕召喚：プレイヤーの向いている向きに1体。強さと存在時間は技の設定（life / hpMult / dmgMult）で決まる。
+  // 四つ腕召喚：プレイヤーのすぐ近くのランダムな位置に1体。強さと存在時間は技の設定（life / hpMult / dmgMult）で決まる。
   // 演出（調伏の儀の登場とほぼ同じ）：画面がチカチカして四つ腕が現れ、周りのモンスターを掴んでいる → 間 → 血しぶきとともに握りつぶす。
   //   モンスターは4体まで四つ腕の手（左上・右上・左下・右下の順）が掴む。5体目以降は、近くの壁から生えた腕（四つ腕の腕と同じ大きさ）が掴む。
   //   掴まれている間のモンスターは動かず、攻撃もしない。ボスや無敵の敵を含め、全種類の敵を掴む（無敵の敵は握りつぶす瞬間に直接かき消す）。演出の間、四つ腕は動かず、ダメージも受けない。
@@ -14914,18 +14991,19 @@ class GameScene extends Phaser.Scene {
     if (!t) return;
     const { hp, dmg } = this.summon2Stats(t, sk);
     this.showBanner('？召喚！', 800);
-    const pl = this.player, fa = this.facingAngle || 0, A = t.arms;
+    const pl = this.player, A = t.arms;
     const WALL_SEARCH = 520, FLICKER = [0, 120, 200, 340, 430, 620, 700, 880], HOLD = 1100, T_CRUSH = 880 + HOLD, T_VANISH = T_CRUSH + 800; // T_VANISH：握りつぶしてから消え始めるまで
-    // 登場位置：プレイヤーの向いている向きの少し先（壁なら手前に寄せる）
+    // 登場位置：プレイヤーのすぐ近くのランダムな位置（向きは関係ない。壁にめり込む所は避けて、何回か引き直す）
     let px = pl.x, py = pl.y, found = false;
-    for (let d = 240; d >= 60 && !found; d -= 30) {
-      const x = pl.x + Math.cos(fa) * d, y = pl.y + Math.sin(fa) * d;
+    for (let tries = 0; tries < 40 && !found; tries++) {
+      const ang = Math.random() * Math.PI * 2, d = 80 + Math.random() * 70; // プレイヤーから 80〜150px（2.5〜4.7マス）
+      const x = pl.x + Math.cos(ang) * d, y = pl.y + Math.sin(ang) * d;
       if (!this.circleHitsWall(x, y, t.radius + 24)) { px = x; py = y; found = true; }
     }
     const a = this.createAllyEntity(t, px, py, { spawnDelay: 99, life: sk.life, maxLife: sk.life }); // spawnDelay：演出の間は動かず、ダメージも受けない（握りつぶしたあと、チカチカして消える）
     if (!found) this.placeAllyNear(a, pl.x, pl.y);
     this.tweens.killTweensOf(a.gfx); a.gfx.setScale(1);
-    a.maxHp = a.hp = hp; a.damage = dmg; a.growthDmg = 1; a.noPenalty = true;
+    a.maxHp = a.hp = 15000; a.damage = dmg; a.growthDmg = 1; a.noPenalty = true; // 天使のHPはレベルに関係なく15000で固定（hp変数＝レベル倍率つきの値は使わない）
     this.syncAllyGfx(a);
     // 掴むモンスター：画面内にいる敵を全員（ボス・無敵の敵も含む全種類）。四つ腕に近い順に、4体は四つ腕の手、それ以外は壁（近くに壁がなければ上）から生えた腕が掴む
     const view = this.cameras.main.worldView;
@@ -19578,7 +19656,7 @@ function setLobbyStatus(msg) { document.getElementById('lobbyStatus').textConten
 
 // ルーム作成・参加の通信中は他のロビー操作を一切できないようにする。
 // （連打での二重作成や、入力途中でのボタン誤操作を防ぐため）
-const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput'];
+const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput'];
 // ロビーの上に出る短いバナー（ゲーム画面のバナーとは別）
 function showLobbyBanner(text, ms) {
   let el = document.getElementById('lobbyBanner');
@@ -19756,6 +19834,13 @@ document.getElementById('createPvpRoomBtn').addEventListener('click', () => {
       setLobbyStatus('失敗: ' + e.message);
       setLobbyBusy(false);
     }
+  }, null, PVP_ROOM_WEAPONS);
+});
+
+// PvPを一人でテスト：Firebase/WebRTCを使わない偽Net(OfflineNet)で、自分1人だけのPvPを始める（人狼ゲームも一人で試せる。画面下の「役職変更」ボタンもこの時だけ出る）
+document.getElementById('pvpTestBtn').addEventListener('click', () => {
+  askWeapon('PvPテストで使う武器（Lv.5）', w => {
+    startGame('mp', { net: new OfflineNet(), roomId: 'TEST', baseSeed: (Math.random() * 1e9) | 0, floor: 1, pvp: true, weaponKey: w.key, fixedWeapon: w.key });
   }, null, PVP_ROOM_WEAPONS);
 });
 
