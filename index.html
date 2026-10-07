@@ -911,8 +911,8 @@ const PVP = {
   // 人狼ゲームのマップ（バトルフィールドの右隣に作る）。中心に円形の広場、そこから放射状に道が伸びて、道の先に家（円形・入口が1つ）がある。それ以外は岩（壁）。
   werewolf: { wolves: 1, watchmen: 1, seers: 1, seerTime: 5, quotaHold: 10, watchOilMul: 2, watchViewMul: 2, wolfSwordLv: 5, houses: 10, plazaR: 9, houseDist: 30, houseIn: 4.5, houseOut: 6.5, roadW: 3, size: 80, gap: 4, rays: 600, viewR: 20, time: 900, dayTime: 30, dayTime2: 90, voteTime: 30, resultTime: 6, nightTime: 90, nightViewR: 6, nightHole: 0.94, oilMax: 100, oilBurn: 2, oilRegen: 4, oilLow: 0.3, oilMinR: 1.2, oilStartMin: 0.3, oilStartMax: 0.7 },
   // quotaHold＝ノルマ品の上に乗り続けて拾うまでの秒数／役職：seers＝占い師（村人陣営）の人数（見張り番を除いた村人が3人以上いる時だけ入る）／seerTime＝占い師が誰かの家でその人と一緒にいて役職が分かるまでの秒数／watchmen＝見張り番（村人陣営）の人数（村人が2人以上いる時だけ入る）／watchOilMul＝見張り番の油の最大量の倍率／watchViewMul＝見張り番の夜の光の半径の倍率
-  // 流れ：最初の昼(dayTime)→夜(nightTime)→［昼(dayTime2)→投票(voteTime。全員が投票済みなら途中で終わる)→結果発表(resultTime。投票結果を見せる間。人狼は殺せない)→夜］をくり返す。昼と投票の間は人狼は殺せない／time：ゲーム全体の長さ(秒)／
-  // dayTime：最初の昼の長さ／dayTime2：2回目以降の昼の長さ／voteTime：投票の最大の長さ／nightTime：夜の長さ／nightViewR：夜のランタンの光の半径（タイル数。自分の周りだけ）／
+  // 流れ：最初の昼(dayTime)→夜(nightTime)→［昼(dayTime2＋voteTime。昼の間じゅう投票できる。全員が投票済みなら途中で終わる)→結果発表(resultTime。投票結果を見せる間。人狼は殺せない)→夜］をくり返す。昼と結果発表の間は人狼は殺せない／time：ゲーム全体の長さ(秒)／
+  // dayTime：最初の昼の長さ／dayTime2：2回目以降の昼の長さ／voteTime：昼に足す時間（昼の長さ＝dayTime2＋voteTime）／nightTime：夜の長さ／nightViewR：夜のランタンの光の半径（タイル数。自分の周りだけ）／
   // nightHole：闇に空ける丸い穴の大きさ（光の半径に対する割合）。光のゆらぎで光の縁が縮んでも、穴の縁より内側に来ない（隙間ができない）ように、1より小さくしておく
   // ランタンの油：oilMax＝最大量／oilBurn＝夜に外にいる間の1秒あたりの消費／oilRegen＝夜に自分の家の中にいる間の1秒あたりの回復（自分の家でのみ回復）／
   // oilLow＝残量がこの割合を切ると光が縮んでゆらぐ／oilMinR＝油が切れた時の光の半径（タイル数。足元の1マスぐらい）。油は毎晩の始まりに100%から始まる（oilStartMin・oilStartMax は今は使っていない）
@@ -1831,7 +1831,7 @@ const A4_TEST_FORM_KEYS = false;     // テスト用：true の間、四つ腕�
 const A4_TEST_FORM = 0;            // テスト用：1〜3を入れると、四つ腕は最初からその形態以上になる（0で無効）
 const ARM_TURN_MAX = 11;          // 腕が向きを変える最高速度(rad/秒)。小さいほどゆっくり動く（大きな向きの変化でも飛ばない）。四つ腕の腕全般に効く
 const SKULL_WISPS = 20;            // ドクロの鬼火の数＝1回の挑戦で生き返れる回数（元は3）
-const A4_TEST_ONLY = null;      // テスト用：技名（'dense'）か技名の配列（['dense','rake']）を入れると、四つ腕はその技だけを繰り返す（追加した技も元の技も指定できる）。''（空）か null で無効
+const A4_TEST_ONLY = 'smash';      // テスト用：技名（'dense'）か技名の配列（['dense','rake']）を入れると、四つ腕はその技だけを繰り返す（追加した技も元の技も指定できる）。''（空）か null で無効
 const A4_OPENING = ['spear4', 'dense', 'fanarms', 'shot']; // 戦闘の最初に、この順で技を出す（四本黒槍 → 腕の壁 → 腕の濁流 → 波動弾）。第1形態で出ない技（腕の壁など）でも、このリストに入っていれば最初のこの時だけ出る。そのあとは今まで通りランダム。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
 const A4_EXTRA = { on: true, maxActive: 1 }; // 第3形態で増える4本の腕（slot 4〜7）が、本体とは別に技を出す。on：false で無効／技の間隔と最初の技までの時間は本体の四本の腕と同じ（ARMS4_ATK の cdMin・cdMax・firstCd）／maxActive：同時に技を出す追加腕の最大数
 const A4_FORM2_OPENING = ['smash', 'tomahawk4', 'spiral']; // 第2形態になった直後に、この順で技を出す（殴り飛ばし → 四連黒斧 → 螺旋弾）。そのあとは今まで通り。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
@@ -3933,7 +3933,7 @@ class GameScene extends Phaser.Scene {
   // 票は pv.votes[n][投票した人] = 投票先のuid｜'skip'（n：何回目の投票か）。投票が終わると、ホストが処刑する人を決めて 'exec' で知らせる（wwSendExec）。
   wwApplyVote(m) {
     const pv = this.pv, info = this.wwPhaseInfo();
-    if (!pv || !info || info.phase !== 'vote' || info.n !== m.n || !pv.alive.has(m.from)) return;
+    if (!pv || !info || !info.voting || info.n !== m.n || !pv.alive.has(m.from)) return;
     if (m.to != null && m.to !== 'skip' && !(pv.ids.indexOf(m.to) >= 0 && pv.alive.has(m.to))) return; // 自分自身にも投票できる
     const vs = pv.votes[m.n] || (pv.votes[m.n] = {});
     if (m.to == null) delete vs[m.from]; else vs[m.from] = m.to;
@@ -3943,7 +3943,7 @@ class GameScene extends Phaser.Scene {
   // ホストだけ：全員が投票済みなら、残り時間ぶん全員の時間を先へ進める
   wwCheckVoteEnd() {
     const pv = this.pv, info = this.wwPhaseInfo();
-    if (!this.isHost || !pv || !info || info.phase !== 'vote' || pv.wwSent[info.n]) return;
+    if (!this.isHost || !pv || !info || !info.voting || pv.wwSent[info.n]) return;
     const present = this.latestPlayers || {}, my = this.net.uid;
     const voters = pv.ids.filter(id => pv.alive.has(id) && (present[id] || id === my));
     const vs = pv.votes[info.n] || {};
@@ -3954,9 +3954,9 @@ class GameScene extends Phaser.Scene {
 
   wwApplyVoteEnd(m) {
     const pv = this.pv, info = this.wwPhaseInfo();
-    if (!pv || !info || info.phase !== 'vote' || info.n !== m.n || pv.wwApplied[m.n]) return; // もう投票の時間ではない／もう反映した
+    if (!pv || !info || !info.voting || info.n !== m.n || pv.wwApplied[m.n]) return; // もう投票の時間ではない／もう反映した
     pv.wwApplied[m.n] = true;
-    pv.wwShift = (pv.wwShift || 0) + Math.max(0, Math.min(PVP.werewolf.voteTime, +m.add || 0));
+    pv.wwShift = (pv.wwShift || 0) + Math.max(0, Math.min(PVP.werewolf.dayTime2 + PVP.werewolf.voteTime, +m.add || 0));
   }
 
   // 票の集計：cnt＝人ごとの票数／skip＝スキップの数／best＝最多票数／tops＝最多票の人たち
@@ -4013,13 +4013,13 @@ class GameScene extends Phaser.Scene {
   // 投票の画面（左側）。投票の間と、終わったあとの数秒間（結果）だけ出す
   wwUpdateVoteUi() {
     const pv = this.pv, info = this.wwPhaseInfo(), W = PVP.werewolf, my = this.net && this.net.uid;
-    const ph = info ? info.phase : null;
-    if (this._wwPhPrev === 'vote' && ph !== 'vote' && this._wwPhN != null) { this._wwVoteRes = { n: this._wwPhN, until: performance.now() + W.resultTime * 1000 }; this.wwSendExec(this._wwPhN); }
-    this._wwPhPrev = ph; this._wwPhN = info ? info.n : null;
+    const ph = info ? info.phase : null, voting = !!(info && info.voting);
+    if (this._wwPhPrev === 'voting' && !voting && this._wwPhN != null) { this._wwVoteRes = { n: this._wwPhN, until: performance.now() + W.resultTime * 1000 }; this.wwSendExec(this._wwPhN); }
+    this._wwPhPrev = voting ? 'voting' : ph; this._wwPhN = info ? info.n : null;
     if (!info) this._wwVoteRes = null;
     let el = document.getElementById('wwVote');
     let n = null, live = false;
-    if (ph === 'vote') { n = info.n; live = true; this.wwCheckVoteEnd(); }
+    if (voting) { n = info.n; live = true; this.wwCheckVoteEnd(); }
     else if (ph === 'result') n = info.n; // 結果発表の間は、投票結果を出し続ける
     else if (this._wwVoteRes && performance.now() < this._wwVoteRes.until) n = this._wwVoteRes.n;
     if (n == null) { if (el) el.style.display = 'none'; this._wwVoteSig = null; return; }
@@ -4741,7 +4741,7 @@ class GameScene extends Phaser.Scene {
     this.net.sendPvp({ a: 'resp', uid: my });
   }
 
-  // 人狼ゲームの昼・投票・結果発表・夜。人狼ゲーム中でなければ null。phase：'day'｜'vote'｜'result'｜'night'／night：夜か／left：今のフェーズの残り秒数
+  // 人狼ゲームの昼・投票・結果発表・夜。人狼ゲーム中でなければ null。phase：'day'｜'result'｜'night'（voting：昼の間じゅう true＝投票できる。最初の昼は投票なし）／night：夜か／left：今のフェーズの残り秒数
   // 経過時間は終了時刻(endAt)から逆算する（開始メッセージを受けた時点で全員が同じ長さにそろう）。night：夜か／left：夜の残り秒数
   wwPhaseInfo() {
     const pv = this.pv, W = PVP.werewolf;
@@ -4754,10 +4754,8 @@ class GameScene extends Phaser.Scene {
     if (t < W.nightTime) return mk('night', W.nightTime, t, 0);
     t -= W.nightTime;
     const cyc = W.dayTime2 + W.voteTime + W.resultTime + W.nightTime, k = Math.floor(t / cyc); t -= k * cyc;
-    if (t < W.dayTime2) return mk('day', W.dayTime2, t, k + 1);
-    t -= W.dayTime2;
-    if (t < W.voteTime) return mk('vote', W.voteTime, t, k + 1);
-    t -= W.voteTime;
+    if (t < W.dayTime2 + W.voteTime) return Object.assign(mk('day', W.dayTime2 + W.voteTime, t, k + 1), { voting: true }); // 昼（投票の時間も含む）：昼の間じゅう投票できる
+    t -= W.dayTime2 + W.voteTime;
     if (t < W.resultTime) return mk('result', W.resultTime, t, k + 1); // 投票の結果を見せる間（少し間をおいてから夜へ）
     return mk('night', W.nightTime, t - W.resultTime, k + 1);
   }
@@ -4775,15 +4773,14 @@ class GameScene extends Phaser.Scene {
       document.body.appendChild(el);
     }
     el.style.display = info ? 'block' : 'none';
-    if (info) { el.textContent = night ? '🌙 ' + info.left + ' 🤫' : info.phase === 'result' ? '🗳️ 結果発表' : (info.phase === 'vote' ? '🗳️ 投票 残り' : '☀️ 昼 残り') + info.left + '秒'; el.style.color = night ? '#cfd8ff' : (info.phase === 'vote' || info.phase === 'result' ? '#ffc2a0' : '#ffe9a8'); }
+    if (info) { el.textContent = night ? '🌙 ' + info.left + ' 🤫' : info.phase === 'result' ? '🗳️ 結果発表' : '☀️ 昼 残り' + info.left + '秒'; el.style.color = night ? '#cfd8ff' : (info.phase === 'result' ? '#ffc2a0' : '#ffe9a8'); }
     if (info && night !== !!this._wwWasNight) {
-      if (!this.isGhost && !(night && this.wwNightWarp())) this.showBanner(night ? this.wwNightBannerText() : '☀️ 朝になった', night ? 3000 : 2200); // 夜の参加者は、暗転→家へワープのあとにバナーを出す
+      if (!this.isGhost && !(night && this.wwNightWarp())) this.showBanner(night ? this.wwNightBannerText() : '☀️ 朝になった' + (info.voting ? '\n🗳️ 昼の間、投票できます' : ''), night ? 3000 : 2400); // 夜の参加者は、暗転→家へワープのあとにバナーを出す
     }
     // 夜になる WW_FADE_IN 秒前から、昼のうちに画面をゆっくり暗くし始める（夜になってからだと、暗転中にランタンの光が見えてしまう）。参加者だけ。
     if (this._wwFadeAt != null && (!info || this.isGhost)) this.wwNightFadeCancel(); // ラウンドが終わった・ゴーストになった
     else if (info && !night && !this.isGhost && this._wwFadeAt == null && this.wwNextIsNight(info) && info.leftF <= WW_FADE_IN && this.pv.ids.indexOf(this.net.uid) >= 0) this.wwNightFadeStart();
     const ph = info ? info.phase : null;
-    if (ph === 'vote' && this._wwWasPhase !== 'vote' && !this.isGhost) this.showBanner('🗳️ 投票の時間です', 2000);
     this._wwWasPhase = ph;
     this._wwWasNight = night; // 人狼ゲーム中でなくなったら false に戻る（次のゲームの開始で誤ってバナーを出さない）
   }
@@ -13033,7 +13030,7 @@ class GameScene extends Phaser.Scene {
     const breakSlab = (sl) => {
       const cx = sl.r.x, cy = sl.r.y; sl.r.destroy(); sl.dead = true;
       for (let i = 0; i < 14; i++) {
-        const w = 10 + Math.random() * 22, pc = this.add.rectangle(cx + (Math.random() - 0.5) * 30, cy + (Math.random() - 0.5) * 260, w, w * 0.6, Math.random() < 0.5 ? 0x6e6e80 : 0x4a4a58).setDepth(9).setRotation(Math.random() * 3);
+        const w = 10 + Math.random() * 22, pc = this.add.rectangle(cx + (Math.random() - 0.5) * 30, cy + (Math.random() - 0.5) * 260, w, w * 0.6, Math.random() < 0.5 ? 0x2a2a36 : 0x191922).setDepth(9).setRotation(Math.random() * 3);
         this.tweens.add({ targets: pc, x: pc.x - 120 - Math.random() * 380, y: pc.y + (Math.random() - 0.5) * 200, rotation: pc.rotation + (Math.random() - 0.5) * 8, alpha: 0, duration: 400 + Math.random() * 400, ease: 'Cubic.easeOut', onComplete: () => pc.destroy() });
       }
       const fl = this.add.rectangle(cx, cy, 60, cam.worldView.height, 0xffffff, 0.7).setDepth(9);
@@ -13092,6 +13089,24 @@ class GameScene extends Phaser.Scene {
           this.time.delayedCall(450, () => { if (F) finish(); }); // 余韻のあと操作が戻る
         } });
     };
+    const WALL_W = TILE * 2, FLOOR_SPD = 1500; // 壁の厚さ＝2マス / 床が流れる速さ(px/秒)
+    const drawFloor = () => { // ダンジョンの床（0x33333f＋暗い線のマス目）を、スクロール量ぶんずらして描く
+      if (!F || !F.floor || !F.floor.scene) return;
+      const V = F.view, g = F.floor; g.clear();
+      g.fillStyle(0x33333f, 1).fillRect(V.x, V.y, V.w, V.h);
+      g.lineStyle(1, 0x26262e, 1);
+      for (let x = Math.floor((V.x + F.scroll) / TILE) * TILE - F.scroll; x <= V.x + V.w; x += TILE) g.lineBetween(x, V.y, x, V.y + V.h);
+      for (let y = Math.floor(V.y / TILE) * TILE; y <= V.y + V.h; y += TILE) g.lineBetween(V.x, y, V.x + V.w, y);
+    };
+    const mkWall = (x, y, h) => { // 黒いダンジョンの壁（外周の壁と同じ配色）。幅2マス・マス目つき。中心が(x,y)
+      const g = this.add.graphics().setDepth(3.6), hw = WALL_W / 2, top = -Math.ceil(h / TILE / 2) * TILE, rows = Math.ceil(h / TILE) + 1;
+      g.fillStyle(0x191922, 1).fillRect(-hw, top, WALL_W, rows * TILE);
+      g.lineStyle(1, 0x111118, 1);
+      for (let r = 0; r <= rows; r++) g.lineBetween(-hw, top + r * TILE, hw, top + r * TILE);
+      for (let c = 0; c <= 2; c++) g.lineBetween(-hw + c * TILE, top, -hw + c * TILE, top + rows * TILE);
+      g.lineStyle(3, 0x50506a, 1).lineBetween(-hw, top, -hw, top + rows * TILE).lineBetween(hw, top, hw, top + rows * TILE);
+      g.setPosition(x, y); return g;
+    };
     const startFly = (k) => { // 殴り飛ばしは必ず当たる
       back = { x: pl.x, y: pl.y };
       this.a4HurtAim(DMG, 1.0);
@@ -13101,17 +13116,18 @@ class GameScene extends Phaser.Scene {
       // 元の世界にいる他の敵は、飛行中は隠す（背景の暗幕より手前に出てしまうため）
       (this.enemies || []).forEach(e => { if (e !== a4 && e.gfx && e.gfx.scene && e.gfx.visible) { hidden.push({ e, v: e.gfx.visible, b: e.hpBar ? e.hpBar.visible : false }); e.gfx.setVisible(false); if (e.hpBar && e.hpBar.scene) e.hpBar.setVisible(false); } });
       // 暗幕・筋・壁は四つ腕（深度4）とその腕（3.7〜3.9）より奥に置く
-      const cover = this.add.rectangle(v.centerX, v.centerY, W * 1.3, H * 1.3, 0x0b1224, 1).setDepth(3.5).setAlpha(0); k.objs.push(cover);
-      this.tweens.add({ targets: cover, alpha: 1, duration: 150 });
+      const floorG = this.add.graphics().setDepth(3.5).setAlpha(0); k.objs.push(floorG); F.floor = floorG; F.scroll = 0; F.view = { x: X0, y: Y0, w: W, h: H }; // 床：ダンジョンの床と同じ色・マス目が左へ流れる
+      this.tweens.add({ targets: floorG, alpha: 1, duration: 150 });
+      drawFloor();
       for (let i = 0; i < 30; i++) { // 流れる筋
-        const len = 120 + Math.random() * 320, st = this.add.rectangle(X0 + Math.random() * W, Y0 + Math.random() * H, len, 2 + Math.random() * 3, 0xffffff, 0.2 + Math.random() * 0.4).setDepth(3.55);
+        const len = 120 + Math.random() * 320, st = this.add.rectangle(X0 + Math.random() * W, Y0 + Math.random() * H, len, 2 + Math.random() * 3, 0xffffff, 0.05 + Math.random() * 0.12).setDepth(3.55);
         k.objs.push(st); F.stripes.push({ r: st, sp: 1800 + Math.random() * 1600 });
       }
       [0.6, 0.72, 0.84].forEach(fx => { // 殴り飛ばされて最初に突き破る壁（その場に立っている）
-        const r = this.add.rectangle(X0 + W * fx, v.centerY, 26, H * 1.3, 0x6e6e80).setStrokeStyle(3, 0x1e1e26).setDepth(3.6); k.objs.push(r); F.slabs.push({ r, sp: 0 });
+        const r = mkWall(X0 + W * fx, v.centerY, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 0 });
       });
       this.tweens.add({ targets: pl, x: X0 + W * 0.93, duration: 420, ease: 'Quad.easeIn', // 右へ吹き飛ぶ
-        onUpdate: () => { if (F) F.slabs.forEach(sl => { if (!sl.dead && pl.x >= sl.r.x) breakSlab(sl); }); },
+        onUpdate: () => { if (F) F.slabs.forEach(sl => { if (!sl.dead && pl.x >= sl.r.x - WALL_W / 2) breakSlab(sl); }); },
         onComplete: () => { if (F && !F.landing) F.ctrl = true; } }); // ここから画面内を自由に動ける
     };
     const fire = () => { // 4つの手から、遅くて密集した弾を撃つ。手は左右に振れ、弾は壁で消えない
@@ -13125,7 +13141,7 @@ class GameScene extends Phaser.Scene {
     const flyTick = (k, dt) => {
       if (F.landing) return;
       const v = cam.worldView, X0 = v.x, Y0 = v.y, W = v.width, H = v.height;
-      F.t += dt;
+      F.t += dt; F.scroll += FLOOR_SPD * dt; drawFloor();
       F.stripes.forEach(st => { st.r.x -= st.sp * dt; if (st.r.x < X0 - st.r.width) { st.r.x = X0 + W + st.r.width * 0.5 + Math.random() * W * 0.3; st.r.y = Y0 + Math.random() * H; } });
       // 四つ腕が追いかけてくる：少し遅れて右へ詰める
       if (F.t > 0.35) a4.gfx.x += (F.bx - a4.gfx.x) * (1 - Math.exp(-5 * dt));
@@ -13138,14 +13154,14 @@ class GameScene extends Phaser.Scene {
         F.slabT -= dt;
         if (F.slabT <= 0 && F.t < FLY - 1.0) {
           F.slabT = 2.0;
-          const r = this.add.rectangle(X0 + W + 40, v.centerY, 26, H * 1.3, 0x6e6e80).setStrokeStyle(3, 0x1e1e26).setDepth(3.6); k.objs.push(r); F.slabs.push({ r, sp: 1500 });
+          const r = mkWall(X0 + W + WALL_W, v.centerY, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 1500 });
         }
       }
       F.slabs.forEach(sl => { // 壁は1フレームで数十px動くので、動いた区間（前の位置〜今の位置）がプレイヤーに触れたかで判定する（フレームが落ちた時のすり抜け防止）
         if (sl.dead) return;
         const x0 = sl.r.x; if (sl.sp) sl.r.x -= sl.sp * dt;
-        if (F.ctrl && sl.sp && sl.r.x < pl.x + 20 && x0 > pl.x - 20) { if (sl.r.x < pl.x) sl.r.x = pl.x; breakSlab(sl); }
-        else if (sl.r.x < X0 - 60) { sl.r.destroy(); sl.dead = true; }
+        if (F.ctrl && sl.sp && sl.r.x - WALL_W / 2 < pl.x + 20 && x0 - WALL_W / 2 > pl.x - 20) { if (sl.r.x - WALL_W / 2 < pl.x) sl.r.x = pl.x + WALL_W / 2; breakSlab(sl); }
+        else if (sl.r.x < X0 - WALL_W) { sl.r.destroy(); sl.dead = true; }
       });
       if (F.t >= FLY) land(k);
     };
