@@ -13074,40 +13074,59 @@ class GameScene extends Phaser.Scene {
           onComplete: () => { if (!alive(k)) return; away = false; bar(true); landFx(home.x, home.y); this.time.delayedCall(700, () => { if (alive(k)) k.end = k.t; }); } });
       });
     };
-    const land = (k) => { // 飛行の終わり：背景を消して世界を見せ、元の場所へ左側から突入して着地する
+    const land = (k) => { // 飛行の最後：流れる床のまま、世界を「元の部屋の左壁の手前」へ切り替え（床の模様は画面上で途切れさせない）、壁を突き破って部屋へ飛び込む
+      if (!F || F.landing) return;
       F.ctrl = false; F.landing = true; F.shooting = false;
-      k.objs.forEach(o => o && o.scene && o.destroy()); F.stripes = []; F.slabs = [];
+      F.slabs.forEach(sl => { if (sl.r && sl.r.scene) sl.r.destroy(); sl.dead = true; }); F.slabs = [];
       restoreOthers();
+      const W = F.view.w, H = F.view.h, X0o = F.camX - W / 2, Y0o = F.camY - H / 2;
       let leftX = back.x; while (leftX > back.x - 4000 && !this.isWall(leftX, back.y)) leftX -= 8; // 左へ進んで最初にぶつかる壁＝部屋の左端
-      const startX = leftX + (pl.radius || 14) + 6;
-      cam.centerOn(startX + 200, back.y);
-      const v = cam.worldView; let sN = 0;
-      a4.gfx.setPosition(v.x - 700, home.y); a4._armOv = {}; floating = false; bob = 0; // 四つ腕は画面の外へ（あとで戻ってくる）
+      const newPlX = leftX - W * 0.5; // 壁の手前（画面の半分ぶん左）から飛び込む
+      const X0n = newPlX - (pl.x - X0o), Y0n = back.y - (pl.y - Y0o), dx = X0n - X0o, dy = Y0n - Y0o; // プレイヤーの画面上の位置は変えずに、世界の座標だけ移す
+      F.stripes.forEach(st => { st.r.x += dx; st.r.y += dy; });
+      F.scroll += X0o - X0n; F.oy = (F.oy || 0) + dy; F.floorRight = leftX; // 床の模様が画面上でずれないよう補正。床は部屋の左壁の手前までだけ
+      F.camX = X0n + W / 2; F.camY = Y0n + H / 2; F.off = pl.x - X0o; cam.centerOn(F.camX, F.camY);
+      pl.setPosition(newPlX, back.y);
+      a4.gfx.setPosition(leftX - 5000, home.y); a4._armOv = {}; floating = false; bob = 0; // 四つ腕は画面の外へ（あとで戻ってくる）
       away = true; bar(false); // 戻ってくるまでHPバーも消しておく
-      pl.setPosition(startX, back.y);
-      for (let n = 0; n < 26; n++) { // 壁を破り終えた直後に見えるよう、部屋の左壁の位置から破片と土煙が右へ飛び散る
-        const w = 8 + Math.random() * 20, pc = this.add.rectangle(leftX + Math.random() * 20, back.y + (Math.random() - 0.5) * 120, w, w * 0.6, Math.random() < 0.5 ? 0x2a2a36 : 0x191922).setDepth(9).setRotation(Math.random() * 3);
-        this.tweens.add({ targets: pc, x: pc.x + 80 + Math.random() * 360, y: pc.y + (Math.random() - 0.5) * 220, rotation: pc.rotation + (Math.random() - 0.5) * 8, alpha: 0, duration: 400 + Math.random() * 500, ease: 'Cubic.easeOut', onComplete: () => pc.destroy() });
-      }
-      this.spawnBurst(leftX + 12, back.y, 0xffffff, 18); cam.flash(150, 255, 255, 255); cam.shake(300, 0.025);
-      cam.startFollow(pl, true, 0.15, 0.15); // 元の場所まで飛んでくる間、カメラが追う
-      F.landTw = this.tweens.add({ targets: pl, x: back.x, duration: Phaser.Math.Clamp((back.x - startX) * 0.8, ENTER * 1000, 1200), ease: 'Cubic.easeOut',
-        onUpdate: () => { if ((++sN) % 2 === 0) streak(pl.x, pl.y, 1); },
+      const nSl = Phaser.Math.Clamp(Math.floor((back.x - leftX - 40) / WALL_W), 1, THICK_N), wallEnd = leftX + WALL_W * nSl; // 部屋の左壁を、壊せる厚い壁に置き換える
+      for (let n = 0; n < nSl; n++) { const r = mkWall(leftX + WALL_W * (n + 0.5), back.y, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 0, big: n === 0 }); }
+      const camSync = () => { // プレイヤーの画面上の位置を、少しずつ画面の中心へ寄せながら追う
+        F.off += (W / 2 - F.off) * Math.min(1, 3 * this.game.loop.delta / 1000);
+        F.camX = pl.x - F.off + W / 2; cam.centerOn(F.camX, F.camY);
+      };
+      let sN = 0;
+      F.landTw = this.tweens.add({ targets: pl, x: wallEnd + 40, duration: 750, ease: 'Quad.easeIn', // 壁に向かって加速して突き破る
+        onUpdate: () => { if ((++sN) % 2 === 0) streak(pl.x, pl.y, 1); camSync(); if (F) F.slabs.forEach(sl => { if (!sl.dead && pl.x >= sl.r.x - WALL_W / 2) breakSlab(sl); }); },
         onComplete: () => {
           if (!F) return;
-          landFx(pl.x, pl.y);
-          bossReturn(k); // この着地から数えて BOSS_BACK 秒後に四つ腕が着地する
-          this.time.delayedCall(450, () => { if (F) finish(); }); // 余韻のあと操作が戻る
+          F.landTw = this.tweens.add({ targets: pl, x: back.x, duration: Phaser.Math.Clamp((back.x - wallEnd) * 0.8, 500, 1200), ease: 'Cubic.easeOut', // 部屋に入ったら減速して元の場所へ
+            onUpdate: () => { if ((++sN) % 2 === 0) streak(pl.x, pl.y, 1); camSync(); },
+            onComplete: () => {
+              if (!F) return;
+              landFx(pl.x, pl.y);
+              bossReturn(k); // この着地から数えて BOSS_BACK 秒後に四つ腕が着地する
+              this.time.delayedCall(450, () => { if (F) finish(); }); // 余韻のあと操作が戻る
+            } });
         } });
     };
+    const SMASH_BULLET_NODMG = true; // 【テスト用】true の間、殴り飛ばし中の弾のダメージを0にする。元に戻す時は false
     const WALL_W = TILE * 2, THICK_N = 5, FLOOR_SPD = 750; // THICK_N：最初に突き破る厚い壁の枚数（5枚×2マス＝10マス）。 // 壁の厚さ＝2マス / 床が流れる速さ(px/秒)
-    const drawFloor = () => { // ダンジョンの床（0x33333f＋暗い線のマス目）を、スクロール量ぶんずらして描く
+    const drawFloor = () => { // ダンジョンの床（0x33333f＋暗い線のマス目）を、スクロール量ぶんずらして描く。F.floorRight より右には描かない（部屋の左壁まで）
       if (!F || !F.floor || !F.floor.scene) return;
-      const V = F.view, g = F.floor; g.clear();
-      g.fillStyle(0x33333f, 1).fillRect(V.x, V.y, V.w, V.h);
+      const V = F.view, g = F.floor, X0 = F.camX - V.w / 2, Y0 = F.camY - V.h / 2, xr = Math.min(X0 + V.w, F.floorRight); g.clear();
+      if (xr <= X0) return;
+      g.fillStyle(0x33333f, 1).fillRect(X0, Y0, xr - X0, V.h);
       g.lineStyle(1, 0x26262e, 1);
-      for (let x = Math.floor((V.x + F.scroll) / TILE) * TILE - F.scroll; x <= V.x + V.w; x += TILE) g.lineBetween(x, V.y, x, V.y + V.h);
-      for (let y = Math.floor(V.y / TILE) * TILE; y <= V.y + V.h; y += TILE) g.lineBetween(V.x, y, V.x + V.w, y);
+      for (let x = Math.floor((X0 + F.scroll) / TILE) * TILE - F.scroll; x <= xr; x += TILE) g.lineBetween(x, Y0, x, Y0 + V.h);
+      for (let y = Math.floor((Y0 - F.oy) / TILE) * TILE + F.oy; y <= Y0 + V.h; y += TILE) g.lineBetween(X0, y, xr, y);
+    };
+    const moveStripes = (dt) => { // 速度線を左へ流す（画面から出たら右から入れ直す）
+      const W = F.view.w, H = F.view.h, X0 = F.camX - W / 2, Y0 = F.camY - H / 2;
+      F.stripes.forEach(st => { st.r.setVisible(!!F.broke && st.r.x < F.floorRight); st.r.x -= st.sp * dt; if (st.r.x < X0 - st.r.width) { st.r.x = X0 + W + st.r.width * 0.5 + Math.random() * W * 0.3; st.r.y = Y0 + Math.random() * H; } });
+    };
+    const endTick = (dt) => { // 部屋へ飛び込む間も、床は流れ続ける
+      F.kick = Math.max(0, F.kick - dt * 3); F.scroll += F.base * (1 + 1.2 * F.kick) * dt; drawFloor(); moveStripes(dt);
     };
     const mkWall = (x, y, h) => { // 黒いダンジョンの壁（外周の壁と同じ配色）。幅2マス・マス目つき。中心が(x,y)
       const g = this.add.graphics().setDepth(3.6), hw = WALL_W / 2, top = -Math.ceil(h / TILE / 2) * TILE, rows = Math.ceil(h / TILE) + 1;
@@ -13123,7 +13142,7 @@ class GameScene extends Phaser.Scene {
       cam.stopFollow(); cam.shake(500, 0.04); cam.flash(160, 255, 255, 255);
       const v = cam.worldView, X0 = v.x, Y0 = v.y, W = v.width, H = v.height;
       pl.x = X0 + W * 0.3; // 壁が必ず画面内に入るよう、画面の左寄りへ（白フラッシュで隠れる）。戻る位置は back に覚えてある
-      F.bx = X0 + W * 0.28; F.view = { x: X0, y: Y0, w: W, h: H }; F.fly = true;
+      F.bx = X0 + W * 0.28; F.view = { x: X0, y: Y0, w: W, h: H }; F.fly = true; F.camX = X0 + W / 2; F.camY = Y0 + H / 2; F.oy = 0; F.floorRight = Infinity;
       const floorG = this.add.graphics().setDepth(3.5); k.objs.push(floorG); F.floor = floorG; F.scroll = 0; F.base = 0; F.kick = 0; F.broke = false; // 床：ダンジョンの床と同じ色・マス目。壁を破った瞬間から左へ流れる
       drawFloor();
       for (let i = 0; i < 30; i++) { // 速さ感の白い線（壁を破るまでは非表示）
@@ -13154,14 +13173,15 @@ class GameScene extends Phaser.Scene {
       for (let sl = 0; sl < 4; sl++) {
         const ang = Math.sin(F.t * SWEEP_SPD + sl * Math.PI / 2) * SWEEP_AMP, h = this.a4HandPos(a4, sl) || { x: a4.gfx.x, y: a4.gfx.y };
         const b = this.a4Shot(h.x, h.y, ang, BSPD, { r: BR, dmg: BDMG, life, col: 0xffb36b });
-        if (b) b.ignoreWall = true;
+        if (b) { b.ignoreWall = true; if (SMASH_BULLET_NODMG) b.dmg = 0; }
       }
     };
     const flyTick = (k, dt) => {
-      if (F.landing || !F.fly) return;
+      if (F.landing) { endTick(dt); return; }
+      if (!F.fly) return;
       const v = cam.worldView, X0 = v.x, Y0 = v.y, W = v.width, H = v.height;
       F.t += dt; F.kick = Math.max(0, F.kick - dt * 3); F.scroll += F.base * (1 + 1.2 * F.kick) * dt; drawFloor(); // 壁を破るまでは床は止まっている（部屋の中）
-      F.stripes.forEach(st => { st.r.setVisible(!!F.broke); st.r.x -= st.sp * dt; if (st.r.x < X0 - st.r.width) { st.r.x = X0 + W + st.r.width * 0.5 + Math.random() * W * 0.3; st.r.y = Y0 + Math.random() * H; } });
+      moveStripes(dt);
       // 四つ腕が追いかけてくる：少し遅れて右へ詰める
       if (F.t > 0.35) a4.gfx.x += (F.bx - a4.gfx.x) * (1 - Math.exp(-5 * dt));
       a4.gfx.y += (v.centerY - a4.gfx.y) * (1 - Math.exp(-5 * dt)); // 縦は画面の真ん中に居続ける
@@ -13171,14 +13191,10 @@ class GameScene extends Phaser.Scene {
       if (F.shooting) { F.bt -= dt; while (F.bt <= 0) { F.bt += BINT; fire(); } }
       if (F.ctrl) { // 右から壁が流れてくる → プレイヤーに触れると砕ける（ダメージなし）
         F.slabT -= dt;
-        if (F.slabT <= 0 && F.t < FLY - 2.2) {
+        if (F.slabT <= 0 && F.t < FLY - 2.8) {
           F.slabT = 2.0;
           const r = mkWall(X0 + W + WALL_W, v.centerY, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 1500 });
         }
-      }
-      if (F.ctrl && !F.finalSlabs && F.t >= FLY - 1.6) { // 飛行の最後：右から10マス厚の壁が流れてくる。突き破り終えたら、部屋の左端から元の場所へ飛んでくる
-        F.finalSlabs = [];
-        for (let n = 0; n < THICK_N; n++) { const r = mkWall(X0 + W + WALL_W * (n + 0.5) + 40, v.centerY, H * 1.3); k.objs.push(r); const sl = { r, sp: 1500, big: true }; F.slabs.push(sl); F.finalSlabs.push(sl); }
       }
       F.slabs.forEach(sl => { // 壁は1フレームで数十px動くので、動いた区間（前の位置〜今の位置）がプレイヤーに触れたかで判定する（フレームが落ちた時のすり抜け防止）
         if (sl.dead) return;
@@ -13186,8 +13202,7 @@ class GameScene extends Phaser.Scene {
         if (F.ctrl && sl.sp && sl.r.x - WALL_W / 2 < pl.x + 20 && x0 - WALL_W / 2 > pl.x - 20) { if (sl.r.x - WALL_W / 2 < pl.x) sl.r.x = pl.x + WALL_W / 2; breakSlab(sl); }
         else if (sl.r.x < X0 - WALL_W) { sl.r.destroy(); sl.dead = true; }
       });
-      if (F.finalSlabs && F.finalSlabs.every(sl => sl.dead)) { if (F.doneT == null) F.doneT = F.t; } // 最後の壁を全部砕いた
-      if ((F.doneT != null && F.t - F.doneT > 0.3) || F.t >= FLY + 2) land(k);
+      if (F.ctrl && F.t >= FLY - 2.0) land(k); // 流れる壁がなくなったら、部屋の左壁へ切り替える
     };
     const t0 = 0.2, tWarp = t0 + WARN;
     this.a4Script(S, 90, [
