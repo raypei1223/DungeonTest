@@ -909,8 +909,12 @@ const PVP = {
   ],
   weaponZone: { cx: 10, cy: 4.5, size: 4, holdTime: 3 }, // 武器変更ゾーン（準備室の上側の正方形。中心タイル座標・一辺のタイル数）。holdTime：武器固定の時、全員が入ってからホストが選び直すまでの秒数
   // 人狼ゲームのマップ（バトルフィールドの右隣に作る）。中心に円形の広場、そこから放射状に道が伸びて、道の先に家（円形・入口が1つ）がある。それ以外は岩（壁）。
-  werewolf: { wolves: 1, watchmen: 1, seers: 1, seerTime: 5, quotaHold: 10, watchOilMul: 2, watchViewMul: 2, wolfSwordLv: 5, houses: 10, plazaR: 9, houseDist: 30, houseIn: 4.5, houseOut: 6.5, roadW: 3, size: 80, gap: 4, rays: 600, viewR: 20, time: 900, dayTime: 30, dayTime2: 90, voteTime: 30, resultTime: 6, nightTime: 90, nightViewR: 6, nightHole: 0.94, oilMax: 100, oilBurn: 2, oilRegen: 4, oilLow: 0.3, oilMinR: 1.2, oilStartMin: 0.3, oilStartMax: 0.7 },
-  // quotaHold＝ノルマ品の上に乗り続けて拾うまでの秒数／役職：seers＝占い師（村人陣営）の人数（見張り番を除いた村人が3人以上いる時だけ入る）／seerTime＝占い師が誰かの家でその人と一緒にいて役職が分かるまでの秒数／watchmen＝見張り番（村人陣営）の人数（村人が2人以上いる時だけ入る）／watchOilMul＝見張り番の油の最大量の倍率／watchViewMul＝見張り番の夜の光の半径の倍率
+  werewolf: { wolves: 1, wolvesMany: 2, manyFrom: 8, bloodyTime: 20, roleLot: { villager: 1, watchman: 1, seer: 1, detective: 1, dupMul: 0.05 }, detectiveTime: 5, detectiveR: 2.2, trailTiles: 10, trailStep: 0.5, seerTime: 5, quotaHold: 10, watchOilMul: 2, watchViewMul: 2, wolfSwordLv: 5, houses: 10, plazaR: 9, houseDist: 30, houseIn: 4.5, houseOut: 6.5, roadW: 3, size: 80, gap: 4, rays: 600, viewR: 20, time: 900, dayTime: 30, dayTime2: 90, voteTime: 30, resultTime: 6, nightTime: 90, nightViewR: 6, nightHole: 0.94, oilMax: 100, oilBurn: 2, oilRegen: 4, oilLow: 0.3, oilMinR: 1.2, oilStartMin: 0.3, oilStartMax: 0.7 },
+  // 役職の抽選（roleLot）：人狼以外の人を1人ずつ、重みつき抽選で「普通の村人・見張り番・占い師・探偵」のどれかに決める（普通の村人も役職の一つとして扱う。人数の下限はなし）。
+  //   villager／watchman／seer／detective＝各役職の重み（大きいほど出やすい。0にするとその役職は出ない）／dupMul＝同じ役職がすでに1人いるごとに重みに掛ける倍率（重み×dupMul^人数。小さいほど被りにくい）
+  //   dupMul 0.05 の目安：5人（人狼以外4人）で4役職が1人ずつそろう確率は約81%、どれかが被る確率は約19%。4人で約6%、3人で約2%。6人以上は役職が4種類しかないので被りが出る
+  // 探偵（村人陣営）：detectiveTime＝死体のまわり（detectiveR タイル以内）に立ち続けて調べ終わるまでの秒数（昼でも夜でもできる）／trailTiles＝犯人の足跡を残すタイル数／trailStep＝足跡の間隔（タイル）
+  // quotaHold＝ノルマ品の上に乗り続けて拾うまでの秒数／役職：seerTime＝占い師が誰かの家でその人と一緒にいて役職が分かるまでの秒数／watchOilMul＝見張り番の油の最大量の倍率／watchViewMul＝見張り番の夜の光の半径の倍率
   // 流れ：最初の昼(dayTime)→夜(nightTime)→［昼(dayTime2＋voteTime。昼の間じゅう投票できる。全員が投票済みなら途中で終わる)→結果発表(resultTime。投票結果を見せる間。人狼は殺せない)→夜］をくり返す。昼と結果発表の間は人狼は殺せない／time：ゲーム全体の長さ(秒)／
   // dayTime：最初の昼の長さ／dayTime2：2回目以降の昼の長さ／voteTime：昼に足す時間（昼の長さ＝dayTime2＋voteTime）／nightTime：夜の長さ／nightViewR：夜のランタンの光の半径（タイル数。自分の周りだけ）／
   // nightHole：闇に空ける丸い穴の大きさ（光の半径に対する割合）。光のゆらぎで光の縁が縮んでも、穴の縁より内側に来ない（隙間ができない）ように、1より小さくしておく
@@ -1899,7 +1903,7 @@ const SUMMON2 = {
     4: { key: 'arms4', trial: [{ key: 'arms4', n: 1 }], name: '天使', life: 20, hpMult: 1, dmgMult: 1, cooldown: 65, minLevel: 8 }, // 下：丸い体に大きな腕が4本ある味方を1体召喚する（召喚術Lv8以降）
     3: { key: 'simaharbeam', trial: [{ key: 'simahar', n: 2 }], name: 'シマハル', cooldown: 25, dmgMult: 1, minLevel: 7, // 右下：ボスのシマハル本体を体の向きの左右にダブルで召喚 → スティックを持って startDelay 秒後に、2体がそれぞれ、ボスの黒いビーム攻撃（beamAttack）と全く同じ手順で、自分の周りに黒い星を出し、スティックを倒している向きへビームを撃つ。1発ごとに向きは固定され、そのまま消えていく。minLevel: 7＝召喚術Lv7以降で使える
          baseDamage: 14, tickInterval: 0.3, // baseDamage＝シマハルの黒いビーム（beamAttack）と同じ1発のダメージ（階層に応じて強くなる）。ビームに触れている敵へ tickInterval 秒ごとに当たる（複数のビームに触れると、その分重なる）
-         convergeDist: 450, convergeScatter: 110, // ビームが収束する先＝スティックを倒している向きの、プレイヤーから convergeDist px 先 / convergeScatter＝その収束点のランダムなずれの半径（大きいほどバラける。0なら1点に集まる）
+         convergeDist: 450, convergeScatter: 50, // ビームが収束する先＝スティックを倒している向きの、プレイヤーから convergeDist px 先 / convergeScatter＝その収束点のランダムなずれの半径（大きいほどバラける。0なら1点に集まる）
          startDelay: 1, // startDelay＝スティックを持ってから撃ち始めるまでの秒数
          side: 48, waitLife: 8, // side＝プレイヤーからシマハル本体までの距離（体の向きに対して左右。シマハルは等倍＝半径30）/ waitLife＝召喚してからスティックを持つまで待つ秒数（過ぎると撃たずに消える）
          starCount: 6, starDist: 130, starSize: 32, stagger: 0.2, // ボスの beamAttack と同じ。starCount＝シマハル1体が出す黒い星（＝ビーム）の数（2体で合計2倍）/ starDist＝シマハル本体から黒い星までの距離 / starSize＝黒い星の大きさ / stagger＝黒い星を1個ずつ出す間隔（秒）
@@ -2915,6 +2919,7 @@ class GameScene extends Phaser.Scene {
       rp.facing.x = rp.gfx.x + Math.cos(ang) * 20;
       rp.facing.y = rp.gfx.y + Math.sin(ang) * 20;
       rp.facing.rotation = ang;
+      { const bl = this.wwBloodyOn(uid); if (rp._bloody !== bl) { rp._bloody = bl; rp.facing.setFillStyle(bl ? 0xd01010 : 0xffffff); } } // 人狼ゲーム：殺した直後の人狼は線が赤い
       const label = (p.name || '?') + (p.weaponName && !(this.pv && this.pv.mode === 'werewolf') ? '・' + p.weaponName : ''); // 人狼ゲームは名前だけ（武器名はなし）
       if (rp.label.text !== label) rp.label.text = label;
       rp.label.x = rp.gfx.x; rp.label.y = rp.gfx.y - 28;
@@ -3908,6 +3913,8 @@ class GameScene extends Phaser.Scene {
     this._wwBlood = null;
     if (this._wwCorpses) for (const k in this._wwCorpses) { const o = this._wwCorpses[k]; if (o && o.scene) o.destroy(); }
     this._wwCorpses = null;
+    this.wwFootClear();
+    if (this.pv) this.pv.wwDeaths = {};
     this._wwReveal = null; // 役職の表示も消す
   }
 
@@ -4123,26 +4130,38 @@ class GameScene extends Phaser.Scene {
   }
 
   // 人狼ゲーム：役職の割り当て。参加者の並び(ids)とラウンド番号から決まるので、全員の画面で同じ結果になる（通信はいらない）。
-  // 'wolf'（人狼）／'villager'（村人）／'watchman'（見張り番＝村人陣営）。人数は PVP.werewolf の wolves・watchmen。
+  // 'wolf'（人狼）／'villager'（村人）／'watchman'（見張り番＝村人陣営）。人狼の人数は wolves・wolvesMany、それ以外の役職は roleLot の重みつき抽選。
   wwAssignRoles(ids, round) {
     const roles = {};
     if (!ids.length) return roles;
-    if (this.pvpTest) { roles[ids[0]] = ['villager', 'wolf', 'villager', 'watchman', 'seer'][round % 5] || 'villager'; return roles; } // 一人テスト：1回ごとに 人狼→村人→見張り番→村人… と交代（どの役職も試せる）
+    if (this.pvpTest) { roles[ids[0]] = ['villager', 'wolf', 'villager', 'watchman', 'seer', 'detective'][round % 6] || 'villager'; return roles; } // 一人テスト：1回ごとに 人狼→村人→見張り番→村人… と交代（どの役職も試せる）
     let h = 2166136261 >>> 0; const key = ids.join(',') + '|' + round;
     for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
     const rand = mulberry32(h), order = ids.slice();
     for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const t = order[i]; order[i] = order[j]; order[j] = t; }
-    const wolves = Math.min(PVP.werewolf.wolves, order.length);
-    const rest = order.length - wolves, watch = rest >= 2 ? Math.min(PVP.werewolf.watchmen || 0, rest - 1) : 0; // 見張り番：村人陣営が2人以上いる時だけ（全員が見張り番にならないよう、1人は普通の村人を残す）
-    const seerN = (rest - watch) >= 3 ? Math.min(PVP.werewolf.seers || 0, rest - watch - 1) : 0; // 占い師：見張り番を除いた村人が3人以上いる時だけ（普通の村人を残す）
-    order.forEach((id, i) => { roles[id] = i < wolves ? 'wolf' : (i < wolves + watch ? 'watchman' : (i < wolves + watch + seerN ? 'seer' : 'villager')); });
+    const wolves = Math.min(order.length >= (PVP.werewolf.manyFrom || 99) ? (PVP.werewolf.wolvesMany || PVP.werewolf.wolves) : PVP.werewolf.wolves, order.length); // 人狼の人数：manyFrom 人以上なら wolvesMany 人、それ未満なら wolves 人
+    const rest = order.length - wolves;
+    // 人狼以外の人の役職：1人ずつ、重みつき抽選で「普通の村人・見張り番・占い師・探偵」のどれかに決める（普通の村人も役職の一つ。人数の下限はなし）。
+    // 同じ役職がすでに c 人いると、その役職の重みは 重み×dupMul^c に下がる（被りにくい。出ないこともある）。全員が同じ乱数（rand）で決めるので結果はそろう。
+    const LOT = PVP.werewolf.roleLot || { villager: 1, watchman: 1, seer: 1, detective: 1, dupMul: 0.05 };
+    const kinds = ['villager', 'watchman', 'seer', 'detective'], cnt = { villager: 0, watchman: 0, seer: 0, detective: 0 };
+    const list = [];
+    for (let k = 0; k < wolves; k++) list.push('wolf');
+    for (let k = 0; k < rest; k++) {
+      const ws = kinds.map(r => (typeof LOT[r] === 'number' ? LOT[r] : 1) * Math.pow(LOT.dupMul, cnt[r]));
+      const total = ws.reduce((a, b) => a + b, 0);
+      let x = rand() * total, pick = kinds[0];
+      if (total > 0) { pick = kinds[kinds.length - 1]; for (let q = 0; q < kinds.length; q++) { if (x < ws[q]) { pick = kinds[q]; break; } x -= ws[q]; } }
+      cnt[pick]++; list.push(pick);
+    }
+    order.forEach((id, i) => { roles[id] = list[i]; }); // order は最初にシャッフル済みなので、誰がどの役職かもランダム
     return roles;
   }
 
   // 役職 → 陣営（'wolf'｜'villager'）。見張り番は村人陣営。勝敗・殺される側の判定は、役職ではなく陣営で見る。
   wwTeam(role) { return role === 'wolf' ? 'wolf' : (role ? 'villager' : null); }
-  wwRoleLabel(role) { return role === 'wolf' ? '人狼' : role === 'watchman' ? '見張り番' : role === 'seer' ? '占い師' : role === 'villager' ? '村人' : (role || '?'); }
-  wwRoleColor(role) { return role === 'wolf' ? '#ff4d4d' : role === 'watchman' ? '#ffd21f' : role === 'seer' ? '#c9a6ff' : '#5be08a'; }
+  wwRoleLabel(role) { return role === 'wolf' ? '人狼' : role === 'watchman' ? '見張り番' : role === 'seer' ? '占い師' : role === 'detective' ? '探偵' : role === 'villager' ? '村人' : (role || '?'); }
+  wwRoleColor(role) { return role === 'wolf' ? '#ff4d4d' : role === 'watchman' ? '#ffd21f' : role === 'seer' ? '#c9a6ff' : role === 'detective' ? '#5bc8ff' : '#5be08a'; }
 
   // 人狼ゲームの開始時：役職を決め、武器を剣に固定する（人狼Lv.5・村人Lv.1）（もとの武器は準備室に戻る時に戻す）。参加者でない人（観戦）は何もしない。
   wwStartRoles() {
@@ -4162,12 +4181,16 @@ class GameScene extends Phaser.Scene {
     else if (r === 'villager') this.showBanner('あなたは【村人】です', 4000, '#5be08a');
     else if (r === 'seer') this.showBanner('あなたは【占い師】です\n（夜、誰かの家でその人と5秒いっしょにいると、役職が分かる）', 4500, '#c9a6ff');
     else if (r === 'watchman') this.showBanner('あなたは【見張り番】です\n（油の量と視界が2倍）', 4500, '#ffd21f');
+    else if (r === 'detective') this.showBanner('あなたは【探偵】です\n（死体のそばに5秒いると、死んだ時刻と犯人の足どりが分かる。昼もできる）', 4500, '#5bc8ff');
   }
 
-  // 人狼ゲーム中、人狼以外は攻撃できない（スティックは体の向きを変えるだけ。向きの更新は攻撃とは別なので、そのまま動く）
+  // 人狼ゲーム中、人狼以外と、夜以外の人狼は攻撃できない（スティックは体の向きを変えるだけ。向きの更新は攻撃とは別なので、そのまま動く）
   wwNoAttack() {
     const pv = this.pv;
-    return !!(pv && pv.phase === 'battle' && pv.mode === 'werewolf' && pv.myRole !== 'wolf');
+    if (!(pv && pv.phase === 'battle' && pv.mode === 'werewolf')) return false;
+    if (pv.myRole !== 'wolf') return true;
+    const wi = this.wwPhaseInfo(); // 人狼も、夜以外（昼・結果発表）は攻撃できない（剣を振らない）
+    return !(wi && wi.night);
   }
 
   // 一人テスト用：画面下の「役職変更」ボタン。押すたびに 村人→人狼→見張り番→村人… と自分の役職が変わる（人狼ゲーム中だけ表示）
@@ -4190,11 +4213,11 @@ class GameScene extends Phaser.Scene {
   wwTestChangeRole() {
     const pv = this.pv, my = this.net && this.net.uid;
     if (!this.pvpTest || !pv || !pv.roles || !pv.myRole || pv.mode !== 'werewolf') return;
-    const order = ['villager', 'wolf', 'watchman', 'seer'], next = order[(order.indexOf(pv.myRole) + 1) % order.length];
+    const order = ['villager', 'wolf', 'watchman', 'seer', 'detective'], next = order[(order.indexOf(pv.myRole) + 1) % order.length];
     pv.roles[my] = next; pv.myRole = next;
     this.pvpEquipWeapon('sword', next === 'wolf' ? PVP.werewolf.wolfSwordLv : 1); // 人狼は剣Lv.5、それ以外はLv.1（役職の始まりと同じ）
     this._wwOil = null; // 油の最大量は役職で変わる（見張り番は2倍）ので、100%から数え直す
-    this.wwSeerInit();
+    this.wwSeerInit(); this.wwDetInit();
     this.wwShowRoleBanner();
     this.wwUpdateRoleTestBtn();
   }
@@ -4276,6 +4299,15 @@ class GameScene extends Phaser.Scene {
   }
 
   // 人狼ゲーム：n番目の夜に、自分（人狼）がもう殺した（または殺している最中）か。人狼は1晩に1人まで。
+  // 人狼ゲーム：uid の人の向きの線が、血で染まって赤い状態か（殺してから bloodyTime 秒間。夜が明けたら終わり）
+  wwBloodyOn(uid) {
+    const pv = this.pv, b = pv && pv.wwBloody && pv.wwBloody[uid];
+    if (!b) return false;
+    const wi = this.wwPhaseInfo();
+    if (performance.now() >= b.until || !(wi && wi.night && wi.n === b.n)) { delete pv.wwBloody[uid]; return false; }
+    return true;
+  }
+
   wwKillLocked(n) {
     const pv = this.pv;
     if (!pv) return false;
@@ -4454,6 +4486,7 @@ class GameScene extends Phaser.Scene {
     this.wwUpdateReveal();
     this.wwQuotaUpdate(dt);
     this.wwSeerUpdate(dt);
+    this.wwDetUpdate(dt);
     if (pv.phase === 'prep') {
       // 一人・通信なしのテスト：入ったら円に入らず直接、人狼ゲームを始める（最初の1回だけ。自分の情報が届いてから）
       if (this.pvpTest && !pv.testAutoStarted && this.latestPlayers && this.latestPlayers[this.net.uid]) {
@@ -4597,7 +4630,7 @@ class GameScene extends Phaser.Scene {
       pv.mode = m.mode || 'survival'; // 選ばれたモード（ボディカウント／レースは未実装：今はサバイバルと同じ進行）
       pv.ids = m.ids || []; pv.alive = new Set(pv.ids); pv.out = {}; pv.dead = false; pv.grace = PVP.spawnGrace;
       pv.kills = {}; pv.deaths = {}; pv.dmg = {}; pv.info = {}; pv.winners = null; pv.winSide = null; // リザルト用：撃破数・死亡数・与ダメージ・名前と武器
-      pv.endAt = performance.now() + (pv.mode === 'werewolf' ? PVP.werewolf.time : PVP.bodycount.time) * 1000; pv.nextPotion = 1; pv.wwShift = 0; pv.votes = {}; pv.wwSent = {}; pv.wwApplied = {}; pv.wwExec = {}; pv.wwExecSent = {}; pv.wwKilled = {}; pv.wwPending = null; pv.respLeft = 0; pv.respShown = -1; // ボディカウント／人狼ゲーム（ルール未実装の間）の終了時刻など
+      pv.endAt = performance.now() + (pv.mode === 'werewolf' ? PVP.werewolf.time : PVP.bodycount.time) * 1000; pv.nextPotion = 1; pv.wwShift = 0; pv.votes = {}; pv.wwSent = {}; pv.wwApplied = {}; pv.wwExec = {}; pv.wwExecSent = {}; pv.wwKilled = {}; pv.wwBloody = {}; pv.wwDeaths = {}; pv.wwPending = null; pv.respLeft = 0; pv.respShown = -1; // ボディカウント／人狼ゲーム（ルール未実装の間）の終了時刻など
       for (const id of pv.ids) {
         const p = (this.latestPlayers || {})[id] || {};
         pv.info[id] = { name: p.name || '???', weapon: id === my ? this.weapon.name : (p.weaponName || '?') };
@@ -4605,7 +4638,7 @@ class GameScene extends Phaser.Scene {
       }
       pv.round = m.round || ((pv.round || 0) + 1);
       if (pv.mode === 'werewolf') this.wwBuildSigns(); else this.wwClearSigns(); // 人狼ゲーム：各家の道の前に看板
-      if (pv.mode === 'werewolf') { this.wwQuotaInit(); this.wwSeerInit(); } else { this.wwQuotaClear(); this.wwSeerClear(); } // 人狼ゲーム：村人側のノルマ（進捗の点・ノルマ品）
+      if (pv.mode === 'werewolf') { this.wwQuotaInit(); this.wwSeerInit(); this.wwDetInit(); } else { this.wwQuotaClear(); this.wwSeerClear(); this.wwDetClear(); } // 人狼ゲーム：村人側のノルマ（進捗の点・ノルマ品）
       if (pv.mode === 'werewolf') this.wwStartRoles(); else { pv.roles = null; pv.myRole = null; } // 人狼ゲーム：役職を決めて、武器を剣Lv.1に固定
       if (pv.mode === 'werewolf' && pv.accStash === undefined) { pv.accStash = this.accKey || ''; this.equipRunAccessory(''); } // 人狼ゲームでは装飾品なし（付けていたものは覚えておき、準備室に戻ったら戻す）
       if (pv.mode !== 'werewolf') this.pvpSpawnPotions(pv.round); // 回復アイテムを配置（全員が同じ位置）。人狼ゲームには置かない
@@ -4645,13 +4678,22 @@ class GameScene extends Phaser.Scene {
       else if (pv.proxies && pv.proxies[m.to]) pv.proxies[m.to]._burnFxT = m.t || 3;
     } else if (m.a === 'dead') {
       pv.alive.delete(m.uid);
+      if (pv.mode === 'werewolf' && m.by && pv.roles && this.wwTeam(pv.roles[m.by]) === 'wolf') { // 人狼が殺した：その人の向きの線を、bloodyTime 秒間（または夜が明けるまで）血で染まったように赤くする（全員の画面）
+        const wiK = this.wwPhaseInfo();
+        (pv.wwBloody = pv.wwBloody || {})[m.by] = { until: performance.now() + (PVP.werewolf.bloodyTime || 20) * 1000, n: wiK ? wiK.n : null };
+      }
       if (pv.mode === 'werewolf' && m.by && m.by === my && pv.wwPending) { // 自分（人狼）が殺した：今夜はもう殺せない
         pv.wwKilled[pv.wwPending.n] = true;
         this.showBanner('🐺 今夜はもう殺せません（1晩に1人まで）', 2500, '#ff4d4d');
       }
       if (m.by && m.by in pv.kills) pv.kills[m.by]++;
       if (m.uid in pv.deaths) pv.deaths[m.uid]++;
-      if (pv.mode === 'werewolf' && typeof m.x === 'number' && typeof m.y === 'number') { this.wwBloodSplat(m.x, m.y); this.wwCorpse(m.uid, m.x, m.y); } // 血しぶきと死体（全員の画面・死んだ場所）
+      if (pv.mode === 'werewolf' && typeof m.x === 'number' && typeof m.y === 'number') {
+        const wiD = this.wwPhaseInfo(); // 探偵用：死んだ場所・犯人・夜の残り秒数を記録（足どりは wwDetUpdate が犯人の動きを追って溜める）
+        pv.wwDeaths = pv.wwDeaths || {};
+        if (!pv.wwDeaths[m.uid]) pv.wwDeaths[m.uid] = { x: m.x, y: m.y, by: m.by || null, left: (wiD && wiD.night) ? wiD.left : null, trail: [], len: 0, done: false, fp: 0 };
+        this.wwBloodSplat(m.x, m.y); this.wwCorpse(m.uid, m.x, m.y);
+      } // 血しぶきと死体（全員の画面・死んだ場所）
       {
         // 撃破表示：（殺したプレイヤー）→💥（殺されたプレイヤー）。殺した人が不明なら 💥（殺されたプレイヤー）だけ
         const nameOf = uid => {
@@ -4854,10 +4896,125 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // ===== 人狼ゲーム：探偵 =====
+  // 探偵（村人陣営）が、死体のまわり（detectiveR タイル以内）に detectiveTime 秒（5秒）立ち続けると、その人が死んだ時刻（夜の残り秒数）と、
+  // 犯人が殺したあとの足どり（足跡。trailTiles タイル分）が分かる（探偵本人にだけ）。昼でも夜でもできる。処刑された人は犯人がいないので、足跡はなし。
+  // 足跡は犯人の動きを探偵の画面で追って溜める（殺されてから trailTiles タイル歩くまで）。濃い足跡が殺した場所に近く、薄い足跡ほど新しい（犯人が進んだ先）。
+  wwDetInit() {
+    const pv = this.pv; if (!pv) return;
+    pv.wwDet = { t: 0, tgt: null, seen: {} };
+    this.wwDetUi(null);
+  }
+
+  wwDetClear() {
+    if (this.pv) this.pv.wwDet = null;
+    for (const id of ['wwDetBar', 'wwDetList']) { const e = document.getElementById(id); if (e) e.style.display = 'none'; }
+    this.wwFootClear();
+  }
+
+  wwFootClear() {
+    if (this._wwFoot) for (const o of this._wwFoot) if (o && o.scene) o.destroy();
+    this._wwFoot = null;
+  }
+
+  // 調べた結果の文
+  wwDetText(d) {
+    if (!d.by) return '昼の投票で処刑された';
+    return d.left != null ? '夜の残り' + d.left + '秒に殺された' : '殺された（時刻不明）';
+  }
+
+  wwDetUpdate(dt) {
+    const pv = this.pv, s = pv && pv.wwDet, W = PVP.werewolf;
+    if (!s || pv.phase !== 'battle' || pv.mode !== 'werewolf' || pv.myRole !== 'detective') { this.wwDetUi(null); return; }
+    const deaths = pv.wwDeaths || {}, ps = this.latestPlayers || {}, my = this.net.uid;
+    // 犯人の足どりを溜める（trailStep タイルごとに1点。trailTiles タイル歩いたら終わり）
+    const step = (W.trailStep || 0.5) * TILE, maxLen = (W.trailTiles || 10) * TILE;
+    for (const id in deaths) {
+      const d = deaths[id]; if (!d.by || d.done) continue;
+      const p = d.by === my ? this.player : ps[d.by];
+      if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+      if (!d.trail.length) { d.trail.push({ x: p.x, y: p.y }); continue; }
+      let last = d.trail[d.trail.length - 1], dd = Math.hypot(p.x - last.x, p.y - last.y);
+      while (dd >= step && !d.done) { // 速く動いても、足跡の間隔がそろうように線の上に等間隔に置く
+        const k = step / dd; last = { x: last.x + (p.x - last.x) * k, y: last.y + (p.y - last.y) * k };
+        d.trail.push(last); d.len += step; if (d.len >= maxLen) d.done = true;
+        dd = Math.hypot(p.x - last.x, p.y - last.y);
+      }
+    }
+    // 死体のそばに立つ（昼でも夜でもよい）
+    let tgt = null;
+    if (this.wwPhaseInfo() && !this.isGhost && !pv.dead && this._wwFadeAt == null) {
+      const R = (W.detectiveR || 2.2) * TILE; let best = Infinity;
+      for (const id in deaths) {
+        if (s.seen[id]) continue;
+        const d = deaths[id], dist = Math.hypot(this.player.x - d.x, this.player.y - d.y);
+        if (dist <= R && dist < best) { best = dist; tgt = id; }
+      }
+    }
+    const need = W.detectiveTime || 5;
+    if (tgt && tgt === s.tgt) s.t += dt; else { s.tgt = tgt; s.t = 0; }
+    if (tgt && s.t >= need) {
+      const d = deaths[tgt], nm = (pv.info && pv.info[tgt] && pv.info[tgt].name) || '誰か';
+      s.seen[tgt] = true; s.t = 0; s.tgt = null; tgt = null;
+      this.showBanner('🔍 ' + nm + ' は ' + this.wwDetText(d) + (d.by ? '\n（犯人の足跡が見える）' : ''), 4500, '#5bc8ff');
+    }
+    this.wwDetFootUpdate();
+    this.wwDetUi(tgt ? Math.min(1, s.t / need) : null);
+  }
+
+  // 調べた死体の犯人の足跡を描く（探偵の画面だけ）。濃い＝殺した場所に近い／薄い＝新しい。左右の足が交互に出る。
+  wwDetFootUpdate() {
+    const pv = this.pv, s = pv && pv.wwDet; if (!s) return;
+    const W = PVP.werewolf, list = this._wwFoot || (this._wwFoot = []);
+    const maxN = Math.max(2, Math.round((W.trailTiles || 10) / (W.trailStep || 0.5)));
+    for (const id in s.seen) {
+      const d = pv.wwDeaths && pv.wwDeaths[id]; if (!d || !d.by) continue;
+      const tr = d.trail;
+      while (d.fp < tr.length && (d.fp < tr.length - 1 || d.done)) {
+        const i = d.fp, a = tr[i], b = tr[i + 1] || null, c = tr[i - 1] || null;
+        const ang = b ? Math.atan2(b.y - a.y, b.x - a.x) : (c ? Math.atan2(a.y - c.y, a.x - c.x) : 0);
+        const side = (i % 2 ? 1 : -1) * TILE * 0.14;
+        const e = this.add.ellipse(a.x + Math.cos(ang + Math.PI / 2) * side, a.y + Math.sin(ang + Math.PI / 2) * side, TILE * 0.36, TILE * 0.2, 0xff9a4a, 0.95 - 0.6 * Math.min(1, i / maxN)).setStrokeStyle(1, 0x4a1a00, 0.8).setRotation(ang).setDepth(1.5);
+        list.push(e);
+        while (list.length > 400) { const o = list.shift(); if (o && o.scene) o.destroy(); }
+        d.fp++;
+      }
+    }
+  }
+
+  // 調べている間の進み具合（画面下）と、調べた結果の一覧（画面右）
+  wwDetUi(prog) {
+    const pv = this.pv, s = pv && pv.wwDet, on = !!(s && pv.phase === 'battle' && pv.mode === 'werewolf' && pv.myRole === 'detective');
+    let bar = document.getElementById('wwDetBar'), list = document.getElementById('wwDetList');
+    if (!bar) {
+      if (!on) return;
+      bar = document.createElement('div'); bar.id = 'wwDetBar';
+      bar.style.cssText = 'position:fixed; left:50%; bottom:14vh; transform:translateX(-50%); z-index:22; display:none; width:30vh; text-align:center; color:#d6f1ff; font-weight:bold; font-size:2.6vh; font-family:sans-serif; pointer-events:none; text-shadow:0 0 1vh rgba(0,0,0,0.9);';
+      bar.innerHTML = '🔍 調査中…<div style="margin-top:0.6vh; height:1.6vh; border-radius:1vh; background:rgba(0,0,0,0.6); border:0.25vh solid #5bc8ff; overflow:hidden;"><div id="wwDetFill" style="height:100%; width:0%; background:#5bc8ff;"></div></div>';
+      document.body.appendChild(bar);
+      list = document.createElement('div'); list.id = 'wwDetList';
+      list.style.cssText = 'position:fixed; right:1.5vw; top:12vh; z-index:22; display:none; max-width:30vw; min-width:150px; padding:1vh 1.4vh; background:rgba(8,10,28,0.8); border:0.25vh solid #5bc8ff; border-radius:1vh; color:#fff; font-size:2.2vh; font-family:sans-serif; pointer-events:none;';
+      document.body.appendChild(list);
+    }
+    if (!on) { bar.style.display = 'none'; if (list) list.style.display = 'none'; return; }
+    bar.style.display = prog == null ? 'none' : 'block';
+    if (prog != null) document.getElementById('wwDetFill').style.width = Math.round(prog * 100) + '%';
+    const ids = Object.keys(s.seen);
+    list.style.display = ids.length ? 'block' : 'none';
+    const key = ids.join(',');
+    if (list._k !== key) {
+      list._k = key;
+      list.innerHTML = '<div style="font-weight:bold; color:#5bc8ff; margin-bottom:0.4vh;">🔍 調査記録</div>' + ids.map(id => {
+        const d = pv.wwDeaths && pv.wwDeaths[id];
+        return '<div>' + escapeHtml((pv.info && pv.info[id] && pv.info[id].name) || '???') + '：<span style="font-weight:bold; color:#d6f1ff;">' + (d ? this.wwDetText(d) : '?') + '</span></div>';
+      }).join('');
+    }
+  }
+
   // ===== 人狼ゲーム：村人側のノルマ =====
-  // 夜のはじめに、ホストが「生きている人数＋1」個のノルマ品(◆)を出す（'quota'）。場所は、誰もいない家の中・どこかの家の道中・広場のどこか。
+  // 夜のはじめに、ホストが「生きている人数」個のノルマ品(◆)を出す（'quota'）。場所は、誰もいない家の中・どこかの家の道中・広場のどこか。
   // 村人陣営（見張り番も）だけが、触れて拾える（'quotaGet'）。人狼は拾えない。
-  // 翌朝、ホストが集計して（'quotaRes'）、拾った数が「夜が始まった時点の生きている人数＋1」（＝出たノルマ品の数）以上ならノルマ達成。達成の日が (人数-1) 日になれば村人の勝ち。
+  // 翌朝、ホストが集計して（'quotaRes'）、拾った数が「夜が始まった時点の生きている人数」（＝出たノルマ品の数）以上ならノルマ達成。達成の日が (人数-1) 日になれば村人の勝ち。
   // 達成必要日数＋3日が過ぎても終わらなければ人狼の勝ち。上の点は、灰色＝これからの日／達成するたびに左から緑色。
   wwQuotaInit() {
     const pv = this.pv;
@@ -4935,13 +5092,13 @@ class GameScene extends Phaser.Scene {
       // 夜のはじめ：ノルマ品を出す
       if (info.night && !q.spawnSent[info.n]) {
         q.spawnSent[info.n] = true;
-        this.net.sendPvp({ a: 'quota', n: info.n, cnt: aliveNow() + 1 });
+        this.net.sendPvp({ a: 'quota', n: info.n, cnt: aliveNow() });
       }
       // 朝：前の夜のノルマを集計
       const pn = info.n - 1;
       if (!info.night && info.n >= 1 && q.spawnSent[pn] && !q.resSent[pn]) {
         q.resSent[pn] = true;
-        const got = q.got[pn] || 0, need = q.itemsN === pn && q.spawnCnt ? q.spawnCnt : aliveNow() + 1; // ノルマ数は夜が始まった時点の生存人数＋1で固定（夜に誰かが死んでも変わらない）
+        const got = q.got[pn] || 0, need = q.itemsN === pn && q.spawnCnt ? q.spawnCnt : aliveNow(); // ノルマ数は夜が始まった時点の生存人数で固定（夜に誰かが死んでも変わらない）
         const ok = got >= need, done = q.done + (ok ? 1 : 0), days = q.days + 1;
         this.net.sendPvp({ a: 'quotaRes', n: pn, got, need, ok, done, days });
         if (done >= q.need) this.wwSideWin('villager');
@@ -5045,7 +5202,7 @@ class GameScene extends Phaser.Scene {
   wwNightBannerText() {
     const pv = this.pv, q = pv && pv.wwQ, info = this.wwPhaseInfo(), present = this.latestPlayers || {}, my = this.net.uid;
     // ノルマ数＝夜の始まりの生きている人数＋1（ノルマ品がもう出ていればその数。まだなら同じ式で数える）
-    const cnt = (q && info && q.itemsN === info.n && q.spawnCnt) ? q.spawnCnt : (pv ? pv.ids.filter(id => pv.alive.has(id) && (present[id] || id === my)).length + 1 : 0);
+    const cnt = (q && info && q.itemsN === info.n && q.spawnCnt) ? q.spawnCnt : (pv ? pv.ids.filter(id => pv.alive.has(id) && (present[id] || id === my)).length : 0);
     return '🌙 夜になった…\nランタンの光の中しか見えません' + (pv && pv.myRole && this.wwTeam(pv.myRole) === 'villager' ? '\nノルマ:' + cnt + '個' : '');
   }
 
@@ -5171,7 +5328,7 @@ class GameScene extends Phaser.Scene {
     const pv = this.pv;
     this.wwClearBlood();
     pv.phase = 'prep'; pv.cd = PVP.countdown; pv.cdShown = -1; pv.cdMode = null; pv.counting = false;
-    pv.alive = new Set(); pv.ids = []; pv.out = {}; pv.dead = false; pv.grace = 0; pv.endSent = false; pv.respLeft = 0; pv.mode = null; pv.wwShift = 0; pv.votes = {}; pv.wwSent = {}; pv.wwApplied = {}; pv.wwExec = {}; pv.wwExecSent = {}; pv.wwKilled = {}; pv.wwPending = null;
+    pv.alive = new Set(); pv.ids = []; pv.out = {}; pv.dead = false; pv.grace = 0; pv.endSent = false; pv.respLeft = 0; pv.mode = null; pv.wwShift = 0; pv.votes = {}; pv.wwSent = {}; pv.wwApplied = {}; pv.wwExec = {}; pv.wwExecSent = {}; pv.wwKilled = {}; pv.wwBloody = {}; pv.wwDeaths = {}; pv.wwPending = null;
     this.pvpUpdateTimer();
     this.playerHp = this.playerMaxHp;
     this.pvpSetSpectator(false);
@@ -5183,6 +5340,7 @@ class GameScene extends Phaser.Scene {
     this.wwClearSigns();
     this.wwQuotaClear();
     this.wwSeerClear();
+    this.wwDetClear();
     clearTimeout(this._wwWarpT1); clearTimeout(this._wwWarpT2); this._wwFadeAt = null; this._wwDawnStart = null;
     { const wf = document.getElementById('wwFade'); if (wf) { wf.style.transition = 'none'; wf.style.opacity = '0'; } } // 夜の暗転の途中だった場合に備えて解除
     pv.roles = null; pv.myRole = null; this.wwHideRoleTestBtn(); // 役職変更ボタンも消す
@@ -5243,7 +5401,7 @@ class GameScene extends Phaser.Scene {
         const win = !!side && this.wwTeam(r.role) === side, me = r.id === my, wolf = r.role === 'wolf';
         return '<tr style="' + (win ? 'background:rgba(255,210,80,0.16);' : (me ? 'background:rgba(120,160,255,0.14);' : '')) + '">'
           + '<td style="' + cell + 'text-align:left;">' + (win ? '👑 ' : '') + escapeHtml(r.name) + (me ? '（あなた）' : '') + '</td>'
-          + '<td style="' + cell + 'font-weight:bold; color:' + this.wwRoleColor(r.role) + ';">' + (wolf ? '🐺 ' : r.role === 'watchman' ? '🏮 ' : r.role === 'seer' ? '🔮 ' : '🏡 ') + this.wwRoleLabel(r.role) + '</td>'
+          + '<td style="' + cell + 'font-weight:bold; color:' + this.wwRoleColor(r.role) + ';">' + (wolf ? '🐺 ' : r.role === 'watchman' ? '🏮 ' : r.role === 'seer' ? '🔮 ' : r.role === 'detective' ? '🔍 ' : '🏡 ') + this.wwRoleLabel(r.role) + '</td>'
           + '<td style="' + cell + (r.alive ? '' : 'color:#8a8fa8;') + '">' + (r.alive ? '生存' : '💀 死亡') + '</td>'
           + '<td style="' + cell + '">' + (wolf ? r.kills : '-') + '</td>'
           + '<td style="' + cell + '">' + (!side ? '-' : win ? '勝ち' : '負け') + '</td>'
@@ -6608,7 +6766,7 @@ class GameScene extends Phaser.Scene {
   // 省略時（PCのクリック）はマウス/ポインタの向きを使う。
   tryAttack(angleOverride) {
     if (this.attackCooldown > 0 || this.transitioning || this.isDowned) return;
-    if (this.wwNoAttack()) return; // 人狼ゲーム中の人狼以外：攻撃しない
+    if (this.wwNoAttack()) return; // 人狼ゲーム中の人狼以外、または夜以外の人狼：攻撃しない
     // マジックボム（chargeBomb）は「押し続けて溜め、離すと発射」専用の武器で、
     // updateMagicBombCharge()/fireMagicBomb()だけが発射を行う。スペースキー連打等による
     // 即時発射（無溜め状態での発射）を防ぐため、通常の攻撃入力はここで無視する。
@@ -17073,6 +17231,7 @@ class GameScene extends Phaser.Scene {
     this.facing.x = this.player.x + Math.cos(faceAngle) * 20;
     this.facing.y = this.player.y + Math.sin(faceAngle) * 20;
     this.facing.rotation = faceAngle;
+    { const bl = this.wwBloodyOn(this.net.uid); if (this._bloody !== bl) { this._bloody = bl; this.facing.setFillStyle(bl ? 0xd01010 : 0xffffff); } } // 人狼ゲーム：自分が殺した直後は線が赤い
     if (this.accText) { this.accText.x = this.player.x; this.accText.y = this.player.y - 13; this.accText.setAlpha(this.player.alpha); this.accText.setVisible(this.player.visible); }
     if (this.accFx) { this.skullAuraT = Math.max(0, (this.skullAuraT || 0) - dt); this.accFx.rage = (this.accKey === 'skull' && this.skullAuraT > 0) ? Math.min(1, this.skullAuraT / 0.5) : 0; this.accFx.wisps = this.accKey === 'skull' ? this.skullRevives : undefined; accFxUpdate(this.accFx, this.accKey, this.player.x, this.player.y, dt, this.player.visible ? this.player.alpha : 0); }
     this.updateAccEffects(dt); // 装飾品の特殊効果（炎の燃焼・ブラックホールのビーム）
