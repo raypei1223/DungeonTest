@@ -12678,7 +12678,7 @@ class GameScene extends Phaser.Scene {
       const form1 = (a4._form || 1) < 2 && !a4._splitPool && !A4_TEST_ONLY; // 第1形態は A4_FORM1_KEYS の技だけ
       const base0 = a4._splitPool ? a4._splitPool.map(n => [n, 1]) : A.pool; // 分離中は、見えている腕で撃てる技だけ
       const base1 = form1 ? base0.filter(p => A4_FORM1_KEYS.has(p[0])) : base0;
-      const base = this.mp ? base1.filter(p => p[0] !== 'split') : base1; // 協力プレイでは「分離」は使わない
+      const base = base1; // 協力プレイでも「分離」を使う
       let cand = base.filter(p => !S.hist.includes(p[0]) && !(p[0] === 'wall' && ((this._a4Walls && this._a4Walls.length >= 2) || this._a4Hold)));
       if (!cand.length) cand = base; // 技が1〜2種類しかない時（テスト用）は、直前の技も選べるようにする
       let r = Math.random() * cand.reduce((s, p) => s + p[1], 0), name = cand[0][0];
@@ -13734,8 +13734,6 @@ class GameScene extends Phaser.Scene {
 
   // 技：分離。力を溜めて（1.0秒）から2つに分かれる。すでに分離している間は出さない。
   a4Atk_split(S) {
-    if (this.mp) return; // 協力プレイでは使わない
-
     const a4 = S.a4, C = this.a4SplitCfg(), R = this.a4Room();
     if (this._a4Sp || a4._a4Clone) return;
     const p = this.a4Pt(a4.gfx.x + C.small.dx, a4.gfx.y + 40, R, 80);
@@ -13761,15 +13759,15 @@ class GameScene extends Phaser.Scene {
     small.maxHp = Math.max(1, M - a4.maxHp); small.hp = Math.max(1, H - a4.hp); small.damage = a4.damage;
     small.hpBar.width = C.small.radius * 2; small.hpBar.setPosition(p.x, p.y - C.small.radius - 8);
     small._a4Clone = 'small'; small._armMask = C.small.mask;
-    small._cS = { tr: this.s2Trial, a4: small, cd: 1.0 + Math.random(), atk: null, hist: [] };
-    this._a4Sp = { tr: this.s2Trial, big: a4, small, orig: { type: orig, M }, t: C.life, phase: 'split', mt: 0 };
+    small._cS = { tr: this.s2Any(), a4: small, cd: 1.0 + Math.random(), atk: null, hist: [] };
+    this._a4Sp = { tr: this.s2Any(), big: a4, small, orig: { type: orig, M }, t: C.life, phase: 'split', mt: 0 };
     this.spawnBurst(p.x, p.y, C.small.color, 12);
     this.showBanner('本体が分離した！', 1200);
   }
 
   // 分離中の見張り（毎フレーム）：時間切れで統合／片方が倒されたら残った方が本体に戻る／儀が終わったら片付ける
   a4SplitUpdate(dt) {
-    const sp = this._a4Sp, tr = this.s2Trial; if (!sp) return;
+    const sp = this._a4Sp, tr = this.s2Any(); if (!sp) return;
     if (this.mp && !this.isHost && !this.rtLive()) return;
     const alive = (e) => e && e.hp > 0 && !e._removed && e.gfx && e.gfx.scene;
     const big = sp.big, small = sp.small;
