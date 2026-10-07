@@ -459,7 +459,7 @@
   </div>
 </div>
 <div id="ui">
-  <span id="floorLabel">階層</span>: <b id="floorNum">1</b> <span id="seedWrap">/ シード: <span id="seedNum">-</span> </span>/ 敵残り: <span id="enemyNum">-</span>
+  <div id="uiRow1"><span id="floorLabel">階層</span>: <b id="floorNum">1</b> <span id="seedWrap">/ シード: <span id="seedNum">-</span> </span>/ 敵残り: <span id="enemyNum">-</span></div>
   <div><span id="weaponLabel">武器</span>: <b id="weaponName">剣</b></div>
   <div id="hpBarBg"><div id="hpBarFill"></div></div>
   <div id="ammoRow">
@@ -1588,7 +1588,7 @@ const WEAPON_TYPES = [
   // 弾数1・リロード60秒＝クールダウン。リロード中は「照準モード」になり、味方に指示を出せる。
   // レベルが上がるとクールダウンが4秒ずつ短くなる（最短30秒）。
   { key: 'summon',  name: '召喚術', type: 'summon', damage: 0, cooldown: 0.5, minFloor: 5, maxAmmo: 1, reloadTime: 60, hidden: true }, // hidden: true＝旧召喚術。宝箱・武器選択画面には出さない（デベロッパーモードでは選べる）（降魔術に置き換え済み。コードは残してある）
-  // 降魔術（開発中）：スティックを持つと周りに8つの魔法陣が出て、倒した方向の魔法陣を選んで離すと技を発動する。
+  // 降魔術：スティックを持つと周りに8つの魔法陣が出て、倒した方向の魔法陣を選んで離すと技を発動する。
   // 弾数1・リロード＝その技のクールダウン（SUMMON2.skills の cooldown）。技の中身は SUMMON2 を参照。
   { key: 'summon2', name: '降魔術', type: 'summon2', damage: 0, cooldown: 0.5, minFloor: 6, maxAmmo: 1, reloadTime: 10 },
   // スナイパー：召喚術のリロード中「照準モード」と同じ操作感（スティックを倒す/押している間、
@@ -1824,22 +1824,24 @@ const S2_DEBUG_AIM = false;
 const S2_TEST_UNLOCK_ALL = false;
 // 四つ腕の形態変化：HPの割合がこの値以下になると次の形態へ（第2形態＝70%以下 / 第3形態＝30%以下）。いちど上がった形態は戻らない
 const ARMS4_FORMS = { hp: [0.7, 0.3], skin: 0xc8a692, white: 0xffffff };
-const A4_TEST_FORM_KEYS = false;     // テスト用：true の間、四つ腕の戦闘中に Z＝次の形態へ（演出つき）／X＝第1形態に戻す。完成したら false
+const A4_TEST_FORM_KEYS = true;      // テスト用：true の間、四つ腕の戦闘中に Z＝次の形態へ（演出つき）／X＝第1形態に戻す。完成したら false
 const A4_TEST_FORM = 0;            // テスト用：1〜3を入れると、四つ腕は最初からその形態以上になる（0で無効）
 const ARM_TURN_MAX = 11;          // 腕が向きを変える最高速度(rad/秒)。小さいほどゆっくり動く（大きな向きの変化でも飛ばない）。四つ腕の腕全般に効く
+const BOMB_SPLIT_AT = 0.45;      // デトネーターの爆弾：導火線が全体のこの割合だけ進んだら2つに分裂（0.45＝3秒の導火線なら約1.35秒後）
+const BOMB_SPLIT_SCALE = 0.75;   // 分裂した爆弾の見た目の大きさ（元の大きさに対する倍率）
+const BOMB_SPLIT_SPEED = 240;    // 分裂した2つが飛んでいく初速（px/秒。摩擦で減速する）
 const SKULL_WISPS = 3;            // ドクロの鬼火の数＝1回の挑戦で生き返れる回数（元は3）
 const A4_TEST_ONLY = null;      // テスト用：技名（'dense'）か技名の配列（['dense','rake']）を入れると、四つ腕はその技だけを繰り返す（追加した技も元の技も指定できる）。''（空）か null で無効
 const A4_OPENING = ['spear4', 'dense', 'fanarms', 'smash']; // 戦闘の最初に、この順で技を出す（四本黒槍 → 腕の壁 → 腕の濁流 → 殴り飛ばし）。第1形態で出ない技（腕の壁など）でも、このリストに入っていれば最初のこの時だけ出る。そのあとは今まで通りランダム。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
 const A4_EXTRA = { on: true, maxActive: 1 }; // 第3形態で増える4本の腕（slot 4〜7）が、本体とは別に技を出す。on：false で無効／技の間隔と最初の技までの時間は本体の四本の腕と同じ（ARMS4_ATK の cdMin・cdMax・firstCd）／maxActive：同時に技を出す追加腕の最大数
-const A4_FORM2_OPENING = ['orbdark', 'orblight', 'orbstar', 'orbsaturn', 'quadorb']; // 第2形態になった直後に、この順で技を出す（闇 → 光 → 黒星 → 土星 → 四つの光球）。そのあとは今まで通り。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
+const A4_FORM2_OPENING = ['orbdark', 'orblight', 'shotcross', 'orbsaturn', 'quadorb']; // 第2形態になった直後に、この順で技を出す（闇 → 光 → 波動弾（十字）(shotcross) → 土星 → 四つの光球）。そのあとは今まで通り。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
 const A4_FORM3_OPENING = ['spear4', 'orbstar4', 'sword4', 'tomahawk4', 'weapons4']; // 第3形態になった直後に、この順で技を出す（四本黒槍 → 四連黒星 → 連剣（四連黒剣） → 四連黒斧 → 四武器）。そのあとは今まで通り。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
 const A4_TEST_SEQ = false;         // テスト用：true の間、四つ腕の本体の技は「番号順に A4_TEST_SEQ_REPEAT 回ずつ」出る（ランダム・最初の固定順は無効）。第3形態の追加腕の技は止める。元に戻す時は false
 const A4_TEST_SEQ_REPEAT = 2;     // テスト用：同じ技を続けて出す回数
 const A4_TEST_ORDER = [['wall','壁から腕'],['shot','波動弾'],['ring','全方位弾幕'],['spiral','螺旋弾'],['sweep','薙ぎ払い'],['slam','叩きつけ'],['carpet','床爆撃'],['homing','追尾光球'],['grid','格子レーザー'],['xturret','回転X砲台'],['comb','櫛の腕'],['bwall','弾の壁'],['dash','突進'],['fan','扇撃ち'],['blink','瞬間移動散弾'],['smash','殴り飛ばし'],['bounce','反射弾'],['mines','足跡の爆弾'],['gravity','重力'],['sniper','狙撃'],['mega','巨大波動'],['wavy','蛇行弾'],['tomahawk','黒斧'],['tomahawk4','四連黒斧'],['weapons4','四武器'],['wallorb','壁の光球腕'],['crossbeam','光の柱'],['quadorb','四つの光球'],['orbdark','闇'],['orblight','光'],['orbsaturn','土星'],['orbstar','黒星'],['split','分離'],['dense','腕の壁'],['fanarms','腕の濁流'],['palm','張り手'],['claw','ひっかき'],['pincer','挟み撃ち'],['rake','熊手'],['stomp','連打'],['clap','合掌'],['spear','黒槍'],['spear4','四本黒槍'],['sword','黒剣'],['sword4','連剣'],['rubble','瓦礫投げ'],['boomerang','ブーメラン'],['steamroll','地ならし'],['fgun','指鉄砲'],['windmill','風車'],['relay','連続壁腕'],['jail','腕の牢'],['cycloid','輪を描く弾'],['giantpalm','巨大な手のひら'],['whack','もぐら叩き'],['quake','衝撃の連鎖']]; // テスト用：技の番号（1始まり）＝この並びの位置
-const A4_FORM1_NUMS = [1, 2, 5, 9, 11, 13, 17, 18, 20, 22, 27, 29, 30, 31, 32, 28, 39, 42, 44, 49, 55, 23]; // 第1形態で出る技の番号（A4_TEST_ORDER の番号）。第2形態以降は全ての技から出る
-const A4_FORM1_KEYS = new Set(A4_FORM1_NUMS.map(n => A4_TEST_ORDER[n - 1][0]));
+const A4_FORM1_KEYS = new Set(['wall', 'shot', 'sweep', 'grid', 'comb', 'dash', 'bounce', 'mines', 'sniper', 'wavy', 'crossbeam', 'orbdark', 'orblight', 'orbsaturn', 'orbstar', 'quadorb', 'rake', 'spear', 'sword', 'fgun', 'whack', 'tomahawk']); // 第1形態で出る技（技名で指定。壁から腕・波動弾・薙ぎ払い・格子レーザー・櫛の腕・突進・反射弾・足跡の爆弾・狙撃・蛇行弾・光の柱・闇・光・土星・黒星・四つの光球・熊手・黒槍・黒剣・指鉄砲・もぐら叩き・黒斧）。第2形態以降は全ての技から出る
 const A4_TEST_NEW_ONLY = false;   // テスト用：true の間、四つ腕の攻撃は「追加した腕技（a4Pool の20種）」だけが出る。元に戻す時は false
-const A4_TEST_SKIP_INTRO = false; // テスト用：true の間、調伏の儀の導入演出（廊下・逃走・投げ飛ばし）を飛ばして、ボス部屋で戦闘から始まる。元に戻す時は false
+const A4_TEST_SKIP_INTRO = true;  // テスト用：true の間、調伏の儀の導入演出（廊下・逃走・投げ飛ばし）を飛ばして、ボス部屋で戦闘から始まる。元に戻す時は false
 // 四つ腕の調伏の儀：演出のあと「逃げる → 追いつかれて掴まれる → 投げ飛ばされて下の部屋へ着地」の調整値。
 const ARMS4_FLEE = {
   approach: 60,    // 演出の最後に、四つ腕が前へ詰める距離(px)。小さいほど、逃げ始めの間が空く（＝追いつかれるまで長く走れる）
@@ -2033,15 +2035,15 @@ const ACCESSORIES = [
   { key: 'sprout', icon: '🌱', name: '新芽',       stat: 'soloBestFloor',    goal: 10,  unit: '階',  desc: 'ダンジョン（ソロ）で10階層に到達', effect: '回復量+2' },
   { key: 'shield', icon: '🛡️', name: '盾',         stat: 'soloBestFloor',    goal: 15,  unit: '階',  desc: 'ダンジョン（ソロ）で15階層に到達', effect: '受けるダメージ-5' },
   { key: 'crown',  icon: '👑', name: '王冠',       stat: 'soloBestFloor',    goal: 20,  unit: '階',  desc: 'ダンジョン（ソロ）で20階層に到達', effect: '近くの敵の速度を半減' },
-  { key: 'skull',  icon: '💀', name: 'ドクロ',     stat: 'soloBestFloor',    goal: 25,  unit: '階',  desc: 'ダンジョン（ソロ）で25階層に到達', effect: '三度、HP1で生き返る' },
-  { key: 'clock', icon: '🕒', name: '時計', stat: 'soloClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）をクリア', effect: '10秒間時を止める能力を獲得' }, // 入手条件：ダンジョン（ソロ）を25階まで全クリアする（soloClears）。効果：画面下の時計ボタン（またはQキー）で発動。敵・敵の弾・自分の弾が10秒止まる。リロード60秒（ACC_CLOCK）
+  { key: 'skull',  icon: '💀', name: '鬼火',     stat: 'soloBestFloor',    goal: 25,  unit: '階',  desc: 'ダンジョン（ソロ）で25階層に到達', effect: '三度、HP1で生き返る' },
+  { key: 'clock', icon: '🕒', name: '懐中時計', stat: 'soloClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）をクリア', effect: '10秒間時を止める能力を獲得' }, // 入手条件：ダンジョン（ソロ）を25階まで全クリアする（soloClears）。効果：画面下の時計ボタン（またはQキー）で発動。敵・敵の弾・自分の弾が10秒止まる。リロード60秒（ACC_CLOCK）
   { key: 'flame',  icon: '🔥', name: '炎',         stat: 'bossRushBestBosses', goal: 15,  unit: '体',  desc: 'ボスラッシュで15体目のボスを倒す', effect: '攻撃した敵が燃える（合計21ダメージ）' },
   { key: 'blackhole', icon: '🕳️', name: 'ブラックホール', stat: 'bossRushBestBosses', goal: 20, unit: '体', desc: 'ボスラッシュで20体目のボスを倒す', effect: '10秒に一度simaharのビームを撃つ' },
-  { key: 'swords', icon: '⚔️', name: '交差した剣', stat: 'soloTotalKills',   goal: 500, unit: '体',  desc: 'ダンジョン（ソロ）で雑魚敵を累計500体倒す', effect: 'ノックバックが2倍になる' },
-  { key: 'snow',   icon: '❄️', name: '雪の結晶',   stat: 'frontlineBestSec', goal: 300, unit: '秒',  desc: '最北戦線（ソロ）で5分間生き残る', effect: '移動速度+10%' },
-  { key: 'armor', icon: '🪖', name: '鎧', stat: 'armorFloor10Fast', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で10階層を4分以内にクリア', effect: '最大HPが2倍' }, // 入手条件：ダンジョン（ソロ）を始めてから、10階層のボスを倒すまでが4分以内（armorFloor10Fast。ARMOR_UNLOCK）
+  { key: 'swords', icon: '⚔️', name: '双剣', stat: 'soloTotalKills',   goal: 500, unit: '体',  desc: 'ダンジョン（ソロ）で雑魚敵を累計500体倒す', effect: 'ノックバックが2倍になる' },
+  { key: 'snow',   icon: '❄️', name: '雪',   stat: 'frontlineBestSec', goal: 300, unit: '秒',  desc: '最北戦線（ソロ）で5分間生き残る', effect: '移動速度+10%' },
+  { key: 'armor', icon: '🪖', name: '鎧', stat: 'armorFloor10Fast', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で10階層を4分30秒以内にクリア', effect: '最大HPが2倍' }, // 入手条件：ダンジョン（ソロ）を始めてから、10階層のボスを倒すまでが4分30秒以内（armorFloor10Fast。ARMOR_UNLOCK）
   { key: 'angelhalo', icon: '🪽', name: 'エンジェルヘイロー', stat: 'arms4RitualClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で天使を調伏する', effect: '1分ごとに50%の確率で天使を召喚' }, // 入手条件：ダンジョン（ソロ）で降魔術の天使の調伏の儀に成功する（arms4RitualClears。デベロッパーモード・協力プレイ・【期間限定】調伏の儀モードでは入手できない）
-  { key: 'serialkiller', icon: '🔪', name: 'シリアルキラー', all: true, goal: 0, unit: '個', desc: '他のすべての装飾品を獲得', effect: '近づいた敵を切り刻む' }, // 入手条件：他の装飾品をすべて入手済み（all:true。進捗は入手済みの個数）。効果：範囲内の敵へ絶え間なく斬撃（ACC_SERIALKILLER）。斬られた敵に白と赤の斬撃線が出る。必ず表の最後に置く
+  { key: 'serialkiller', icon: '🔪', name: 'ナイフ', all: true, goal: 0, unit: '個', desc: '他のすべての装飾品を獲得', effect: '近づいた敵を切り刻む' }, // 入手条件：他の装飾品をすべて入手済み（all:true。進捗は入手済みの個数）。効果：範囲内の敵へ絶え間なく斬撃（ACC_SERIALKILLER）。斬られた敵に白と赤の斬撃線が出る。必ず表の最後に置く
 ];
 function accessoryByKey(key) { return ACCESSORIES.find(a => a.key === key) || null; }
 // 受け取ったkeyが正しい装飾品なら絵文字を返す（他のプレイヤーから届いた値は、必ずこの表を通して描く）
@@ -2110,11 +2112,11 @@ function accFxStar(g, x, y, size, a) {
 // 🪽 エンジェルヘイロー：first＝ゲーム開始から何秒後に最初の1回を必ず発動するか／cooldown＝それ以降、何秒に一度、抽選するか／chance＝その時に発動する確率
 // 🪖 鎧：maxHpMult＝最大HPの倍率／ARMOR_UNLOCK＝入手条件（ダンジョンを始めてから sec 秒以内に floor 階のボスを倒す）
 const ACC_ARMOR = { maxHpMult: 2 };
-const ARMOR_UNLOCK = { floor: 10, sec: 240 };
+const ARMOR_UNLOCK = { floor: 10, sec: 270 };
 const ACC_ANGELHALO = { first: 30, cooldown: 60, chance: 0.5 };
 // 🕒 時計：duration＝時が止まる秒数／cooldown＝止まっていた時間が終わってから、次に使えるようになるまでの秒数
 // 🔪 シリアルキラー：range＝プレイヤーから敵の縁までの距離（px）／interval＝何秒ごとに斬るか／damage＝1回の斬撃のダメージ（範囲内の敵それぞれに）
-const ACC_SERIALKILLER = { range: 90, interval: 0.15, damage: 15 }; // 最強の装飾品：範囲内の敵1体あたり毎秒100ダメージ
+const ACC_SERIALKILLER = { range: 90, interval: 0.15, damage: 30 }; // 最強の装飾品：範囲内の敵1体あたり毎秒200ダメージ（元は damage:15＝毎秒100）
 const ACC_CLOCK = { duration: 10, cooldown: 60 };
 const ACC_FX = {
   // 🌱 新芽：緑の光の粒がふわふわ立ちのぼる
@@ -4137,7 +4139,7 @@ class GameScene extends Phaser.Scene {
     if (!el) {
       el = document.createElement('div');
       el.id = 'wwVote';
-      el.style.cssText = 'position:fixed; left:1.5vw; top:12vh; z-index:22; width:26vw; min-width:190px; max-width:300px; max-height:62vh; overflow-y:auto; background:rgba(8,10,28,0.85);'
+      el.style.cssText = 'position:fixed; left:50%; bottom:13vh; transform:translateX(-50%); z-index:22; width:26vw; min-width:190px; max-width:300px; max-height:55vh; overflow-y:auto; background:rgba(8,10,28,0.85);'
         + 'border:0.3vh solid #8a96d8; border-radius:1.2vh; padding:1vh; font-family:sans-serif; color:#fff; display:none;';
       ['pointerdown', 'mousedown', 'touchstart'].forEach(ev => el.addEventListener(ev, e => e.stopPropagation())); // 画面の下の操作（攻撃など）に伝えない
       el.addEventListener('click', e => {
@@ -4343,7 +4345,7 @@ class GameScene extends Phaser.Scene {
       if (!show) return;
       btn = document.createElement('button');
       btn.id = 'wwRoleTestBtn';
-      btn.style.cssText = 'position:fixed; left:50%; bottom:7vh; transform:translateX(-50%); z-index:22; display:none; padding:1vh 2.4vh; font-size:2.4vh; font-weight:bold; color:#fff; background:rgba(60,40,110,0.88); border:0.3vh solid #c9b6ff; border-radius:1.4vh; box-shadow:0 0 1vh rgba(0,0,0,0.7); cursor:pointer; touch-action:manipulation;';
+      btn.style.cssText = 'position:fixed; left:1.5vw; top:12vh; z-index:22; display:none; padding:1vh 2.4vh; font-size:2.4vh; font-weight:bold; color:#fff; background:rgba(60,40,110,0.88); border:0.3vh solid #c9b6ff; border-radius:1.4vh; box-shadow:0 0 1vh rgba(0,0,0,0.7); cursor:pointer; touch-action:manipulation;';
       document.body.appendChild(btn);
     }
     if (btn._sc !== this) { btn._sc = this; btn.onclick = () => this.wwTestChangeRole(); } // シーンが作り直されても、今のシーンで動くようにする
@@ -4770,7 +4772,7 @@ class GameScene extends Phaser.Scene {
       pv.phase = 'battle'; pv.counting = false; pv.endSent = false; pv.waiting = false;
       pv.mode = m.mode || 'survival'; // 選ばれたモード（ボディカウント／レースは未実装：今はサバイバルと同じ進行）
       pv.ids = m.ids || []; pv.alive = new Set(pv.ids); pv.out = {}; pv.dead = false; pv.grace = PVP.spawnGrace;
-      pv.kills = {}; pv.deaths = {}; pv.dmg = {}; pv.info = {}; pv.winners = null; pv.winSide = null; // リザルト用：撃破数・死亡数・与ダメージ・名前と武器
+      pv.kills = {}; pv.deaths = {}; pv.dmg = {}; pv.info = {}; pv.winners = null; pv.winSide = null; pv.winQuota = false; // リザルト用：撃破数・死亡数・与ダメージ・名前と武器
       pv.endAt = performance.now() + (pv.mode === 'werewolf' ? PVP.werewolf.time : PVP.bodycount.time) * 1000; pv.nextPotion = 1; pv.wwShift = 0; pv.votes = {}; pv.wwSent = {}; pv.wwApplied = {}; pv.wwExec = {}; pv.wwExecSent = {}; pv.wwKilled = {}; pv.wwBloody = {}; pv.wwDeaths = {}; pv.wwPending = null; pv.respLeft = 0; pv.respShown = -1; // ボディカウント／人狼ゲーム（ルール未実装の間）の終了時刻など
       for (const id of pv.ids) {
         const p = (this.latestPlayers || {})[id] || {};
@@ -4781,6 +4783,7 @@ class GameScene extends Phaser.Scene {
       if (pv.mode === 'werewolf') this.wwBuildSigns(); else this.wwClearSigns(); // 人狼ゲーム：各家の道の前に看板
       if (pv.mode === 'werewolf') { this.wwQuotaInit(); this.wwSeerInit(); this.wwDetInit(); } else { this.wwQuotaClear(); this.wwSeerClear(); this.wwDetClear(); } // 人狼ゲーム：村人側のノルマ（進捗の点・ノルマ品）
       if (pv.mode === 'werewolf') this.wwStartRoles(); else { pv.roles = null; pv.myRole = null; } // 人狼ゲーム：役職を決めて、武器を剣Lv.1に固定
+      this.updateHud(); // 人狼ゲームの開始・終了で、左上の表示（1行目の出し入れ）を更新する
       if (pv.mode === 'werewolf' && pv.accStash === undefined) { pv.accStash = this.accKey || ''; this.equipRunAccessory(''); } // 人狼ゲームでは装飾品なし（付けていたものは覚えておき、準備室に戻ったら戻す）
       if (pv.mode !== 'werewolf') this.pvpSpawnPotions(pv.round); // 回復アイテムを配置（全員が同じ位置）。人狼ゲームには置かない
       const i = pv.ids.indexOf(my);
@@ -4851,6 +4854,7 @@ class GameScene extends Phaser.Scene {
     } else if (m.a === 'end') {
       pv.winners = m.ws || (m.w ? [m.w] : []); // ボディカウントは同数1位が複数いることがある
       pv.winSide = m.side || null; // 人狼ゲーム：勝った陣営（'wolf'｜'villager'｜null＝引き分け）
+      pv.winQuota = !!m.quota; // ノルマでの決着か（リザルトの理由表示用）
       if (pv.winners.indexOf(my) >= 0) { this.pvpWins = (this.pvpWins || 0) + 1; this.recordPvpWin(); } // 自分が勝者なら累計勝利数を増やす
       pv.phase = 'over'; pv.resetAt = performance.now() + (PVP.fadeTime + PVP.resultTime) * 1000; // リザルトの表示時間はフェードのあとから数える
       this.pvpClearPotions();
@@ -5222,7 +5226,7 @@ class GameScene extends Phaser.Scene {
       picks.push(t);
     }
     q.spawnCnt = picks.length;
-    q.items = picks.map(t => {
+    q.items = picks.map((t, idx) => {
       const px = (t[0] + 0.5) * TILE, py = (t[1] + 0.5) * TILE;
       // 夜の闇（depth 12）より手前に出す＝暗くて見えない所にあっても、光って遠くからでも分かる（人狼にも見える）
       const gfx = this.add.circle(px, py, 11, 0x7ad7ff, 0.95).setDepth(13).setStrokeStyle(2, 0xffffff, 0.8);
@@ -5231,7 +5235,13 @@ class GameScene extends Phaser.Scene {
       const ring = this.add.circle(px, py, 14, 0x7ad7ff, 0).setStrokeStyle(3, 0xbff0ff, 0.95).setDepth(13).setBlendMode(Phaser.BlendModes.ADD); // 外へ広がって消える輪
       this.tweens.add({ targets: halo, alpha: 0.1, scale: 1.35, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.tweens.add({ targets: ring, scale: 6, alpha: 0, duration: 1500, repeat: -1, ease: 'Cubic.easeOut' });
-      return { gfx, label, fx: [halo, ring], x: px, y: py, taken: false, pend: 0 };
+      // 遠くからでも位置が分かるように、細い輪が定期的にけっこう遠くまで広がっていく（線の太さは変えずに半径だけ広げる）
+      const far = this.add.graphics().setDepth(13).setBlendMode(Phaser.BlendModes.ADD); far.k = 0;
+      const FAR_R = 800, FAR_MS = 2600, FAR_GAP = 1400; // FAR_R＝広がる最大半径(px)／FAR_MS＝広がる時間／FAR_GAP＝次の輪までの間
+      this.tweens.add({ targets: far, k: 1, duration: FAR_MS, delay: idx * 350, repeat: -1, repeatDelay: FAR_GAP, ease: 'Sine.easeOut',
+        onUpdate: () => { if (!far.scene) return; far.clear(); far.lineStyle(3, 0xbff0ff, 0.85 * (1 - far.k)); far.strokeCircle(px, py, 20 + FAR_R * far.k); },
+        onRepeat: () => { far.k = 0; } });
+      return { gfx, label, fx: [halo, ring, far], x: px, y: py, taken: false, pend: 0 };
     });
   }
 
@@ -5358,7 +5368,8 @@ class GameScene extends Phaser.Scene {
       el.style.cssText = 'position:fixed; top:11.5vh; left:50%; transform:translateX(-50%); z-index:21; display:none; color:#d6f3ff; font-weight:bold; font-size:3vh; font-family:sans-serif; white-space:nowrap; pointer-events:none; text-shadow:0 0 1vh rgba(0,0,0,0.9), 0 0.2vh 0.2vh rgba(0,0,0,0.95);';
       document.body.appendChild(el);
     }
-    el.style.display = on ? 'block' : 'none';
+    const bn = document.getElementById('banner'), bannerOn = !!(bn && bn.style.display === 'block'); // お知らせバナー（上から13vh〜）が出ている間は、重なるので隠す（夜のバナーにはノルマ数も書いてある）
+    el.style.display = (on && !bannerOn) ? 'block' : 'none';
     if (!on) return;
     const present = this.latestPlayers || {}, my = this.net.uid, spawned = q.itemsN === info.n;
     const need = (spawned && q.spawnCnt) ? q.spawnCnt : pv.ids.filter(id => pv.alive.has(id) && (present[id] || id === my)).length; // ノルマ品がまだ出ていない間は、バナーと同じ式で数える
@@ -5371,7 +5382,7 @@ class GameScene extends Phaser.Scene {
   wwSideWin(side) {
     const pv = this.pv; if (!pv || pv.endSent) return;
     const ws = pv.ids.filter(id => pv.roles && this.wwTeam(pv.roles[id]) === side);
-    pv.endSent = true; this.net.sendPvp({ a: 'end', w: ws[0] || null, ws, side });
+    pv.endSent = true; this.net.sendPvp({ a: 'end', w: ws[0] || null, ws, side, quota: true }); // quota＝ノルマでの決着（リザルトの理由表示用）
   }
 
   // 夜になった時のバナー（村人陣営には、ノルマの行がつく）
@@ -5568,7 +5579,7 @@ class GameScene extends Phaser.Scene {
       const title = !side ? 'DRAW' : (!inRound ? 'RESULT' : (myWin ? 'VICTORY' : 'DEFEAT'));
       const sideText = side === 'villager' ? '🏡 村人の勝利' : side === 'wolf' ? '🐺 人狼の勝利' : '勝者なし';
       const startV = pv.ids.filter(id => this.wwTeam(roles[id]) === 'villager').length, startW = pv.ids.filter(id => roles[id] === 'wolf').length;
-      const reason = side === 'villager' ? '人狼を全員倒しました' : side === 'wolf' ? (startV <= startW ? '村人を全員倒しました' : '村人が人狼と同数になりました') : '決着がつきませんでした';
+      const reason = side === 'villager' ? (pv.winQuota ? '村人がノルマを達成' : '人狼を全員倒しました') : side === 'wolf' ? (startV <= startW ? '村人を全員倒しました' : '村人が人狼と同数になりました') : '決着がつきませんでした';
       const sideColor = side === 'villager' ? '#5be08a' : side === 'wolf' ? '#ff4d4d' : '#ffd980';
       const cell = 'padding:1.1vh 2.2vh; text-align:center;';
       const rows = pv.ids.map(id => ({ id, name: (pv.info[id] || {}).name || '???', role: roles[id], alive: pv.alive.has(id), kills: pv.kills[id] || 0, wins: winsOf(id) }));
@@ -5592,7 +5603,7 @@ class GameScene extends Phaser.Scene {
         + '<tbody>' + body + '</tbody></table>'
         + '<div style="margin-top:3vh; display:flex; gap:2vh; justify-content:center; flex-wrap:wrap;">'
         + '<button id="pvpResultNext" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:default; pointer-events:none; background:#4a6cf7; color:#fff; font-weight:bold;">次のゲーム：</button>'
-        + '<button id="pvpResultLobby" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:pointer; background:#3a3d4d; color:#fff; font-weight:bold;">ロビーへ戻る</button>'
+        + '<button id="pvpResultLobby" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:pointer; background:#3a3d4d; color:#fff; font-weight:bold;">タイトル画面へ</button>'
         + '</div></div>';
       ov.style.display = 'flex';
       document.getElementById('pvpResultLobby').onclick = () => { location.reload(); };
@@ -5628,7 +5639,7 @@ class GameScene extends Phaser.Scene {
       + '<tbody>' + body + '</tbody></table>'
       + '<div style="margin-top:3vh; display:flex; gap:2vh; justify-content:center; flex-wrap:wrap;">'
       + '<button id="pvpResultNext" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:default; pointer-events:none; background:#4a6cf7; color:#fff; font-weight:bold;">次のゲーム：</button>'
-      + '<button id="pvpResultLobby" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:pointer; background:#3a3d4d; color:#fff; font-weight:bold;">ロビーへ戻る</button>'
+      + '<button id="pvpResultLobby" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:pointer; background:#3a3d4d; color:#fff; font-weight:bold;">タイトル画面へ</button>'
       + '</div>'
       + '</div>';
     ov.style.display = 'flex';
@@ -6760,8 +6771,8 @@ class GameScene extends Phaser.Scene {
       if (L.length >= 160) break;
       const q = params ? params.slice(k * 3, k * 3 + 3) : [Math.random() * Math.PI * 2, (Math.random() - 0.5) * r, (Math.random() - 0.5) * r];
       if (q.length < 3 || q.some(v => typeof v !== 'number' || !isFinite(v))) continue;
-      const ang = q[0], len = r * 2.6 + 22, ox = q[1], oy = q[2];
-      L.push({ x0: x + ox - Math.cos(ang) * len / 2, y0: y + oy - Math.sin(ang) * len / 2, x1: x + ox + Math.cos(ang) * len / 2, y1: y + oy + Math.sin(ang) * len / 2, age: 0, life: 0.2 });
+      const ang = q[0], len = r * 3.4 + 30, ox = q[1], oy = q[2];
+      L.push({ x0: x + ox - Math.cos(ang) * len / 2, y0: y + oy - Math.sin(ang) * len / 2, x1: x + ox + Math.cos(ang) * len / 2, y1: y + oy + Math.sin(ang) * len / 2, age: -k * 0.07, life: 0.2 }); // 2本目は0.07秒遅らせて出す（age が負の間は描かない）
       used.push(Math.round(ang * 100) / 100, Math.round(ox), Math.round(oy));
     }
     return used;
@@ -6782,6 +6793,7 @@ class GameScene extends Phaser.Scene {
     for (const q of L) q.age += dt;
     this._skFx = L.filter(q => q.age < q.life);
     for (const q of this._skFx) {
+      if (q.age < 0) continue; // まだ出る前（2本目の遅れ）
       const k = q.age / q.life, head = Math.min(1, k * 5), tail = Math.max(0, (k - 0.2) / 0.8); // 線が走って、後ろから消えていく
       const ax = q.x0 + (q.x1 - q.x0) * tail, ay = q.y0 + (q.y1 - q.y0) * tail, bx = q.x0 + (q.x1 - q.x0) * head, by = q.y0 + (q.y1 - q.y0) * head;
       g.lineStyle(5, 0xd01010, 0.65 * (1 - k)); g.lineBetween(ax, ay, bx, by); // 赤い傷
@@ -7142,6 +7154,7 @@ class GameScene extends Phaser.Scene {
     const pct = Math.max(0, this.playerHp / this.playerMaxHp) * 100;
     document.getElementById('hpBarFill').style.width = pct + '%';
     document.getElementById('enemyNum').textContent = this.enemies ? this.enemies.length : 0;
+    const row1 = document.getElementById('uiRow1'); if (row1) row1.style.display = (this.pv && this.pv.mode === 'werewolf') ? 'none' : ''; // 人狼ゲームでは「階層／PvP・敵残り」の1行目はいらない
     // 人狼ゲーム中は、武器の代わりに自分の役職を出す（人狼＝赤／村人＝緑）
     const wwRole = this.pv && this.pv.mode === 'werewolf' && this.pv.myRole, wlEl = document.getElementById('weaponLabel'), wnEl = document.getElementById('weaponName');
     if (wwRole) {
@@ -9449,8 +9462,21 @@ class GameScene extends Phaser.Scene {
   updateBombs(dt) {
     if (!this.bombs || !this.bombs.length) return;
     const FRICTION = 90; // 摩擦による減速量（速度/秒）。大きいほど早く滑り止まる
-    for (const b of this.bombs) {
+    for (const b of this.bombs.slice()) { // 分裂で増える爆弾はこのフレームでは処理しない（コピーを回す）
       if (b.exploded) continue;
+
+      // 導火線が BOMB_SPLIT_AT（0.45＝全体の45%）まで進んだら、1回だけ2つに分裂して、それぞれがランダムな方向へ飛ぶ
+      if (!b.split && b.fuse <= (b.fuseTotal || 3.0) * (1 - BOMB_SPLIT_AT)) {
+        b.split = true;
+        const a1 = Math.random() * Math.PI * 2, a2 = Math.random() * Math.PI * 2;
+        b.vx = Math.cos(a1) * BOMB_SPLIT_SPEED; b.vy = Math.sin(a1) * BOMB_SPLIT_SPEED;
+        const sr = b.gfx.radius * BOMB_SPLIT_SCALE; // 分裂した2つは、見た目を少し小さくする（爆発の威力・範囲は変えない）
+        b.gfx.setRadius(sr); b.halo.setRadius(sr * 2.4);
+        this.spawnBomb(b.gfx.x, b.gfx.y, Math.cos(a2) * BOMB_SPLIT_SPEED, Math.sin(a2) * BOMB_SPLIT_SPEED, b.damage, sr, b.blastRadius, b.fuse, null, b.ally, b.visualOnly);
+        const c = this.bombs[this.bombs.length - 1];
+        c.split = true; c.fuseTotal = b.fuseTotal; c.owner = b.owner; // 分裂した後の爆弾は、もう分裂しない／持ち主・点滅の速さは元の爆弾と同じ
+        this.spawnBurst(b.gfx.x, b.gfx.y, 0xffffff, 6);
+      }
 
       // 氷上を滑るように、速度を摩擦で一定量ずつ減衰させる
       const speed = Math.hypot(b.vx, b.vy);
@@ -13165,7 +13191,7 @@ class GameScene extends Phaser.Scene {
     const plA = () => V ? pl.y : pl.x, plC = () => V ? pl.x : pl.y; // プレイヤーの「腕の向き」「それと直角」の座標
     const touch = () => { // 腕（壁から手の先まで）にプレイヤーが触れているか
       if (k.harmless) return false; // 光球の腕は掴まない
-      if (this.isGhost || this._a4Hold) return false;
+      if (this.isGhost || this._a4Hold || this._a4Fly) return false; // 殴り飛ばしで飛んでいる間は、壁から生えた手に当たらない
       const along = (plA() - k.wallP) * sg, hx = k.full * k.ext;
       return along >= -pl.radius && along <= hx + pl.radius * 0.5 && Math.abs(plC() - k.c) <= W.arm / 2 + pl.radius * 0.6;
     };
@@ -13361,12 +13387,13 @@ class GameScene extends Phaser.Scene {
 
   // 2. 波動弾：手の先で光る弾を膨らませ、腕をプレイヤーへ向けて撃つ（壁で爆発／途中で十字ビーム）
   a4Atk_shot(S, A) { this.a4ShotStart(S, A.shot); }
-  a4ShotStart(S, W) {
+  a4Atk_shotcross(S, A) { this.a4ShotStart(S, A.shot, 'cross'); } // 波動弾（十字）：波動弾のうち、途中で縦横に十字ビームを放つ弾だけを撃つ（第2形態の開幕用）
+  a4ShotStart(S, W, forceType) { // forceType：'cross' などを渡すと、全部の弾をその種類にする（省略すると十字／爆発をランダム）
     const a4 = S.a4, set = this._armSets && this._armSets.get(a4);
     if (!set) { return; }
     const slots = Phaser.Utils.Array.Shuffle([0, 1, 2, 3]).slice(0, Math.random() < 0.5 ? 2 : 1);
     const g = this.add.graphics().setDepth(7).setBlendMode(Phaser.BlendModes.ADD);
-    S.atk = { kind: 'shot', t: 0, g, objs: [g], arms: slots.map((s, i) => ({ slot: s, i, type: Math.random() < 0.5 ? 'cross' : 'explode', fired: false })) };
+    S.atk = { kind: 'shot', t: 0, g, objs: [g], arms: slots.map((s, i) => ({ slot: s, i, type: forceType || (Math.random() < 0.5 ? 'cross' : 'explode'), fired: false })) };
     a4._armOv = a4._armOv || {};
   }
 
@@ -13509,12 +13536,12 @@ class GameScene extends Phaser.Scene {
     this.a4Script(S, 3.6, ev);
   }
 
-  // 12. 弾の壁：上から横一列の弾が3回降りてくる（隙間の位置は 左寄り→右寄り→左寄り）。最後に左から横向きの壁
+  // 12. 弾の壁：上から横一列の弾が3回降りてくる（隙間は、左半分に1つ・右半分に1つの合計2つ。位置は回ごとに変わる）。最後に左から横向きの壁
   a4Atk_bwall(S) {
     const R = this.a4Room(), Wd = R.x1 - R.x0, ev = [];
-    [0.28, 0.68, 0.36].forEach((gp, i) => ev.push([0.4 + i * 1.6, () => {
-      const gx = R.x0 + Wd * gp;
-      for (let x = R.x0 + 20; x < R.x1 - 10; x += 38) if (Math.abs(x - gx) > 85) this.a4Shot(x, R.y0 + 12, Math.PI / 2, 190, { r: 11, dmg: 16 });
+    [[0.22, 0.72], [0.36, 0.84], [0.16, 0.62]].forEach((gp, i) => ev.push([0.4 + i * 1.6, () => { // gp＝[左半分の隙間の位置, 右半分の隙間の位置]（部屋の幅に対する割合）
+      const gl = R.x0 + Wd * gp[0], gr = R.x0 + Wd * gp[1];
+      for (let x = R.x0 + 20; x < R.x1 - 10; x += 38) if (Math.abs(x - gl) > 85 && Math.abs(x - gr) > 85) this.a4Shot(x, R.y0 + 12, Math.PI / 2, 190, { r: 11, dmg: 16 });
     }]));
     ev.push([5.4, () => {
       const gy = R.cy + (Math.random() - 0.5) * 300;
@@ -13985,7 +14012,7 @@ class GameScene extends Phaser.Scene {
       { delay: 0,   pre: { slot: 2 },    run: (F) => this.a4Atk_sword(F) },           // 左上＝黒剣
       { delay: 0.5, pre: { slots: [3] }, run: (F) => this.a4Atk_spear4(F) },          // 右上＝黒槍
       { delay: 0,   pre: {},             run: (F) => this.a4TomahawkRun(F, [0], 0) }, // 左下＝黒斧
-      { delay: 0,   pre: {},             run: (F) => this.a4OrbSolo(F, 3, 1.0, 3.2, 2.6, 1, false, 1) }      // 右下＝黒星（1回だけ・ビームは回る）
+      { delay: 0,   pre: {},             run: (F) => this.a4OrbSolo(F, 3, 1.0, 3.2, 2.6, 1, 0.5, 1) }      // 右下＝黒星（1回だけ・ビームは単体の半分だけ回る）
     ];
     const subs = defs.map(d => { const F = Object.assign({ a4 }, d.pre); d.run(F); return F.atk ? { k: F.atk, d: d.delay } : null; }).filter(Boolean); // 元の技が作った「スクリプト」を取り出す
     const END = Math.max.apply(null, subs.map(s => s.k.end + s.d));
@@ -14038,7 +14065,7 @@ class GameScene extends Phaser.Scene {
     const S2 = { a4, atk: null };
     if (slot === 4) { S2.slots = [4]; this.a4Atk_spear4(S2); }          // 黒槍
     else if (slot === 5) { S2.slot = 5; this.a4Atk_sword(S2); }          // 黒剣
-    else if (slot === 6) this.a4OrbSolo(S2, 3, 1.0, 3.2, 2.6, 6, true);  // 黒星（単体技と同じ。ただし十字ビームは回らない）
+    else if (slot === 6) this.a4OrbSolo(S2, 3, 1.0, 3.2, 2.6, 6, 1 / 3, 1); // 黒星（単体技と同じ1回。ただし十字ビームは単体の3分の1だけ回る）
     else this.a4TomahawkRun(S2, [7], 0);                                  // 黒斧
     return S2;
   }
@@ -14282,9 +14309,10 @@ class GameScene extends Phaser.Scene {
   //   闇：黒い弾が全方位へ散弾／光：プレイヤーを狙う太いビームと、左右に開く2本
   //   土星：輪の衝撃波（切れ目はプレイヤーの方向）／黒星：＋形のビーム4本が、回りながら部屋を薙ぐ
   //   n：単体技の何回目か(0〜2)／sg：土星の欠けをずらす向き(1か-1)。土星の欠けは、1回目はプレイヤーの方向、2回目は sg 側へ、3回目は反対側へずれる
-  a4QuadFire(a4, slot, n, sg, hand, still) { // still：true なら黒星の十字ビームが回らない（四つの光球(quadorb)用） // hand：光球を撃つ手（省略すると slot と同じ。黒星(weapons4)では右下の手で撃つ）
+  a4QuadFire(a4, slot, n, sg, hand, still) { // still：黒星の十字ビームの回転量。省略/false＝単体の黒星と同じ(1)／数値＝その倍率（0.5＝半分、1/3＝3分の1）／true＝回らない(0) // hand：光球を撃つ手（省略すると slot と同じ。黒星(weapons4)では右下の手で撃つ）
     n = n || 0; sg = sg || 1; if (hand === undefined) hand = slot;
-    if (a4._splitPool || a4._a4Clone) still = true; // 分離中の個体（大きい方・小さい方）が撃つ黒星の十字ビームは回らない（向きだけランダム）
+    let rotMul = (typeof still === 'number') ? still : (still ? 0 : 1); // 黒星のビームが回る量（単体の黒星＝1）
+    if (a4._splitPool || a4._a4Clone || (a4._form || 1) >= 3) rotMul = 1 / 2; // 第3形態（追加腕もそれ以外の腕も）と、分離中の個体（大きい方・小さい方）が撃つ黒星のビームは、単体の黒星の半分だけ回る（約22°）
     const pl = this.a4Pl();
     const org = () => this.a4HandPos(a4, hand) || { x: a4.gfx.x, y: a4.gfx.y }, h = org();
     if (slot === 0) {
@@ -14301,7 +14329,7 @@ class GameScene extends Phaser.Scene {
       const shift = n === 0 ? 0 : (n === 1 ? sg : -sg) * 0.3; // 欠けの位置のずれ(rad)
       this.a4Wave(h.x, h.y, { speed: 360, gapAng: Math.atan2(pl.y - h.y, pl.x - h.x) + shift, gapW: 0.8, dmg: 28 });
     } else {
-      this.a4Cross(h.x, h.y, { rot: Math.random() * Math.PI / 2, warn: 0.8, on: 1.4, w: 30, dmg: 22, sweep: (Math.random() < 0.5 ? 1 : -1) * 0.55, dark: true }); // 黒星のビームは常に回転する（以前は still の時だけ回転オフだった） // 黒い十字ビーム（still の時は回らず、向きだけランダム）
+      this.a4Cross(h.x, h.y, { rot: Math.random() * Math.PI / 2, warn: 0.8, on: 1.4, w: 30, dmg: 22, sweep: (Math.random() < 0.5 ? 1 : -1) * 0.55 * rotMul, dark: true }); // 黒星のビームは常に回転する（以前は still の時だけ回転オフだった） // 黒い十字ビーム（still の時は回らず、向きだけランダム）
     }
   }
 
@@ -14339,7 +14367,7 @@ class GameScene extends Phaser.Scene {
   }
 
   // 単体技：手ひとつだけで「溜める → 放つ」を3回繰り返す。charge＝1回の溜め(秒)／period＝次の溜めを始める間隔(秒)／tail＝最後に放ってから技が終わるまで(秒)
-  a4OrbSolo(S, slot, charge, period, tail, hand, still, reps) { // hand：使う手（省略すると slot と同じ）。slot＝光球の種類。still：true なら黒星の十字ビームが回らない。reps：溜めて放つ回数（省略すると3回）
+  a4OrbSolo(S, slot, charge, period, tail, hand, still, reps) { // hand：使う手（省略すると slot と同じ）。slot＝光球の種類。still：黒星のビームの回転量（省略/false＝1／数値＝その倍率／true＝回らない）。reps：溜めて放つ回数（省略すると3回）
     if (hand === undefined) hand = slot;
     const a4 = S.a4, kd = this.a4OrbKinds()[slot], REPS = reps || 3, list = [], ev = [], sg = Math.random() < 0.5 ? 1 : -1;
     ev.push([0, () => this.a4AimArm(a4, hand, this.a4OrbAim()[this.a4BaseSlot(hand)])]); // 使う手だけを伸ばす
@@ -14369,7 +14397,7 @@ class GameScene extends Phaser.Scene {
     }]);
     this.a4Script(S, CHARGE + 2 * GAP + 1.6, ev, (k) => { if (orb && orb.rel < 0) orb.k = Math.min(1, k.t / CHARGE); });
   }
-  a4Atk_orbstar(S) { this.a4OrbSolo(S, 3, 1.0, 3.2, 2.6, undefined, false, 3); }      // 黒星：＋形のビーム ×3（溜めて放つのを3回くり返す）
+  a4Atk_orbstar(S) { this.a4OrbSolo(S, 3, 1.0, 3.2, 2.6, undefined, false, 1); }      // 黒星：＋形のビーム ×1（溜めて放つのは1回だけ。ビームは回る）
   a4Atk_orbstar4(S) { this.a4OrbSolo(S, 3, 1.0, 2.2, 2.4, undefined, false, 4); } // 四連黒星：黒星（＋形のビームが回る）を、溜めて放つのを4回くり返す（第3形態の開幕用）。period 2.2＝十字ビームの予告0.8＋照射1.4（a4Cross の warn+on）。前のビームが終わると同時に、次のビームの予告が始まる。ビームの長さを変えたら period も合わせる
 
   // ===================== 分離攻撃 =====================
@@ -14380,8 +14408,8 @@ class GameScene extends Phaser.Scene {
   a4SplitCfg() {
     return {
       life: 60,
-      big:   { radius: 52, len: 260, speed: 46, color: 0xd6dcff, mask: [false, false, true, true], dx: -230, pool: ['crossbeam', 'orbsaturn', 'orbstar', 'sweep', 'spiral'] },
-      small: { radius: 28, len: 130, speed: 84, color: 0xffd6dc, mask: [true, true, false, false], dx: 230,  pool: ['orbdark', 'orblight', 'ring'] }
+      big:   { radius: 52, len: 260, speed: 46, color: 0xd6dcff, mask: [false, false, true, true], dx: -230, pool: ['crossbeam', 'orbsaturn', 'orbstar', 'sweep', 'carpet'] },
+      small: { radius: 28, len: 130, speed: 84, color: 0xffd6dc, mask: [true, true, false, false], dx: 230,  pool: ['orbdark', 'orblight', 'comb', 'blink'] }
     };
   }
 
@@ -18973,7 +19001,7 @@ class GameScene extends Phaser.Scene {
     }
     if (this.bossFloor && !this.mp) { // ダンジョンのボス階：全てのボスを倒すと出口が開く。25階ならオールクリア（協力プレイは下の配信→onReviveで全員に処理）
       if (this.bossFloorAlive()) return;
-      this.recordArmorClear(); // 🪖 鎧の入手条件（開始から4分以内に10階層のボスを倒す）
+      this.recordArmorClear(); // 🪖 鎧の入手条件（開始から4分30秒以内に10階層のボスを倒す）
       this.showClearTime(); // 次の部屋に進むまで経過時間を上に出す
       if (this.floor >= 25) this.triggerAllClear(); else this.openBossRushExit(pos, true);
       return;
@@ -20161,15 +20189,17 @@ document.getElementById('soloBtn').addEventListener('click', () => startGame('so
 const RUSH_WEAPON_DESC = {
   sword: '広い範囲を素早く斬る近接武器',
   club: '細く長いリーチ・高威力・大きく吹き飛ばす',
-  shotgun: '近距離で散弾を撃つ（2発装填）',
-  rocket: '爆発する高威力の弾（1発装填）',
-  machinegun: '狙っている間 撃ち続ける（32発装填）',
+  shotgun: '近距離で散弾を撃つ（4発装填）',
+  rocket: '爆発する高威力の弾（3発装填）',
+  machinegun: '狙っている間 撃ち続ける（40発装填）',
   magicbomb: '押し続けて溜め、離すと大爆発（1発装填）',
   cross: '敵を止める魔法陣を出す（ダメージ無し・1発装填）',
+  sniper: '狙った一点に超高威力（1発装填）',
+  trap: '踏むと爆発、スタンと脆弱を与える（6発装填）',
   katana: '狙った方向へ瞬間移動しながら軌跡上の敵を斬る',
   astral: 'スティックを持つ間、体を置いてゴーストになる（敵に見つからず、右スティックで移動。触れて攻撃。HPは1になる。拾う・ゴールは不可）',
   summon: '敵の中からランダムに1体を味方として召喚する（自分では攻撃しない）',
-  summon2: '魔法陣を選んで技を発動する（開発中：コウモリ以外は調伏の儀に勝つと解放）',
+  summon2: '召喚対象を選び技を発動（調伏の儀に敵を道連れ可能）',
 };
 const RUSH_WEAPONS = WEAPON_TYPES.filter(w => !w.isFreeze && !w.hidden); // ボスラッシュで選べる武器（旧召喚術は除く）
 // 最北戦線（ひとり）の武器選択は、これまでどおり召喚術を含めない
