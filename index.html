@@ -379,12 +379,11 @@
   <div class="lobbyGrid">
     <div class="lobbyBox lobbySide">
       <h2>👥 協力プレイ</h2>
-      <div id="fbWarning">協力プレイが使えません（FirebaseのAPIキー未設定、または通信環境の制限でFirebaseの読み込みがブロックされている可能性があります）。「ダンジョン」と「人狼ゲームテスト（一人・通信なし）」だけ利用できます。</div>
+      <div id="fbWarning">協力プレイが使えません（FirebaseのAPIキー未設定、または通信環境の制限でFirebaseの読み込みがブロックされている可能性があります）。「ダンジョン」だけ利用できます。</div>
       <button id="createRoomBtn">ルームを作成</button>
       <button id="createPvpRoomBtn" style="background:#e0533d;">PvPのルームを作成</button>
       <label style="display:flex; align-items:center; justify-content:center; gap:6px; margin:0 0 6px; cursor:pointer;"><input type="checkbox" id="pvpFixedWeaponChk" checked> 武器固定（全員が同じ武器）</label>
       <button id="createFrontlineRoomBtn" style="background:#4fd67a;">最北戦線のルームを作成</button>
-      <button id="pvpOfflineTestBtn" style="background:#8a6bd1;" title="通信なし・一人で、入ると直接 人狼ゲームが始まる">🧪 人狼ゲームテスト（一人・通信なし）</button>
       <div class="joinRow">
         <input type="text" id="roomCodeInput" placeholder="ルームコード" maxlength="5">
         <button id="joinRoomBtn">参加</button>
@@ -1233,7 +1232,7 @@ const ENEMY_TYPES = [
     knockbackScale: 0, superArmor: true, arms: { len: 200, up: 1.2, low: 1.4, glow: true }, // glow：体の後ろに白い光を重ねて脈打たせる
     // 調伏の儀（最終試練）で敵として出る時だけ、この値で上書きされる（味方として召喚した時は上の値のまま）。
     //   hp＝基本HP（階層で増える）／damage＝接触のダメージ／speed＝歩く速さ（プレイヤーは168。投げ飛ばしの後の戦闘中は、この値でゆっくり迫ってくる）。攻撃は未実装。
-    finalTrial: { hp: 10000, speed: 70, damage: 100000 } },
+    finalTrial: { hp: 20000, speed: 70, damage: 100000 } },
   { key: 'shooter', color: 0x5bd1ff, radius: 15, hp: 34, speed: 68,  damage: 8,  behavior: 'ranged', minFloor: 5,
     shootRange: 220, retreatRange: 110, fireCooldown: 1.5, projSpeed: 260, projDamage: 11, projRadius: 5, projColor: 0x8ad9ff },
   // 半透明の白い敵。壁をすり抜けて移動し、索敵範囲の概念が無く（aggroRange:Infinity）
@@ -1884,7 +1883,7 @@ const SUMMON2 = {
     2: { key: 'twinsnake', trial: [{ key: 'snake', n: 2 }], name: 'ツインウロボロス', count: 28, cooldown: 23, dmgMult: 1, blastMult: 0.5, minLevel: 6, // 右：選んでからスティックを持つと体の左右に魔法陣 → 離すと右・左の順に突進 → 数秒後に体全体が爆発。minLevel: 6＝召喚術Lv6以降で使える
          aimWait: 8, side: 34, leftDelay: 1.0, dashSpeed: 550, hitRoamDelay: 0, coilSpeed: 345, coilMinRadius: 50, coilFollow: 300, // とぐろ：自由モードに入った直後から爆発の直前まで、ぶつかった敵（いなければ近くの敵）の周りを先頭が勢いよく回り続けて輪になる（本物のウロボロスと同じ coilSpeed 345／輪の半径＝全長÷2π）。coilFollow＝輪の中心が敵を追う速さ
          dashDist: 640, gap: 17, knockback: 560, hitInterval: 0.5, hitPad: 4,
-         weave: 0.6, dashWeave: 0.9, weaveLen: 240, // 蛇行：進む向きを左右に振る大きさ(rad)（dashWeave＝突進中、weave＝着地して動き回っている間）と、1往復する長さ(px)
+         weave: 0.35, dashWeave: 0.5, weaveLen: 240, // 蛇行：進む向きを左右に振る大きさ(rad)（dashWeave＝突進中、weave＝着地して動き回っている間）と、1往復する長さ(px)
          roamSpeed: 230, roamTurn: 2.2, seekRange: 320, leash: 480, roamMult: 0.5, roamKnockback: 220, // 着地後：歩く速さ / 曲がる速さ(rad/秒) / 敵に気付いて寄っていく距離 / プレイヤーから離れすぎた時に戻り始める距離 / 触れた時のダメージ倍率・吹き飛ばし
          fuse: 3.0, warnTime: 1.0, blastStride: 4, blastGap: 0.06, blastRadius: 70 }, // 爆発の威力・半径はデトネーターの爆薬（bombDamage／bombBlastRadius）と同じ（blastMult＝その威力への倍率、blastRadius＝デトネーターが見つからない時の予備）。 count・gap＝体の数と間隔（本物のウロボロスと同じ 28個・17px ＝ 全長およそ476px）/ aimWait＝向きを決めるのを待つ秒数 / side＝体から魔法陣までの横の距離 / fuse＝着地してから爆発までの秒数 / blastStride＝爆発は胴体3つに1つの位置だけ（重いので）
     0: { key: 'quartet', trial: [{ key: 'quartet', n: 1 }], name: 'カルテット', count: 4, life: 8, dmgMult: 0.5, cooldown: 20, minLevel: 4, // 上：背後に射手4体が並び、スティックを向けた方向へ一斉掃射（召喚術Lv4以降）
@@ -12393,8 +12392,8 @@ class GameScene extends Phaser.Scene {
       cdMin: 1.0, cdMax: 2.0, firstCd: 1.5,
       wall: { band: 120, arm: 90, scale: 1, tele: 1.1, trackT: 0.6, grow: 0.14, hold: 0.3, throwSpeed: 1900, retract: 0.3, dmg: 30, missHold: 120 },
       shot: { charge: 1.1, stagger: 0.3, speed: 340, radius: 16, orbMax: 34, dmg: 22, blastR: 95, crossAt: [0.55, 0.95], beamWarn: 0.3, beamOn: 0.4, beamW: 22, beamDmg: 18 },
-      pool: this.a4Pool([['wall', 1], ['shot', 1.4], ['ring', 1], ['spiral', 1], ['sweep', 1], ['slam', 1], ['carpet', 1], ['homing', 1], ['grid', 1], ['xturret', 1],
-        ['comb', 0.8], ['bwall', 1], ['dash', 1], ['fan', 1], ['bounce', 1], ['mines', 1], ['gravity', 0.8], ['sniper', 1], ['mega', 0.7], ['wavy', 1]]),
+      pool: this.a4Pool([['wall', 1], ['shot', 1], ['ring', 1], ['spiral', 1], ['sweep', 1], ['slam', 1], ['carpet', 1], ['homing', 1], ['grid', 1], ['xturret', 1],
+        ['comb', 1], ['bwall', 1], ['dash', 1], ['fan', 1], ['bounce', 1], ['mines', 1], ['gravity', 1], ['sniper', 1], ['mega', 1], ['wavy', 1]]),
     };
   }
 
@@ -13474,7 +13473,7 @@ class GameScene extends Phaser.Scene {
   // 部品は既存のもの（a4Shot / a4Beam / a4Bomb / a4SpawnWallArm など）をそのまま使っている。
   a4Pool(old) {
     const nw = [['palm', 1], ['claw', 1], ['pincer', 1], ['rake', 1], ['stomp', 1], ['clap', 1], ['rubble', 1], ['boomerang', 1], ['steamroll', 1],
-      ['fgun', 1], ['dense', 1], ['fanarms', 1], ['windmill', 1], ['relay', 1], ['jail', 1], ['cycloid', 1], ['giantpalm', 0.9], ['whack', 1], ['quake', 1], ['crossbeam', 1], ['quadorb', 0.8], ['orbdark', 1], ['orblight', 1], ['orbsaturn', 1], ['orbstar', 1], ['split', 0.8], ['blink', 1], ['smash', 0.8], ['spear', 1], ['spear4', 0.9], ['sword', 1], ['wallorb', 1], ['tomahawk', 1], ['tomahawk4', 0.9], ['sword4', 0.9], ['weapons4', 1]];
+      ['fgun', 1], ['dense', 1], ['fanarms', 1], ['windmill', 1], ['relay', 1], ['jail', 1], ['cycloid', 1], ['giantpalm', 1], ['whack', 1], ['quake', 1], ['crossbeam', 1], ['quadorb', 1], ['orbdark', 1], ['orblight', 1], ['orbsaturn', 1], ['orbstar', 1], ['split', 1], ['blink', 1], ['smash', 1], ['spear', 1], ['spear4', 1], ['sword', 1], ['wallorb', 1], ['tomahawk', 1], ['tomahawk4', 1], ['sword4', 1], ['weapons4', 1]];
     if (A4_TEST_ONLY) { const only = [].concat(A4_TEST_ONLY); return nw.concat(old).filter(p => only.includes(p[0])); } // 指定した技だけ
     return A4_TEST_NEW_ONLY ? nw : old.concat(nw);
   }
@@ -13712,11 +13711,11 @@ class GameScene extends Phaser.Scene {
   }
 
   // ---------- 大技「四つの光球」の部品：手の先に付いてくる、種類ごとに形の違う光球 ----------
-  // kind：'dark'（闇）／'light'（光）／'saturn'（土星＝球＋輪）／'star'（シマハルの＋形の星）。maxR：いちばん大きい時の半径。
+  // kind：'dark'（闇）／'light'（光）／'saturn'（土星＝球＋輪）／'star'（シマハルの＋形の星）／'wave'（波動弾の水色の玉）。maxR：いちばん大きい時の半径。
   // 返した f の f.k（0〜1）を外から更新すると、その割合の大きさになる。f.rel = 0 にすると「放つ」演出（膨らみながら消える）。
   a4BigOrb(a4, slot, kind, maxR) {
     const g = this.add.graphics().setDepth(7.2);
-    if (kind === 'light' || kind === 'saturn') g.setBlendMode(Phaser.BlendModes.ADD);
+    if (kind === 'light' || kind === 'saturn' || kind === 'wave') g.setBlendMode(Phaser.BlendModes.ADD);
     const f = { g, t: 0, k: 0, rel: -1, ph: Math.random() * 6, owner: a4, isOrb: true };
     const ringHalf = (x, y, rx, ry, tilt, back, w, col, al) => { // 傾いた輪の、奥側(back)か手前側の半分
       g.lineStyle(w, col, al).beginPath();
@@ -13774,6 +13773,9 @@ class GameScene extends Phaser.Scene {
         g.fillStyle(0xfff0c8, 0.9).fillCircle(x, y, r * 0.95); g.fillStyle(0xffffff, 0.95).fillCircle(x - r * 0.12, y - r * 0.12, r * 0.6); // 光球
         pass(true, 2.4, 0xffd27a, 0.22 + 0.1 * sh);                                                                      // 手前側の輪：太い光のにじみ
         pass(true, 1, 0xffffff, 0.9);                                                                                    // 手前側の輪：細い白い芯
+      } else if (kind === 'wave') { // 'wave'：波動弾（十字）の溜めの見た目（水色の光の輪が重なった玉＋白い芯。単体技の波動弾 a4ShotUpdate と同じ）
+        for (let q = 3; q >= 1; q--) g.fillStyle(0x9bd8ff, 0.16).fillCircle(x, y, r * (1 + q * 0.4));
+        g.fillStyle(0xffffff, 0.95).fillCircle(x, y, r * 0.7);
       } else { // 'star'：シマハルの＋形の黒い星。ゆっくり回る
         g.setPosition(x, y).setRotation(t * 1.2);
         g.fillStyle(0xffffff, 0.16).fillCircle(0, 0, r * 1.9); g.fillStyle(0xffffff, 0.22).fillCircle(0, 0, r * 1.3);
@@ -13817,23 +13819,37 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  // 【大技】四つの光球：4つの手それぞれに別の光球を溜め（左下＝闇／右下＝光／左上＝土星／右上＝黒星（シマハルの星））、一気に放つ。
+  // 【大技】四つの光球：4つの手それぞれに別の光球を溜め（左下＝闇／右下＝光／左上＝土星／右上＝波動弾（十字））、一気に放つ。
   //   溜めの間は腕を各方向へ伸ばす。放つ攻撃の中身は a4QuadFire。
+  //   ※右上は黒星ではなく波動弾（十字）：溜める光球の見た目・腕をプレイヤーへ向け続ける動き・放つ弾まで、単体技の波動弾と同じ。
   a4Atk_quadorb(S) { // 4つを同時に「溜める→放つ」を REPS 回繰り返す
-    const a4 = S.a4, CHARGE = 2.4, GAP = 1.0, PERIOD = CHARGE + GAP, REPS = 3, list = [], ev = [], kinds = this.a4OrbKinds(), aim = this.a4OrbAim(), sg = Math.random() < 0.5 ? 1 : -1; // 溜め(秒)／放ってから次の溜めまで(秒)／繰り返す回数
+    const a4 = S.a4, CHARGE = 2.4, GAP = 1.0, PERIOD = CHARGE + GAP, REPS = 3, list = [], ev = [], W = this.ARMS4_ATK().shot, kinds = this.a4OrbKinds().map((kd, s) => s === 3 ? ['wave', W.orbMax] : kd), aim = this.a4OrbAim(), sg = Math.random() < 0.5 ? 1 : -1; // W：波動弾の設定／右上(slot 3)の光球は黒星ではなく波動弾 // 溜め(秒)／放ってから次の溜めまで(秒)／繰り返す回数
     for (let n = 0; n < REPS; n++) {
       const t0 = n * PERIOD;
       ev.push([t0, () => {
-        aim.forEach((ang, s) => this.a4AimArm(a4, s, ang));
-        kinds.forEach((kd, s) => list.push({ o: this.a4BigOrb(a4, s, kd[0], kd[1]), t0 }));
+        aim.forEach((ang, s) => { if (s < 3) this.a4AimArm(a4, s, ang); }); // 右上(3)は波動弾と同じく、プレイヤーの方へ向け続ける（下の毎フレーム処理）
+        kinds.forEach((kd, s) => list.push({ o: this.a4BigOrb(a4, s, kd[0], kd[1]), t0, s }));
       }]);
       ev.push([t0 + CHARGE, () => { // 一気に放つ
         list.forEach(e => { if (e.t0 === t0) e.o.rel = 0; });
         this.cameras.main.shake(350, 0.016);
-        [0, 1, 2, 3].forEach(s => this.a4QuadFire(a4, s, n, sg, undefined, true)); // 黒星のビームは a4QuadFire 側で常に回る（still は影響しない）
+        [0, 1, 2].forEach(s => this.a4QuadFire(a4, s, n, sg, undefined, true)); // 闇・光・土星
+        { // 右上：波動弾（十字）。プレイヤーへ向けて撃ち、途中で縦横に十字ビームを放って消える（単体技の波動弾 'cross' と同じ弾）
+          const h3 = this.a4HandPos(a4, 3) || { x: a4.gfx.x, y: a4.gfx.y }, pl3 = this.a4Pl();
+          this.a4FireBullet(h3.x, h3.y, Math.atan2(pl3.y - h3.y, pl3.x - h3.x), 'cross', W);
+        }
       }]);
     }
-    this.a4Script(S, (REPS - 1) * PERIOD + CHARGE + 3.4, ev, (k) => { list.forEach(e => { if (e.o.rel < 0) e.o.k = Math.min(1, (k.t - e.t0) / CHARGE); }); }); // 溜めの間、光球がだんだん大きくなる
+    this.a4Script(S, (REPS - 1) * PERIOD + CHARGE + 3.4, ev, (k, dt) => {
+      list.forEach(e => { if (e.o.rel < 0) e.o.k = Math.min(1, (k.t - e.t0) / CHARGE); }); // 溜めの間、光球がだんだん大きくなる
+      if (list.some(e => e.s === 3 && e.o.rel < 0 && !e.o.done)) { // 右上の腕：波動弾と同じく、放つまでプレイヤーの方へ腕を向け続ける（放ったら、その向きで止まる）
+        const h = this.a4HandPos(a4, 3), pl = this.a4Pl();
+        if (h && pl) {
+          const ang = Math.atan2(pl.y - h.y, pl.x - h.x), tgt = Math.atan2(-Math.cos(ang), Math.sin(ang)), ov = a4._armOv = a4._armOv || {};
+          ov[3] = ov[3] == null ? tgt : ov[3] + Phaser.Math.Angle.Wrap(tgt - ov[3]) * Math.min(1, (dt || 0.016) * 8);
+        }
+      }
+    });
   }
 
   // 単体技：手ひとつだけで「溜める → 放つ」を3回繰り返す。charge＝1回の溜め(秒)／period＝次の溜めを始める間隔(秒)／tail＝最後に放ってから技が終わるまで(秒)
@@ -19562,7 +19578,7 @@ function setLobbyStatus(msg) { document.getElementById('lobbyStatus').textConten
 
 // ルーム作成・参加の通信中は他のロビー操作を一切できないようにする。
 // （連打での二重作成や、入力途中でのボタン誤操作を防ぐため）
-const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpOfflineTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput'];
+const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput'];
 // ロビーの上に出る短いバナー（ゲーム画面のバナーとは別）
 function showLobbyBanner(text, ms) {
   let el = document.getElementById('lobbyBanner');
@@ -19740,14 +19756,6 @@ document.getElementById('createPvpRoomBtn').addEventListener('click', () => {
       setLobbyStatus('失敗: ' + e.message);
       setLobbyBusy(false);
     }
-  }, null, PVP_ROOM_WEAPONS);
-});
-
-// PvPテスト（一人・通信なし）：Firebaseを使わず、自分1人だけのPvPルームを作る。人狼ゲームの円に一人で入ってもワープできる
-document.getElementById('pvpOfflineTestBtn').addEventListener('click', () => {
-  askWeapon('人狼ゲームテスト（一人・通信なし）で使う武器（Lv.5）', w => {
-    const net = new OfflineNet();
-    startGame('mp', { net, roomId: net.roomId, baseSeed: (Math.random() * 1e9) | 0, floor: 1, pvp: true, weaponKey: w.key });
   }, null, PVP_ROOM_WEAPONS);
 });
 
