@@ -1831,7 +1831,7 @@ const A4_TEST_FORM_KEYS = false;     // テスト用：true の間、四つ腕�
 const A4_TEST_FORM = 0;            // テスト用：1〜3を入れると、四つ腕は最初からその形態以上になる（0で無効）
 const ARM_TURN_MAX = 11;          // 腕が向きを変える最高速度(rad/秒)。小さいほどゆっくり動く（大きな向きの変化でも飛ばない）。四つ腕の腕全般に効く
 const SKULL_WISPS = 20;            // ドクロの鬼火の数＝1回の挑戦で生き返れる回数（元は3）
-const A4_TEST_ONLY = 'smash';      // テスト用：技名（'dense'）か技名の配列（['dense','rake']）を入れると、四つ腕はその技だけを繰り返す（追加した技も元の技も指定できる）。''（空）か null で無効
+const A4_TEST_ONLY = null;      // テスト用：技名（'dense'）か技名の配列（['dense','rake']）を入れると、四つ腕はその技だけを繰り返す（追加した技も元の技も指定できる）。''（空）か null で無効
 const A4_OPENING = ['spear4', 'dense', 'fanarms', 'shot']; // 戦闘の最初に、この順で技を出す（四本黒槍 → 腕の壁 → 腕の濁流 → 波動弾）。第1形態で出ない技（腕の壁など）でも、このリストに入っていれば最初のこの時だけ出る。そのあとは今まで通りランダム。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
 const A4_EXTRA = { on: true, maxActive: 1 }; // 第3形態で増える4本の腕（slot 4〜7）が、本体とは別に技を出す。on：false で無効／技の間隔と最初の技までの時間は本体の四本の腕と同じ（ARMS4_ATK の cdMin・cdMax・firstCd）／maxActive：同時に技を出す追加腕の最大数
 const A4_FORM2_OPENING = ['smash', 'tomahawk4', 'spiral']; // 第2形態になった直後に、この順で技を出す（殴り飛ばし → 四連黒斧 → 螺旋弾）。そのあとは今まで通り。空配列 [] で無効。A4_TEST_ONLY を指定している間は無視される
@@ -13029,13 +13029,16 @@ class GameScene extends Phaser.Scene {
     };
     const breakSlab = (sl) => {
       const cx = sl.r.x, cy = sl.r.y; sl.r.destroy(); sl.dead = true;
-      for (let i = 0; i < 14; i++) {
+      const first = !F.broke; // 最初の1枚＝部屋の右の壁を突き破った瞬間：破片・揺れ・フラッシュを強くして、ここから床が流れ始める
+      if (first) { F.broke = true; F.base = FLOOR_SPD; }
+      F.kick = 1; // 壁を砕くたびに、床の流れが一瞬だけ速くなる
+      for (let i = 0, n = first ? 34 : 14; i < n; i++) {
         const w = 10 + Math.random() * 22, pc = this.add.rectangle(cx + (Math.random() - 0.5) * 30, cy + (Math.random() - 0.5) * 260, w, w * 0.6, Math.random() < 0.5 ? 0x2a2a36 : 0x191922).setDepth(9).setRotation(Math.random() * 3);
         this.tweens.add({ targets: pc, x: pc.x - 120 - Math.random() * 380, y: pc.y + (Math.random() - 0.5) * 200, rotation: pc.rotation + (Math.random() - 0.5) * 8, alpha: 0, duration: 400 + Math.random() * 400, ease: 'Cubic.easeOut', onComplete: () => pc.destroy() });
       }
       const fl = this.add.rectangle(cx, cy, 60, cam.worldView.height, 0xffffff, 0.7).setDepth(9);
       this.tweens.add({ targets: fl, alpha: 0, scaleX: 3, duration: 200, onComplete: () => fl.destroy() });
-      cam.shake(160, 0.016);
+      if (first) { cam.shake(420, 0.035); cam.flash(160, 255, 255, 255); } else cam.shake(160, 0.016);
     };
     const landFx = (x, y) => { // 着地の演出（揺れ・フラッシュ・衝撃の輪・土煙）
       cam.shake(500, 0.03); cam.flash(120, 255, 255, 255);
@@ -13116,17 +13119,18 @@ class GameScene extends Phaser.Scene {
       // 元の世界にいる他の敵は、飛行中は隠す（背景の暗幕より手前に出てしまうため）
       (this.enemies || []).forEach(e => { if (e !== a4 && e.gfx && e.gfx.scene && e.gfx.visible) { hidden.push({ e, v: e.gfx.visible, b: e.hpBar ? e.hpBar.visible : false }); e.gfx.setVisible(false); if (e.hpBar && e.hpBar.scene) e.hpBar.setVisible(false); } });
       // 暗幕・筋・壁は四つ腕（深度4）とその腕（3.7〜3.9）より奥に置く
-      const floorG = this.add.graphics().setDepth(3.5).setAlpha(0); k.objs.push(floorG); F.floor = floorG; F.scroll = 0; F.view = { x: X0, y: Y0, w: W, h: H }; // 床：ダンジョンの床と同じ色・マス目が左へ流れる
-      this.tweens.add({ targets: floorG, alpha: 1, duration: 150 });
+      const floorG = this.add.graphics().setDepth(3.5).setAlpha(0); k.objs.push(floorG); F.floor = floorG; F.scroll = 0; F.base = 0; F.kick = 0; F.broke = false; F.view = { x: X0, y: Y0, w: W, h: H }; // 床：ダンジョンの床と同じ色・マス目が左へ流れる
+      this.tweens.add({ targets: floorG, alpha: 1, duration: 60 });
       drawFloor();
       for (let i = 0; i < 30; i++) { // 流れる筋
         const len = 120 + Math.random() * 320, st = this.add.rectangle(X0 + Math.random() * W, Y0 + Math.random() * H, len, 2 + Math.random() * 3, 0xffffff, 0.05 + Math.random() * 0.12).setDepth(3.55);
         k.objs.push(st); F.stripes.push({ r: st, sp: 1800 + Math.random() * 1600 });
       }
-      [0.6, 0.72, 0.84].forEach(fx => { // 殴り飛ばされて最初に突き破る壁（その場に立っている）
-        const r = mkWall(X0 + W * fx, v.centerY, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 0 });
+      const w1 = Math.min(X0 + W * 0.8, Math.max(X0 + W * 0.45, pl.x + 160)); // 最初の壁は、プレイヤーの少し右（画面内）に置く
+      [w1, w1 + 180, w1 + 360].forEach(wx => { // 最初の1枚(0.5)が部屋の右の壁 // 殴り飛ばされて最初に突き破る壁（その場に立っている）
+        const r = mkWall(wx, v.centerY, H * 1.3); k.objs.push(r); F.slabs.push({ r, sp: 0 });
       });
-      this.tweens.add({ targets: pl, x: X0 + W * 0.93, duration: 420, ease: 'Quad.easeIn', // 右へ吹き飛ぶ
+      this.tweens.add({ targets: pl, x: Math.max(X0 + W * 0.93, w1 + 360 + 60), duration: 420, ease: 'Quad.easeIn', // 右へ吹き飛ぶ
         onUpdate: () => { if (F) F.slabs.forEach(sl => { if (!sl.dead && pl.x >= sl.r.x - WALL_W / 2) breakSlab(sl); }); },
         onComplete: () => { if (F && !F.landing) F.ctrl = true; } }); // ここから画面内を自由に動ける
     };
@@ -13141,8 +13145,8 @@ class GameScene extends Phaser.Scene {
     const flyTick = (k, dt) => {
       if (F.landing) return;
       const v = cam.worldView, X0 = v.x, Y0 = v.y, W = v.width, H = v.height;
-      F.t += dt; F.scroll += FLOOR_SPD * dt; drawFloor();
-      F.stripes.forEach(st => { st.r.x -= st.sp * dt; if (st.r.x < X0 - st.r.width) { st.r.x = X0 + W + st.r.width * 0.5 + Math.random() * W * 0.3; st.r.y = Y0 + Math.random() * H; } });
+      F.t += dt; F.kick = Math.max(0, F.kick - dt * 3); F.scroll += F.base * (1 + 1.2 * F.kick) * dt; drawFloor(); // 壁を破るまでは床は止まっている（部屋の中）
+      F.stripes.forEach(st => { st.r.setVisible(!!F.broke); st.r.x -= st.sp * dt; if (st.r.x < X0 - st.r.width) { st.r.x = X0 + W + st.r.width * 0.5 + Math.random() * W * 0.3; st.r.y = Y0 + Math.random() * H; } });
       // 四つ腕が追いかけてくる：少し遅れて右へ詰める
       if (F.t > 0.35) a4.gfx.x += (F.bx - a4.gfx.x) * (1 - Math.exp(-5 * dt));
       a4.gfx.y += (v.centerY - a4.gfx.y) * (1 - Math.exp(-5 * dt)); // 縦は画面の真ん中に居続ける
