@@ -394,7 +394,7 @@
     <div class="lobbyBox lobbyCenter">
       <h1>ゾミカスダンジョン</h1>
       <label>プレイヤー名
-        <input type="text" id="nameInput" maxlength="10">
+        <input type="text" id="nameInput" maxlength="20">
       </label>
       <div id="accPicker"></div>
       <div id="devPanel" style="display:none; margin: 6px 0; padding: 8px; border: 1px dashed rgba(255,255,255,0.3); border-radius: 8px; font-size: 12px; width:100%; box-sizing:border-box; text-align:left;">
@@ -704,6 +704,11 @@ window.aimVector = { x: 0, y: 0, active: false };
 })();
 
 // ============== ダンジョン生成（シード値ベース） ==============
+// 名前が長い時は先頭 n 文字で切って「…」を付ける（頭上・バナー用。絵文字などもコードポイント単位で数える）
+function clipName(name, n) {
+  const a = Array.from(String(name == null ? '' : name));
+  return a.length > (n || 16) ? a.slice(0, n || 16).join('') + '…' : a.join('');
+}
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -912,12 +917,12 @@ const PVP = {
   ],
   weaponZone: { cx: 10, cy: 4.5, size: 4, holdTime: 3 }, // 武器変更ゾーン（準備室の上側の正方形。中心タイル座標・一辺のタイル数）。holdTime：武器固定の時、全員が入ってからホストが選び直すまでの秒数
   // 人狼ゲームのマップ（バトルフィールドの右隣に作る）。中心に円形の広場、そこから放射状に道が伸びて、道の先に家（円形・入口が1つ）がある。それ以外は岩（壁）。
-  werewolf: { wolves: 1, wolvesMany: 2, manyFrom: 8, bloodyTime: 20, roleLot: { villager: 1, watchman: 1, seer: 1, detective: 1, dupMul: 0.05 }, detectiveTime: 5, detectiveR: 2.2, trailTiles: 10, trailStep: 0.5, seerTime: 5, quotaHold: 10, watchOilMul: 2, watchViewMul: 2, wolfSwordLv: 5, houses: 10, plazaR: 9, houseDist: 30, houseIn: 4.5, houseOut: 6.5, roadW: 3, size: 80, gap: 4, rays: 600, viewR: 20, time: 900, dayTime: 30, dayTime2: 90, voteTime: 30, resultTime: 6, nightTime: 90, nightViewR: 6, nightHole: 0.94, oilMax: 100, oilBurn: 2, oilRegen: 4, oilLow: 0.3, oilMinR: 1.2, oilStartMin: 0.3, oilStartMax: 0.7 },
+  werewolf: { wolves: 1, wolvesMany: 2, manyFrom: 8, bloodyTime: 20, roleLot: { villager: 1, watchman: 1, seer: 1, detective: 1, dupMul: 0.05 }, detectiveTime: 5, detectiveR: 2.2, trailTiles: 20, trailStep: 0.5, seerTime: 10, seerR: 2.5, quotaHold: 10, watchOilMul: 2, watchViewMul: 2, wolfSwordLv: 5, houses: 10, plazaR: 9, houseDist: 30, houseIn: 4.5, houseOut: 6.5, roadW: 3, size: 80, gap: 4, rays: 600, viewR: 20, time: 900, dayTime: 30, dayTime2: 90, voteTime: 30, resultTime: 6, nightTime: 90, nightViewR: 6, nightHole: 0.94, oilMax: 100, oilBurn: 2, oilRegen: 4, oilLow: 0.3, oilMinR: 1.2, oilStartMin: 0.3, oilStartMax: 0.7 },
   // 役職の抽選（roleLot）：人狼以外の人を1人ずつ、重みつき抽選で「普通の村人・見張り番・占い師・探偵」のどれかに決める（普通の村人も役職の一つとして扱う。人数の下限はなし）。
   //   villager／watchman／seer／detective＝各役職の重み（大きいほど出やすい。0にするとその役職は出ない）／dupMul＝同じ役職がすでに1人いるごとに重みに掛ける倍率（重み×dupMul^人数。小さいほど被りにくい）
   //   dupMul 0.05 の目安：5人（人狼以外4人）で4役職が1人ずつそろう確率は約81%、どれかが被る確率は約19%。4人で約6%、3人で約2%。6人以上は役職が4種類しかないので被りが出る
   // 探偵（村人陣営）：detectiveTime＝死体のまわり（detectiveR タイル以内）に立ち続けて調べ終わるまでの秒数（昼でも夜でもできる）／trailTiles＝犯人の足跡を残すタイル数／trailStep＝足跡の間隔（タイル）
-  // quotaHold＝ノルマ品の上に乗り続けて拾うまでの秒数／役職：seerTime＝占い師が誰かの家でその人と一緒にいて役職が分かるまでの秒数／watchOilMul＝見張り番の油の最大量の倍率／watchViewMul＝見張り番の夜の光の半径の倍率
+  // quotaHold＝ノルマ品の上に乗り続けて拾うまでの秒数／役職：seerTime＝占い師が誰かの近く（seerR タイル以内）にいて役職が分かるまでの秒数（1晩に1人まで）／watchOilMul＝見張り番の油の最大量の倍率／watchViewMul＝見張り番の夜の光の半径の倍率
   // 流れ：最初の昼(dayTime)→夜(nightTime)→［昼(dayTime2＋voteTime。昼の間じゅう投票できる。全員が投票済みなら途中で終わる)→結果発表(resultTime。投票結果を見せる間。人狼は殺せない)→夜］をくり返す。昼と結果発表の間は人狼は殺せない／time：ゲーム全体の長さ(秒)／
   // dayTime：最初の昼の長さ／dayTime2：2回目以降の昼の長さ／voteTime：昼に足す時間（昼の長さ＝dayTime2＋voteTime）／nightTime：夜の長さ／nightViewR：夜のランタンの光の半径（タイル数。自分の周りだけ）／
   // nightHole：闇に空ける丸い穴の大きさ（光の半径に対する割合）。光のゆらぎで光の縁が縮んでも、穴の縁より内側に来ない（隙間ができない）ように、1より小さくしておく
@@ -2774,7 +2779,7 @@ class GameScene extends Phaser.Scene {
       // 他のプレイヤーが大当たり（ボス級など）を召喚した：バナーと演出で知らせる（味方本体は位置の配信で現れる）
       const nm = ALLY_NAMES[payload.key];
       if (!nm) return;
-      this.showBanner('★ ' + String(payload.name || '誰か').slice(0, 16) + ' が ' + nm + ' を召喚！ ★', 2200);
+      this.showBanner('★ ' + clipName(payload.name || '誰か', 16) + ' が ' + nm + ' を召喚！ ★', 2200);
       this.cameras.main.shake(200, 0.003);
       this.spawnBurst(payload.x, payload.y, SUMMON_JACKPOT_COLOR, 20);
       return;
@@ -2998,7 +3003,7 @@ class GameScene extends Phaser.Scene {
         const gfx = this.add.circle(p.x || 0, p.y || 0, TILE * 0.32, (typeof p.color === 'number') ? p.color : 0xffffff).setDepth(5).setAlpha(0.85);
         gfx.setStrokeStyle(2, 0xffffff, 0.5);
         const facing = this.add.rectangle(p.x || 0, p.y || 0, 14, 3, 0xffffff).setDepth(5);
-        const label = this.add.text(p.x || 0, (p.y || 0) - 28, p.name || '?', { fontSize: '11px', color: '#fff', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(5);
+        const label = this.add.text(p.x || 0, (p.y || 0) - 28, clipName(p.name || '?', 16), { fontSize: '11px', color: '#fff', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(5);
         const hpBarBg = this.add.rectangle(p.x || 0, (p.y || 0) - 20, 30, 4, 0x2a2a33).setDepth(5.8);
         const hpBarFill = this.add.rectangle(p.x || 0, (p.y || 0) - 20, 30, 4, 0x5bd1ff).setDepth(5.8);
         const downedLabel = this.add.text(p.x || 0, (p.y || 0) - 20, '', {
@@ -3027,7 +3032,7 @@ class GameScene extends Phaser.Scene {
       rp.facing.y = rp.gfx.y + Math.sin(ang) * 20;
       rp.facing.rotation = ang;
       { const bl = this.wwBloodyOn(uid); if (rp._bloody !== bl) { rp._bloody = bl; rp.facing.setFillStyle(bl ? 0xd01010 : 0xffffff); } } // 人狼ゲーム：殺した直後の人狼は線が赤い
-      const label = (p.name || '?') + (p.weaponName && !(this.pv && this.pv.mode === 'werewolf') ? '・' + p.weaponName : ''); // 人狼ゲームは名前だけ（武器名はなし）
+      const label = clipName(p.name || '?', 16) + (p.weaponName && !(this.pv && this.pv.mode === 'werewolf') ? '・' + p.weaponName : ''); // 人狼ゲームは名前だけ（武器名はなし）
       if (rp.label.text !== label) rp.label.text = label;
       rp.label.x = rp.gfx.x; rp.label.y = rp.gfx.y - 28;
       rp.hpBarBg.x = rp.gfx.x; rp.hpBarBg.y = rp.gfx.y - 20;
@@ -3036,7 +3041,9 @@ class GameScene extends Phaser.Scene {
       rp.hpBarFill.width = 30 * pct;
       const isGhost = !!p.eliminated;
       const isDowned = !isGhost && !!p.downed;
-      rp.gfx.setAlpha(isGhost ? 0.3 : (isDowned ? 0.92 : 0.85));
+      // 人狼ゲーム：ゴースト（死んだ人）は、生きている人からは見えない（ゴースト同士は見える）
+      const hideGhost = isGhost && !!(this.pv && this.pv.mode === 'werewolf') && !this.isGhost && !this.pv.dead;
+      rp.gfx.setAlpha(hideGhost ? 0 : (isGhost ? 0.3 : (isDowned ? 0.92 : 0.85)));
       // 装飾品：届いたkeyを表で照合して、正しいものだけ描く
       rp._accKey = accessoryByKey(p.acc) ? p.acc : ''; rp._ghost = isGhost; // 効果の判定用（王冠・盾）
       const accIcon = accessoryIcon(p.acc);
@@ -3065,7 +3072,7 @@ class GameScene extends Phaser.Scene {
         if (isDowned) rp.gfx.setStrokeStyle(4, 0xff3b3b, 1);
         else rp.gfx.setStrokeStyle(2, 0xffffff, 0.5);
       }
-      rp.facing.setAlpha(isGhost ? 0.3 : (isDowned ? 0.92 : 1));
+      rp.facing.setAlpha(hideGhost ? 0 : (isGhost ? 0.3 : (isDowned ? 0.92 : 1)));
       rp.hpBarBg.setVisible(!isGhost && !isDowned);
       rp.hpBarFill.setVisible(!isGhost && !isDowned);
       rp.downedLabel.setVisible(isDowned);
@@ -3073,6 +3080,7 @@ class GameScene extends Phaser.Scene {
         const wi = this.wwPhaseInfo();
         rp.label.setVisible(!!(wi && !wi.night)); rp.hpBarBg.setVisible(false); rp.hpBarFill.setVisible(false); rp.downedLabel.setVisible(false);
       } else rp.label.setVisible(true);
+      if (hideGhost) rp.label.setVisible(false); // 生きている人には、ゴーストの名前も見えない
       rp.reviveRing.setVisible(isDowned);
       if (isDowned) {
         rp.reviveRing.x = rp.gfx.x; rp.reviveRing.y = rp.gfx.y;
@@ -4218,6 +4226,10 @@ class GameScene extends Phaser.Scene {
       if (!(this._wwDawnStart != null && performance.now() - this._wwDawnStart < WW_DAWN_MS)) this._wwR = W.nightViewR * viewMul; // 朝の間は、夜の最後の光の半径のまま（油が少なかった人の光が、急に広がらない）
       return;
     }
+    if (pv.myRole === 'wolf') { // 人狼は夜目が効くので、油がない：減らない・バーも出さない・視界は一定（ゆらぎなし）（朝の処理のため _wwOil は空にしない）
+      this._wwOil = oilMax; this._wwR = W.nightViewR * (W.watchViewMul || 1); box.style.display = 'none'; // 視界は見張り番と同じ（watchViewMul倍）
+      return;
+    }
     if (this._wwOil == null) this._wwOil = oilMax; // 夜の始まり：全員、油は100%（見張り番も、自分の最大量の100%）
     const i0 = Math.floor(this.player.y / TILE) * ww.w + Math.floor(this.player.x / TILE), inMap = this.player.x >= 0 && this.player.y >= 0 && this.player.x / TILE < ww.w && this.player.y / TILE < ww.h;
     const k = inMap ? ww.kind[i0] : 0, home = inMap && (k === 3 || k === 5) && ww.hid[i0] === this.wwHouseFor(idx, pv.ids.length).k; // 自分の家の中（玄関前を含む）
@@ -4287,9 +4299,9 @@ class GameScene extends Phaser.Scene {
   // 役職のバナー：人狼は赤文字、村人は緑文字
   // 役職ごとの、バナーの文章（1行目＝役職名／2行目以降＝説明）・色・表示時間
   wwRoleBannerData(r) {
-    if (r === 'wolf') return { text: 'あなたは【人狼】です\n（人を殺した後、' + PVP.werewolf.bloodyTime + '秒間返り血が残ります）', color: '#ff4d4d', ms: 4500 };
+    if (r === 'wolf') return { text: 'あなたは【人狼】です\n（夜目が効き、ノルマを拾うこともできる。殺すと夜明けまで返り血が残る）', color: '#ff4d4d', ms: 4500 };
     if (r === 'villager') { const pv = this.pv, need = (pv && pv.wwQ) ? pv.wwQ.need : Math.max(1, ((pv && pv.ids) ? pv.ids.length : 2) - 1); return { text: 'あなたは【村人】です\n（ほかの村人と協力してノルマを' + need + '日達成しよう）', color: '#5be08a', ms: 4500 }; }
-    if (r === 'seer') return { text: 'あなたは【占い師】です\n（夜、誰かの家でその人と5秒いっしょにいると、役職が分かる）', color: '#c9a6ff', ms: 4500 };
+    if (r === 'seer') return { text: 'あなたは【占い師】です\n（夜、誰かの近くに10秒いると、役職が分かる。1晩に1人まで）', color: '#c9a6ff', ms: 4500 };
     if (r === 'watchman') return { text: 'あなたは【見張り番】です\n（油の量と視界が2倍）', color: '#ffd21f', ms: 4500 };
     if (r === 'detective') return { text: 'あなたは【探偵】です\n（死体のそばに5秒いると、死んだ時刻と犯人の足どりが分かる。昼もできる）', color: '#5bc8ff', ms: 4500 };
     return null;
@@ -4446,7 +4458,7 @@ class GameScene extends Phaser.Scene {
   }
 
   // 人狼ゲーム：n番目の夜に、自分（人狼）がもう殺した（または殺している最中）か。人狼は1晩に1人まで。
-  // 人狼ゲーム：uid の人の向きの線が、血で染まって赤い状態か（殺してから bloodyTime 秒間。夜が明けたら終わり）
+  // 人狼ゲーム：uid の人の向きの線が、血で染まって赤い状態か（殺してから夜が明けるまで）
   wwBloodyOn(uid) {
     const pv = this.pv, b = pv && pv.wwBloody && pv.wwBloody[uid];
     if (!b) return false;
@@ -4698,7 +4710,7 @@ class GameScene extends Phaser.Scene {
     } else if (pv.phase === 'over') {
       const left = Math.max(0, Math.ceil((pv.resetAt - performance.now()) / 1000));
       const el = document.getElementById('pvpResultNext');
-      if (el) el.textContent = '次のゲーム：' + left + '秒';
+      if (el) el.textContent = '次のゲームまで' + left + '秒';
       if (performance.now() >= pv.resetAt) this.pvpReset();
     }
   }
@@ -4826,9 +4838,9 @@ class GameScene extends Phaser.Scene {
       else if (pv.proxies && pv.proxies[m.to]) pv.proxies[m.to]._burnFxT = m.t || 3;
     } else if (m.a === 'dead') {
       pv.alive.delete(m.uid);
-      if (pv.mode === 'werewolf' && m.by && pv.roles && this.wwTeam(pv.roles[m.by]) === 'wolf') { // 人狼が殺した：その人の向きの線を、bloodyTime 秒間（または夜が明けるまで）血で染まったように赤くする（全員の画面）
+      if (pv.mode === 'werewolf' && m.by && pv.roles && this.wwTeam(pv.roles[m.by]) === 'wolf') { // 人狼が殺した：その人の向きの線を、夜が明けるまで血で染まったように赤くする（全員の画面）
         const wiK = this.wwPhaseInfo();
-        (pv.wwBloody = pv.wwBloody || {})[m.by] = { until: performance.now() + (PVP.werewolf.bloodyTime || 20) * 1000, n: wiK ? wiK.n : null };
+        (pv.wwBloody = pv.wwBloody || {})[m.by] = { until: Infinity, n: wiK ? wiK.n : null };
       }
       if (pv.mode === 'werewolf' && m.by && m.by === my && pv.wwPending) { // 自分（人狼）が殺した：今夜はもう殺せない
         pv.wwKilled[pv.wwPending.n] = true;
@@ -4978,11 +4990,11 @@ class GameScene extends Phaser.Scene {
   }
 
   // ===== 人狼ゲーム：占い師（村人陣営） =====
-  // 夜、誰かの家の中で、その家の持ち主（生きている人）も家の中にいる間に、seerTime 秒（5秒）続けて一緒にいると、その人の役職が分かる（占い師本人にだけ）。
-  // どちらかが家から出る・夜が終わると、数え直し。一度分かった人は、画面右の一覧に残る。
+  // 夜、場所は問わず、生きている誰かの近く（seerR タイル以内）に seerTime 秒（10秒）続けているとその人の役職が分かる（占い師本人にだけ）。1晩に1人まで。
+  // 離れる・別の人が一番近くになる・夜が終わると、数え直し。一度分かった人は、画面右の一覧に残る（同じ人はもう占えない）。
   wwSeerInit() {
     const pv = this.pv; if (!pv) return;
-    pv.wwSeer = { t: 0, tgt: null, seen: {} };
+    pv.wwSeer = { t: 0, tgt: null, seen: {}, doneN: -1 }; // doneN＝最後に占った夜の番号（1晩に1人まで）
     this.wwSeerUi(null);
   }
 
@@ -4996,24 +5008,20 @@ class GameScene extends Phaser.Scene {
     if (!s || pv.phase !== 'battle' || pv.mode !== 'werewolf' || pv.myRole !== 'seer') { this.wwSeerUi(null); return; }
     let tgt = null;
     const info = this.wwPhaseInfo(), ww = this.dungeon && this.dungeon.werewolf;
-    if (info && info.night && ww && !this.isGhost && !pv.dead && this._wwFadeAt == null) {
-      const my = this.net.uid, n = pv.ids.length, ps = this.latestPlayers || {}, R = W.houseIn * TILE;
-      const inside = (x, y, h) => Math.hypot(x - h.x * TILE, y - h.y * TILE) <= R;
-      const here = ww.houses.find(h => inside(this.player.x, this.player.y, h)); // 今、自分がいる家
-      if (here) {
-        for (let i = 0; i < n; i++) {
-          const id = pv.ids[i];
-          if (id === my || !pv.alive.has(id) || s.seen[id]) continue;
-          const h = this.wwHouseFor(i, n); if (h.k !== here.k) continue; // その人の家
-          const p = ps[id]; if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
-          if (inside(p.x, p.y, h)) { tgt = id; break; } // 持ち主も家の中にいる
-        }
+    if (info && info.night && ww && !this.isGhost && !pv.dead && this._wwFadeAt == null && s.doneN !== info.n) { // 今夜まだ占っていない
+      const my = this.net.uid, ps = this.latestPlayers || {};
+      let bd = (W.seerR || 2.5) * TILE; // 近さの上限（px）。範囲内で一番近い人を占う対象にする
+      for (const id of pv.ids) {
+        if (id === my || !pv.alive.has(id) || s.seen[id]) continue;
+        const p = ps[id]; if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+        const d = Math.hypot(p.x - this.player.x, p.y - this.player.y);
+        if (d <= bd) { bd = d; tgt = id; }
       }
     }
     if (tgt && tgt === s.tgt) s.t += dt; else { s.tgt = tgt; s.t = 0; }
     if (tgt && s.t >= W.seerTime) {
       const role = pv.roles && pv.roles[tgt], nm = (pv.info && pv.info[tgt] && pv.info[tgt].name) || '誰か';
-      s.seen[tgt] = role || '?'; s.t = 0; s.tgt = null; tgt = null;
+      s.seen[tgt] = role || '?'; s.doneN = info.n; s.t = 0; s.tgt = null; tgt = null; // 今夜はもう占えない
       this.showBanner('🔮 ' + nm + ' は【' + this.wwRoleLabel(role) + '】', 3500, this.wwRoleColor(role));
     }
     this.wwSeerUi(tgt ? Math.min(1, s.t / W.seerTime) : null);
@@ -5274,9 +5282,9 @@ class GameScene extends Phaser.Scene {
         else if (days >= q.need + 3) this.wwSideWin('wolf');
       }
     }
-    // 村人陣営の生きている人が、夜にノルマ品の上に quotaHold 秒（10秒）乗り続けたら拾う（離れる・別の品に移ると数え直し）
+    // 生きている人（人狼も）が、夜にノルマ品の上に quotaHold 秒（10秒）乗り続けたら拾う（人狼が拾った分もノルマに数える）（離れる・別の品に移ると数え直し）
     let prog = null;
-    if (info.night && q.itemsN === info.n && pv.myRole && this.wwTeam(pv.myRole) === 'villager' && !this.isGhost && !pv.dead && this._wwFadeAt == null) {
+    if (info.night && q.itemsN === info.n && pv.myRole && !this.isGhost && !pv.dead && this._wwFadeAt == null) {
       const now = performance.now(), hold = PVP.werewolf.quotaHold || 10;
       let best = -1, bd = 26;
       q.items.forEach((it, i) => {
@@ -5322,7 +5330,7 @@ class GameScene extends Phaser.Scene {
     it.taken = true;
     this.wwQuotaItemDestroy(it);
     q.got[m.n] = (q.got[m.n] || 0) + 1;
-    if (m.from === this.net.uid) this.showBanner('◆ ノルマ品を回収！', 900, '#7ad7ff');
+    if (m.from === this.net.uid) this.showBanner('◆ ノルマを一個回収！', 900, '#7ad7ff');
   }
 
   // 朝の集計結果：進捗の点を更新して、結果を出す（朝のバナーのあと）
@@ -5360,10 +5368,10 @@ class GameScene extends Phaser.Scene {
     el.innerHTML = h;
   }
 
-  // 夜の間じゅう、進捗の点の下に「ノルマ：（今夜拾った数）／（ノルマ数）」を出す（村人陣営だけ。人狼には出さない）。拾った数は全員の画面で同じ（'quotaGet' が全員に届く）
+  // 夜の間じゅう、進捗の点の下に「村人側ノルマ：（今夜拾った数）／（ノルマ数）」を出す（人狼にも出す）。拾った数は全員の画面で同じ（'quotaGet' が全員に届く）
   wwQuotaCountUi() {
     const pv = this.pv, q = pv && pv.wwQ, info = (q && pv.phase === 'battle' && pv.mode === 'werewolf') ? this.wwPhaseInfo() : null;
-    const on = !!(info && info.night && pv.myRole && this.wwTeam(pv.myRole) === 'villager');
+    const on = !!(info && info.night && pv.myRole); // 人狼にも出す（人狼もノルマ品を拾えるため）
     let el = document.getElementById('wwQuotaCount');
     if (!el) {
       if (!on) return;
@@ -5378,7 +5386,7 @@ class GameScene extends Phaser.Scene {
     const present = this.latestPlayers || {}, my = this.net.uid, spawned = q.itemsN === info.n;
     const need = (spawned && q.spawnCnt) ? q.spawnCnt : pv.ids.filter(id => pv.alive.has(id) && (present[id] || id === my)).length; // ノルマ品がまだ出ていない間は、バナーと同じ式で数える
     const got = spawned ? (q.got[info.n] || 0) : 0;
-    const txt = 'ノルマ：' + got + '／' + need;
+    const txt = '村人側ノルマ：' + got + '／' + need;
     if (el.textContent !== txt) el.textContent = txt;
   }
 
@@ -5389,12 +5397,15 @@ class GameScene extends Phaser.Scene {
     pv.endSent = true; this.net.sendPvp({ a: 'end', w: ws[0] || null, ws, side, quota: true }); // quota＝ノルマでの決着（リザルトの理由表示用）
   }
 
-  // 夜になった時のバナー（村人陣営には、ノルマの行がつく）
+  // 夜になった時のバナー（村人陣営：ノルマと油の説明／人狼：目撃されずに殺そう）
   wwNightBannerText() {
     const pv = this.pv, q = pv && pv.wwQ, info = this.wwPhaseInfo(), present = this.latestPlayers || {}, my = this.net.uid;
     // ノルマ数＝夜の始まりの生きている人数＋1（ノルマ品がもう出ていればその数。まだなら同じ式で数える）
     const cnt = (q && info && q.itemsN === info.n && q.spawnCnt) ? q.spawnCnt : (pv ? pv.ids.filter(id => pv.alive.has(id) && (present[id] || id === my)).length : 0);
-    return '🌙 夜になった…\nランタンの光の中しか見えません' + (pv && pv.myRole && this.wwTeam(pv.myRole) === 'villager' ? '\nノルマ:' + cnt + '個' : '');
+    const team = pv && pv.myRole ? this.wwTeam(pv.myRole) : null;
+    if (team === 'villager') return '🌙 夜になった…\nノルマを' + cnt + '個クリアしよう\n油は自宅でのみ回復';
+    if (team === 'wolf') return '🌙 夜になった…\n村人を目撃されず殺そう';
+    return '🌙 夜になった…';
   }
 
   // 暗転用の黒い膜（なければ作る）
@@ -5470,6 +5481,11 @@ class GameScene extends Phaser.Scene {
         g.addColorStop(0, 'rgba(255,190,90,0.34)'); g.addColorStop(0.35, 'rgba(255,160,60,0.16)'); g.addColorStop(1, 'rgba(255,140,40,0)');
         ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
       });
+      this.wwLanternTex('wwNightGlow', (ctx, S) => { // 人狼の夜目：ランタンではないので、ほんのり薄青い光（足し算で重ねる）
+        const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+        g.addColorStop(0, 'rgba(150,190,255,0.22)'); g.addColorStop(0.35, 'rgba(120,165,255,0.10)'); g.addColorStop(1, 'rgba(100,140,255,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+      });
       this._wwGlowImg = this.add.image(0, 0, 'wwLanternGlow').setDepth(11).setBlendMode(Phaser.BlendModes.ADD);
       this._wwDarkImg = this.add.image(0, 0, 'wwLanternDark').setDepth(12);
       this._wwMaskG = null; // 作り直したので、マスクも付け直す
@@ -5479,7 +5495,10 @@ class GameScene extends Phaser.Scene {
     if (this._wwG && this._wwG.scene && this._wwMaskG !== this._wwG) { this._wwMaskG = this._wwG; const mk = this._wwG.createGeometryMask(); mk.setInvertAlpha(true); this._wwDarkImg.setMask(mk); }
     const R = (this._wwR || PVP.werewolf.nightViewR) * TILE, tm = this.time.now / 1000;
     // 炎のゆらぎ：光の大きさを縁の手前で少しだけ変える（縁は視界の端より外に出ない＝継ぎ目なし）
-    const fl = 0.5 + 0.5 * Math.sin(tm * 9.3) * 0.6 + 0.5 * Math.sin(tm * 23.1 + 1.7) * 0.4;
+    const wolfEye = !!(this.pv && this.pv.myRole === 'wolf'); // 人狼：ランタンではないのでゆらがない・光は薄青
+    const fl = wolfEye ? 1 : 0.5 + 0.5 * Math.sin(tm * 9.3) * 0.6 + 0.5 * Math.sin(tm * 23.1 + 1.7) * 0.4;
+    const glowKey = wolfEye ? 'wwNightGlow' : 'wwLanternGlow';
+    if (this._wwGlowKey !== glowKey) { this._wwGlowKey = glowKey; this._wwGlowImg.setTexture(glowKey); }
     const s = 2 * R * (1 - 0.035 * (1 - fl)), px = this.player.x, py = this.player.y;
     const na = this._wwNightA == null ? 1 : this._wwNightA; // 夜のフェードイン（0→1）
     this._wwDarkImg.setVisible(true).setPosition(px, py).setDisplaySize(s, s).setAlpha(na);
@@ -5606,7 +5625,7 @@ class GameScene extends Phaser.Scene {
         + '<thead><tr style="color:#9aa0b8; font-size:2vh;"><th style="' + cell + 'text-align:left;">プレイヤー</th><th style="' + cell + '">役職</th><th style="' + cell + '">生死</th><th style="' + cell + '">殺した人数</th><th style="' + cell + '">結果</th><th style="' + cell + '">累計勝利数</th></tr></thead>'
         + '<tbody>' + body + '</tbody></table>'
         + '<div style="margin-top:3vh; display:flex; gap:2vh; justify-content:center; flex-wrap:wrap;">'
-        + '<button id="pvpResultNext" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:default; pointer-events:none; background:#4a6cf7; color:#fff; font-weight:bold;">次のゲーム：</button>'
+        + '<button id="pvpResultNext" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:default; pointer-events:none; background:#4a6cf7; color:#fff; font-weight:bold;">次のゲームまで</button>'
         + '<button id="pvpResultLobby" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:pointer; background:#3a3d4d; color:#fff; font-weight:bold;">タイトル画面へ</button>'
         + '</div></div>';
       ov.style.display = 'flex';
@@ -5642,7 +5661,7 @@ class GameScene extends Phaser.Scene {
       + '<thead><tr style="color:#9aa0b8; font-size:2vh;">' + (bc ? '<th style="' + cell + '">順位</th>' : '') + '<th style="' + cell + 'text-align:left;">プレイヤー</th><th style="' + cell + '">使った武器</th><th style="' + cell + '">' + (bc ? 'キル数' : '倒した人数') + '</th>' + (bc ? '<th style="' + cell + '">死亡数</th>' : '') + '<th style="' + cell + '">与えたダメージ</th><th style="' + cell + '">累計勝利数</th></tr></thead>'
       + '<tbody>' + body + '</tbody></table>'
       + '<div style="margin-top:3vh; display:flex; gap:2vh; justify-content:center; flex-wrap:wrap;">'
-      + '<button id="pvpResultNext" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:default; pointer-events:none; background:#4a6cf7; color:#fff; font-weight:bold;">次のゲーム：</button>'
+      + '<button id="pvpResultNext" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:default; pointer-events:none; background:#4a6cf7; color:#fff; font-weight:bold;">次のゲームまで</button>'
       + '<button id="pvpResultLobby" style="font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:pointer; background:#3a3d4d; color:#fff; font-weight:bold;">タイトル画面へ</button>'
       + '</div>'
       + '</div>';
@@ -19988,13 +20007,21 @@ class OfflineNet {
 
 const netInstance = new Net(FIREBASE_CONFIG);
 
-function randomName() { return '冒険者' + Math.floor(1000 + Math.random() * 9000); }
+// 初期の名前：修飾語＋敵キャラ名（例：瀕死シマハル）。「〜な」の形の修飾語は使わない。名前欄は20文字までなので、修飾語は5文字以内・動物は7文字以内にする。
+const NAME_MODIFIERS = ['ゾミカス', 'ポンコツ', '雑魚', '瀕死の', 'ヤケクソ', '寝不足', '腹ペコ', '迷子の', '無職の', '爆速', '激弱', '泥酔', '半泣き', 'ファッキン', '勇敢な', '無課金', 'キチガイ', '二度寝', '夜更かし', '丸腰', '全裸の', '空回り', '史上最強の', 'エリート', '淫夢厨の', '他力本願', '狂気の', '激ヤバ', '無双', 'アンパンマンは', '財布の中の', 'バーサーカー', '最後の','10連勤の','ゾミゾミ','午後八時の','アンチ'];
+const NAME_ANIMALS = ['ゾミカス', 'バーサーカー', 'シマハル', 'スライム', 'コウモリ', '胞子', 'チャージャー', 'ブルート', 'シューター', 'ゴースト', 'オーバーロード', 'カルテット', 'デトネーター', 'ゾートロープ', 'ウロボロス', '天使','キチガイ','ニンゲン','殺人鬼','探偵','人狼','占い師','村人','見張り番','緑川大輔','ゾミドゥン','フロンティア','ポイコツ','マイケル','ボブ']; // 後ろにつく言葉（ゲームに登場する敵キャラの名前など）
+function randomName() {
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  return pick(NAME_MODIFIERS) + pick(NAME_ANIMALS); // 同じ言葉が重なる（ゾミカスゾミカス等）のもOK
+}
 
 const COLORS = [0x5bd1ff, 0xff8a8a, 0x8aff9c, 0xffe28a, 0xd28aff, 0xff8ac2];
 let selectedColor = COLORS[0];
 
 const nameInput = document.getElementById('nameInput');
-nameInput.value = randomName();
+const defaultPlayerName = randomName(); // 入力欄が空のまま始めた時に使う名前（欄には灰色の見本として出すだけで、タップすれば空の状態から入力できる）
+nameInput.value = '';
+nameInput.placeholder = defaultPlayerName;
 
 // ゲーム内の確認ダイアログ（ブラウザの confirm() の代わり）。OKなら true、キャンセル・外側タップ・Escなら false を返す Promise。
 function askConfirm(message, opts) {
@@ -20165,7 +20192,7 @@ function startGame(mode, extra) {
   const devMode = isDevName();
   window.APP = {
     mode,
-    name: nameInput.value.trim() || randomName(),
+    name: nameInput.value.trim() || defaultPlayerName,
     color: selectedColor,
     acc: currentAccKey(), // 付けている装飾品
     net: (extra && extra.net) || netInstance, // PvPテストは通信なしの偽Net(OfflineNet)を渡す
