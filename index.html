@@ -411,6 +411,9 @@
           </label>
         </div>
       </div>
+      <label>
+        <input type="text" id="soloSeedInput" inputmode="numeric" maxlength="12" placeholder="シード値を指定" autocomplete="off">
+      </label>
       <button id="soloBtn">ダンジョン</button>
     </div>
     <div class="lobbyBox lobbySide lobbyRight">
@@ -1889,7 +1892,7 @@ const SUMMON2 = {
          weave: 0.35, dashWeave: 0.5, weaveLen: 240, // 蛇行：進む向きを左右に振る大きさ(rad)（dashWeave＝突進中、weave＝着地して動き回っている間）と、1往復する長さ(px)
          roamSpeed: 230, roamTurn: 2.2, seekRange: 320, leash: 480, roamMult: 0.5, roamKnockback: 220, // 着地後：歩く速さ / 曲がる速さ(rad/秒) / 敵に気付いて寄っていく距離 / プレイヤーから離れすぎた時に戻り始める距離 / 触れた時のダメージ倍率・吹き飛ばし
          fuse: 3.0, warnTime: 1.0, blastStride: 4, blastGap: 0.06, blastRadius: 70 }, // 爆発の威力・半径はデトネーターの爆薬（bombDamage／bombBlastRadius）と同じ（blastMult＝その威力への倍率、blastRadius＝デトネーターが見つからない時の予備）。 count・gap＝体の数と間隔（本物のウロボロスと同じ 28個・17px ＝ 全長およそ476px）/ aimWait＝向きを決めるのを待つ秒数 / side＝体から魔法陣までの横の距離 / fuse＝着地してから爆発までの秒数 / blastStride＝爆発は胴体3つに1つの位置だけ（重いので）
-    0: { key: 'quartet', trial: [{ key: 'quartet', n: 1 }], name: 'カルテット', count: 4, life: 8, dmgMult: 0.5, cooldown: 20, minLevel: 4, // 上：背後に射手4体が並び、スティックを向けた方向へ一斉掃射（召喚術Lv4以降）
+    0: { key: 'quartet', trial: [{ key: 'quartet', n: 1 }], name: 'カルテット', count: 4, life: 8, dmgMult: 1, cooldown: 20, minLevel: 4, // 上：背後に射手4体が並び、スティックを向けた方向へ一斉掃射（召喚術Lv4以降）
          arcRadius: 46, arcSpacing: 0.5, fireInterval: 0.55, projSpeed: 480, projLife: 1.2, projRadius: 5, stagger: 0.14, spread: 0.03 },
     7: { key: 'ghost', trial: [{ key: 'ghost', n: 3 }], name: 'ゴースト', life: 15, hpMult: 12, dmgMult: 0.5, cooldown: 15, minLevel: 3 }, // 左上：ゴーストを出し、消えるまで狙う敵を指示できる（召喚術Lv3以降）
     6: { key: 'brutes', trial: [{ key: 'brute', n: 3 }], name: 'ブルート', count: 3, life: 10, hpMult: 1, dmgMult: 0.5, cooldown: 15, minLevel: 2, // 左：守りの技（召喚術Lv2以降）
@@ -2037,11 +2040,11 @@ const ACCESSORIES = [
   { key: 'crown',  icon: '👑', name: '王冠',       stat: 'soloBestFloor',    goal: 20,  unit: '階',  desc: 'ダンジョン（ソロ）で20階層に到達', effect: '近くの敵の速度を半減' },
   { key: 'skull',  icon: '💀', name: '鬼火',     stat: 'soloBestFloor',    goal: 25,  unit: '階',  desc: 'ダンジョン（ソロ）で25階層に到達', effect: '三度、HP1で生き返る' },
   { key: 'clock', icon: '🕒', name: '懐中時計', stat: 'soloClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）をクリア', effect: '10秒間時を止める能力を獲得' }, // 入手条件：ダンジョン（ソロ）を25階まで全クリアする（soloClears）。効果：画面下の時計ボタン（またはQキー）で発動。敵・敵の弾・自分の弾が10秒止まる。リロード60秒（ACC_CLOCK）
+  { key: 'armor', icon: '🪖', name: '鎧', stat: 'armorFloor10Fast', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で10階層を4分30秒以内にクリア', effect: '最大HPが2倍' }, // 入手条件：ダンジョン（ソロ）を始めてから、10階層のボスを倒すまでが4分30秒以内（armorFloor10Fast。ARMOR_UNLOCK）
   { key: 'flame',  icon: '🔥', name: '炎',         stat: 'bossRushBestBosses', goal: 15,  unit: '体',  desc: 'ボスラッシュで15体目のボスを倒す', effect: '攻撃した敵が燃える（合計21ダメージ）' },
   { key: 'blackhole', icon: '🕳️', name: 'ブラックホール', stat: 'bossRushBestBosses', goal: 20, unit: '体', desc: 'ボスラッシュで20体目のボスを倒す', effect: '10秒に一度simaharのビームを撃つ' },
   { key: 'swords', icon: '⚔️', name: '双剣', stat: 'soloTotalKills',   goal: 500, unit: '体',  desc: 'ダンジョン（ソロ）で雑魚敵を累計500体倒す', effect: 'ノックバックが2倍になる' },
   { key: 'snow',   icon: '❄️', name: '雪',   stat: 'frontlineBestSec', goal: 300, unit: '秒',  desc: '最北戦線（ソロ）で5分間生き残る', effect: '移動速度+10%' },
-  { key: 'armor', icon: '🪖', name: '鎧', stat: 'armorFloor10Fast', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で10階層を4分30秒以内にクリア', effect: '最大HPが2倍' }, // 入手条件：ダンジョン（ソロ）を始めてから、10階層のボスを倒すまでが4分30秒以内（armorFloor10Fast。ARMOR_UNLOCK）
   { key: 'angelhalo', icon: '🪽', name: 'エンジェルヘイロー', stat: 'arms4RitualClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で天使を調伏する', effect: '1分ごとに50%の確率で天使を召喚' }, // 入手条件：ダンジョン（ソロ）で降魔術の天使の調伏の儀に成功する（arms4RitualClears。デベロッパーモード・協力プレイ・【期間限定】調伏の儀モードでは入手できない）
   { key: 'serialkiller', icon: '🔪', name: 'ナイフ', all: true, goal: 0, unit: '個', desc: '他のすべての装飾品を獲得', effect: '近づいた敵を切り刻む' }, // 入手条件：他の装飾品をすべて入手済み（all:true。進捗は入手済みの個数）。効果：範囲内の敵へ絶え間なく斬撃（ACC_SERIALKILLER）。斬られた敵に白と赤の斬撃線が出る。必ず表の最後に置く
 ];
@@ -2371,7 +2374,8 @@ class GameScene extends Phaser.Scene {
     { const o = document.getElementById('clockOverlay'); if (o) o.style.display = 'none'; const cb = document.getElementById('clockBtn'); if (cb) cb.style.display = 'none'; }
     this.skullRevives = this.accKey === 'skull' ? SKULL_WISPS : 0; // ドクロ：残りの鬼火の数＝あと何回生き返れるか（1回の挑戦ごとに SKULL_WISPS 個）
 
-    this.baseSeed = this.mp ? app.baseSeed : ((Math.random() * 1e9) | 0);
+    this.fixedSeed = (!this.mp && app.soloSeed != null) ? app.soloSeed : null; // ロビーで指定したシード値（ソロのダンジョンのみ。nullならランダム）
+    this.baseSeed = this.mp ? app.baseSeed : (this.fixedSeed != null ? this.fixedSeed : ((Math.random() * 1e9) | 0));
     // デベロッパーモード（名前を「developer」にすると使える）では、指定した階から
     // テストプレイを始められる。協力プレイでは部屋側の階を優先する。
     this.bossRush = !this.mp && !!app.bossRush; // ボスラッシュ（ソロ専用）
@@ -12466,6 +12470,7 @@ class GameScene extends Phaser.Scene {
             name: document.getElementById('bossNameBanner').textContent, nameOp: document.getElementById('bossNameBanner').style.opacity,
             barOp: document.getElementById('bossHpBar').style.opacity },
     };
+    tr.accStash = this.accKey || ''; this.equipRunAccessory(''); // 調伏の儀の間は装飾品なし（付けていたものは覚えておき、ダンジョンへ戻ったら付け直す）
     this.hideBossUi(); // ボスラッシュ／ボス階の本物のボスの名前・HPバーは、儀式の間だけ隠す
     hide(this.graphics); hide(this.exitGlow); hide(this.rushExitLabel);
     (this.enemies || []).forEach(e => { hide(e.gfx); hide(e.hpBar); hide(e.label); hide(e._doomText); }); // 道連れにした敵は含まれない（ここで残っているものだけ隠す）
@@ -15372,6 +15377,7 @@ class GameScene extends Phaser.Scene {
         cam.startFollow(this.player, true, 0.15, 0.15);
         this.cancelS2Trial();
         this.s2Trial = null;
+        if (tr.accStash !== undefined) { const acc = tr.accStash; tr.accStash = undefined; this.equipRunAccessory(acc); } // 儀式の間外していた装飾品を戻す
         this.transitioning = false;
         this.updateHud();
         (tr.bossDefeats || []).forEach(d => this.onBossDefeated(d.pos, d.gid)); // 儀式の中で倒した本物のボスを、ここで撃破として扱う（出口・報酬）
@@ -18740,7 +18746,7 @@ class GameScene extends Phaser.Scene {
       this.weaponLevels[this.weapon.key] = respawnLevel;
       this.reloading = false;
       this.resetAmmoForWeapon(this.weapon);
-      this.baseSeed = (Math.random() * 1e9) | 0;
+      this.baseSeed = this.fixedSeed != null ? this.fixedSeed : ((Math.random() * 1e9) | 0); // シード指定ありなら、やり直しても同じダンジョン
       this.bossBag = []; this.lastBossKey = null; // ボスラッシュ：抽選をリセット
       this.buildFloor();
       this._ritualWon = false;
@@ -20125,7 +20131,7 @@ function setLobbyStatus(msg) { document.getElementById('lobbyStatus').textConten
 
 // ルーム作成・参加の通信中は他のロビー操作を一切できないようにする。
 // （連打での二重作成や、入力途中でのボタン誤操作を防ぐため）
-const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput'];
+const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput', 'soloSeedInput'];
 // ロビーの上に出る短いバナー（ゲーム画面のバナーとは別）
 function showLobbyBanner(text, ms) {
   let el = document.getElementById('lobbyBanner');
@@ -20164,6 +20170,7 @@ function startGame(mode, extra) {
     acc: currentAccKey(), // 付けている装飾品
     net: (extra && extra.net) || netInstance, // PvPテストは通信なしの偽Net(OfflineNet)を渡す
     baseSeed: extra && extra.baseSeed,
+    soloSeed: (extra && extra.soloSeed != null) ? extra.soloSeed : null, // ロビーで指定したシード値（ソロのダンジョンのみ）
     floor: extra && extra.floor,
     roomId: extra && extra.roomId,
     devFloor: devMode ? Math.max(1, parseInt(document.getElementById('devFloorInput').value, 10) || 11) : null,
@@ -20183,7 +20190,16 @@ function startGame(mode, extra) {
   launchGame();
 }
 
-document.getElementById('soloBtn').addEventListener('click', () => startGame('solo'));
+// ロビーのシード値の欄：数字ならそのまま、数字以外が混ざっていれば文字列から数値を作る（同じ文字なら同じダンジョン）。空欄ならnull＝ランダム。
+function readSoloSeed() {
+  const raw = (document.getElementById('soloSeedInput').value || '').trim();
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) return Number(raw) % 2147483647;
+  let h = 2166136261; // 文字列→数値（FNV-1a）
+  for (let i = 0; i < raw.length; i++) { h ^= raw.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 2147483647;
+}
+document.getElementById('soloBtn').addEventListener('click', () => startGame('solo', { soloSeed: readSoloSeed() }));
 // ボスラッシュ：まず武器選択画面を出し、選んだ武器のLv.5でスタートする。
 // ダメージの無い十字架はボスを倒せないので候補から除く。
 const RUSH_WEAPON_DESC = {
