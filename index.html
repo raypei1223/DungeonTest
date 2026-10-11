@@ -999,7 +999,7 @@ const PVP = {
   // あみだくじ：countdown＝始まる前のカウントダウン(秒。この間はボックスに入れない)／pickTime＝ボックスを選べる制限時間(秒)／graceTime＝時間切れから横線が見えて体が動き出すまで(秒。この間は3→1のカウントダウン。選んでいない人の割り当て待ちも兼ねる)／speed＝線の上を進む速さ(タイル/秒)／
   // hopTime＝横線で隣の線へ移る時間(秒。移る人だけが止まるので、右端へ着く時間は人それぞれ)／warpWait＝最後の人が着いてから、それぞれのモンスターの部屋へワープするまで(秒)／fightMax＝ワープしてから、戦いが終わっていなくても締め切るまで(秒)／returnStay＝全員の戦いが終わってから結果に進むまで(秒)／rows＝横線を引ける段数／rungChance＝横線が入る確率／
   // マップの大きさ：maxLanes＝線の本数の上限／gap＝線と線の間隔(タイル。偶数)／spawnW＝左端のスポーン部屋の幅／boxW＝ボックスの一辺／lineLen＝ボックスの右から右端の出口までの線の長さ／endW＝右端の出口の幅／monRoom＝モンスターの部屋（cols＝横に並べる数／w・h＝部屋の大きさ／gap＝部屋の間隔。タイル。マップの右の遠くに作る）
-  amida: { countdown: 5, pickTime: 20, graceTime: 1, speed: 8, hopTime: 0.2, warpWait: 3, fightMax: 120, returnStay: 5, rows: 24, rungChance: 0.5, maxLanes: 12, gap: 4, spawnW: 6, boxW: 3, lineLen: 26, endW: 3, monRoom: { cols: 4, w: 13, h: 11, gap: 3 } },
+  amida: { countdown: 5, pickTime: 20, graceTime: 1, speed: 8, hopTime: 0.2, warpWait: 3, fightMax: 120, returnStay: 5, rows: 24, rungChance: 0.5, maxLanes: 12, gap: 4, spawnW: 6, boxW: 3, lineLen: 26, endW: 3, monRoom: { cols: 4, w: 36, h: 24, gap: 40 } },
   weaponZone: { cx: 10, cy: 4.5, size: 4, holdTime: 3 }, // 武器変更ゾーン（準備室の上側の正方形。中心タイル座標・一辺のタイル数）。holdTime：武器固定の時、全員が入ってからホストが選び直すまでの秒数
   // 人狼ゲームのマップ（バトルフィールドの右隣に作る）。中心に円形の広場、そこから放射状に道が伸びて、道の先に家（円形・入口が1つ）がある。それ以外は岩（壁）。
   werewolf: { wolves: 1, wolvesMany: 2, manyFrom: 8, bloodyTime: 20, roleLot: { villager: 1, watchman: 1, seer: 1, detective: 1, dupMul: 0.05 }, detectiveTime: 5, detectiveR: 2.2, trailTiles: 30, trailStep: 0.5, seerTime: 15, seerR: 2.5, seerPerNight: 1, quotaHold: 15, watchOilMul: 2, watchViewMul: 3, wolfViewMul: 2, wolfSwordLv: 5, houses: 10, mapVersion: 2, size2: 96, houseDist2: 38, mapSeed2: 20261010, plazaR: 9, houseDist: 30, houseIn: 4.5, houseOut: 6.5, roadW: 3, size: 80, gap: 4, rays: 600, viewR: 20, time: 900, dayTime: 60, dayTime2: 170, voteTime: 30, resultTime: 12, nightTime: 90, nightViewR: 6, nightHole: 0.94, oilMax: 100, oilBurn: 2, oilRegen: 4, oilLow: 0.3, oilMinR: 1.2, oilStartMin: 0.3, oilStartMax: 0.7 },
@@ -1431,7 +1431,7 @@ const ENEMY_TYPES = [
     knockbackScale: 0, superArmor: true, arms: { len: 200, up: 1.2, low: 1.4, glow: true }, // glow：体の後ろに白い光を重ねて脈打たせる
     // 調伏の儀（最終試練）で敵として出る時だけ、この値で上書きされる（味方として召喚した時は上の値のまま）。
     //   hp＝基本HP（階層で増える）／damage＝接触のダメージ／speed＝歩く速さ（プレイヤーは168。投げ飛ばしの後の戦闘中は、この値でゆっくり迫ってくる）。攻撃は未実装。
-    finalTrial: { hp: 10000, speed: 70, damage: 100000, noFloorScale: true } }, // hp＝10000固定（noFloorScale：階層・ボスラッシュの強化をかけない）
+    finalTrial: { hp: 10000, speed: 70, damage: 100000, noFloorScale: true } }, // hp＝10000固定（noFloorScale：階層・ボスラッシュの強化をかけない）。味方として召喚した天使のHPは、上の hp: 10000（調伏の儀の敵と同じ）
   { key: 'shooter', color: 0x5bd1ff, radius: 15, hp: 34, speed: 68,  damage: 8,  behavior: 'ranged', minFloor: 5,
     shootRange: 220, retreatRange: 110, fireCooldown: 1.5, projSpeed: 260, projDamage: 11, projRadius: 5, projColor: 0x8ad9ff },
   // 半透明の白い敵。壁をすり抜けて移動し、索敵範囲の概念が無く（aggroRange:Infinity）
@@ -5099,9 +5099,9 @@ class GameScene extends Phaser.Scene {
     return { ax: d.x, bx, ex, row, rungX: r => bx + A.boxW + 2 + r, top: row(0) - 2, bottom: row(N - 1) + 2 };
   }
 
-  amidaSpawn(i) { // 左端のスポーン部屋。i番目の人は、i本目の線の高さに並ぶ
+  amidaSpawn() { // 左端のスポーン部屋の真ん中の一点。全員が同じ場所に出る（ボックスは先に着いた人のものになるので、スタート位置で差が出ないように）
     const am = this.pv.amida, g = am.geo;
-    return { x: (g.ax + 1.5) * TILE, y: (g.row(Math.min(i, am.N - 1)) + 0.5) * TILE };
+    return { x: (g.ax + 2) * TILE, y: ((g.row(0) + g.row(am.N - 1)) / 2 + 0.5) * TILE };
   }
 
   // lane 本目の線のボックスから出発した体の道すじ（時間つきの通過点）。横の速さは全員同じで、隣の線へ移る時だけ hopTime 秒止まる。移る回数が違うので、右端（モンスターの直前）へ着く時間は人それぞれ
@@ -5160,7 +5160,8 @@ class GameScene extends Phaser.Scene {
       rungs.push(row);
     }
     if (!part) this.pv.amidaHist = {}; // 最初のラウンドなら、「当たったモンスター」の記録をリセット
-    const mons = ['slime', 'bat', 'spore', 'charger', 'brute', 'shooter', 'ghost', 'overlord', 'quartet', 'detonator', 'zoetrope', 'snake']; // 出口ごとに別々の飾りモンスター（動かない・当たり判定なし）。全員同じ順番になるよう同じシードで混ぜる
+    this.pv.amidaRounds = (part ? (this.pv.amidaRounds || 0) : 0) + 1; // あみだくじをした回数（ラウンド数）。最初のラウンドで1に戻し、始まるたびに+1
+    const mons = ['slime', 'bat', 'spore', 'charger', 'brute', 'shooter', 'ghost', 'overlord', 'quartet', 'detonator', 'zoetrope', 'snake', 'arms4']; // 出口ごとに別々の飾りモンスター（動かない・当たり判定なし）。全員同じ順番になるよう同じシードで混ぜる
     for (let i = mons.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); const t = mons[i]; mons[i] = mons[j]; mons[j] = t; }
     const now = performance.now();
     const am = { part: ids, N, rungs, geo: this.amidaGeo(N), laneOf: {}, owner: {}, resv: {}, boxes: [], slots: [], tiles: [], objs: [], startAt: now + A.countdown * 1000, pickEndAt: now + (A.countdown + A.pickTime) * 1000, traceAt: now + (A.countdown + A.pickTime + A.graceTime) * 1000, cdShown: -1, cd2Shown: -1, rungsShown: false, mons, started: false, autoDone: false, sentAt: 0, shown: false, myPath: null, maxT: null, warpSent: false, warped: false, roomsOpen: false, warpedAt: 0, fight: {}, endSet: false, myRoom: null, myFin: null, mon: null, fighting: false, fightDone: false, noneSince: 0 };
@@ -5204,9 +5205,37 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  amidaEnsureArmTex() { // 腕の画像（armUp・armLow）が無ければ読み込みを始める（updateArms と同じ。読み込みは非同期）
+    if (!this._armTexReq && !this.textures.exists('armUp')) { this._armTexReq = true; this.textures.addBase64('armUp', ARM_IMG_UP); this.textures.addBase64('armLow', ARM_IMG_LOW); }
+    return this.textures.exists('armUp') && this.textures.exists('armLow');
+  }
+
+  amidaArmDecorUpdate(am) { // 出口の天使の腕：画像ができたら付ける（まだなら次のフレームでもう一度）
+    if (!this.amidaEnsureArmTex()) return;
+    const H = this.textures.getFrame('armUp').height;
+    for (const d of am.armDecor || []) {
+      if (d.done) continue; d.done = true;
+      const s = 48 / H; // 腕の長さ＝約48px
+      for (const key of ['armLow', 'armUp']) for (let k = 0; k < 2; k++) {
+        const side = k ? 1 : -1, up = key === 'armUp';
+        const img = this.add.image(d.x + side * d.R * 0.55, d.y, key).setDepth(up ? 2.18 : 2.15);
+        img.setOrigin(up ? 0.593 : 0.327, up ? 0 : 0.014).setRotation(up ? Math.PI + side * d.A.up : -side * d.A.low).setScale(-side * s, s);
+        am.objs.push(img);
+      }
+    }
+  }
+
   amidaDrawMonster(am, key, x, y, sc) { // 見た目だけの飾りモンスター（動かない・当たり判定なし。this.enemies には入れない）。sc＝大きさの倍率
     const mt = ENEMY_TYPES.find(t => t.key === key); if (!mt) return;
     const boss = !!(mt.isBoss || mt.key === 'simahar'), edgeW = boss ? 3 : 2, edgeC = boss ? 0xffd54c : 0x000000, edgeA = boss ? 0.9 : 0.3; // 本物と同じ縁（ボスは金色の太い縁、普通のモンスターは薄い黒の縁）
+    if (mt.key === 'arms4' && mt.arms) { // 天使：白く光る丸い体と、左右2本ずつの腕（本物と同じ画像・同じ付け根と角度。大きさだけ出口に収まるよう小さくする）
+      const R = 11, glow = this.add.circle(x, y, R * 1.6, 0xffffff, 0.14).setDepth(2.1).setBlendMode(Phaser.BlendModes.ADD); // 第2形態＝白く輝く
+      const body = this.add.circle(x, y, R, mt.color).setDepth(2.2); body.setStrokeStyle(edgeW, edgeC, edgeA);
+      am.objs.push(glow, body);
+      (am.armDecor = am.armDecor || []).push({ x, y, R, A: mt.arms, done: false });
+      this.amidaArmDecorUpdate(am);
+      return;
+    }
     if (mt.key === 'snake') { // ウロボロスは、とぐろを巻いたコンパクトな姿（尾から渦を巻いて、真ん中に頭）
       const bt = ENEMY_TYPES.find(t => t.key === 'snake_body'), segN = 22;
       for (let k = 0; k < segN; k++) {
@@ -5228,20 +5257,25 @@ class GameScene extends Phaser.Scene {
     return { tx, ty, w: M.w, h: M.h, cx: (tx + M.w / 2) * TILE, cy: (ty + M.h / 2) * TILE };
   }
 
-  amidaOpenRooms() { // 全員：モンスターの部屋を開ける（床を作って、真ん中にモンスターを1体ずつ置く）。終わったら amidaClear で壁に戻る
+  amidaOpenRoom(i) { // 1つの部屋の床を作って、モンスターの名前を出す（床は壁に囲まれた岩の中。終わったら amidaClear で壁に戻る）。必要な部屋だけ開く＝描き直す区画を増やさない
+    const pv = this.pv, am = pv && pv.amida; if (!am) return;
+    am.openRooms = am.openRooms || {}; if (am.openRooms[i]) return; am.openRooms[i] = true;
+    const grid = this.dungeon.grid, added = [], R = this.amidaRoom(i), key = am.mons[i % am.mons.length];
+    for (let y = R.ty; y < R.ty + R.h; y++) for (let x = R.tx; x < R.tx + R.w; x++) if (grid[y] && grid[y][x] === 0) { grid[y][x] = 1; am.tiles.push([x, y]); added.push([x, y]); }
+    const nm = ENEMY_JP_NAMES[key];
+    if (nm) { const t = this.add.text(R.cx, R.cy - (R.h / 2) * TILE + 24, nm, { fontSize: '18px', color: '#ffffff', fontFamily: 'sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(2.3); t.setStroke('#000000', 4); am.objs.push(t); }
+    if (added.length) this._queueWallRedraw(added);
+  }
+
+  amidaOpenRooms() { // 全員：ワープの時に、自分の部屋だけ開ける（ほかの人の部屋は、観戦する時に開く）
     const pv = this.pv, am = pv && pv.amida; if (!am || am.roomsOpen) return;
     am.roomsOpen = true;
-    const grid = this.dungeon.grid, added = [];
-    for (let i = 0; i < am.N; i++) {
-      const R = this.amidaRoom(i), key = am.mons[i % am.mons.length];
-      for (let y = R.ty; y < R.ty + R.h; y++) for (let x = R.tx; x < R.tx + R.w; x++) if (grid[y] && grid[y][x] === 0) { grid[y][x] = 1; am.tiles.push([x, y]); added.push([x, y]); }
-      const n0 = am.objs.length;
-      if (i !== am.myFin) this.amidaDrawMonster(am, key, R.cx, R.cy, 1.8); // 自分の部屋だけは、飾りではなく本物が出る
-      (am.decor = am.decor || {})[i] = am.objs.slice(n0); // 観戦中に隠せるよう、この部屋の飾りを控えておく
-      const nm = ENEMY_JP_NAMES[key];
-      if (nm) { const t = this.add.text(R.cx, R.cy - (R.h / 2) * TILE + 20, nm, { fontSize: '18px', color: '#ffffff', fontFamily: 'sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(2.3); t.setStroke('#000000', 4); am.objs.push(t); }
-    }
-    if (added.length) this._queueWallRedraw(added);
+    if (am.myFin != null) this.amidaOpenRoom(am.myFin);
+  }
+
+  amidaFighting() { // あみだくじで、自分のモンスターの部屋で戦っている最中か（鬼火・ナイフ・時計は、PvPの中でもこの間だけ使える）
+    const am = this.pv && this.pv.mode === 'amida' && this.pv.amida;
+    return !!(am && am.fighting && !am.fightDone);
   }
 
   amidaInMyRoom(x, y) { // いま戦っている自分のモンスターの部屋の中か（戦っていない時は常に false）
@@ -5262,15 +5296,16 @@ class GameScene extends Phaser.Scene {
     this.amidaMakeGates();
     if (!inRound) return;
     const R = this.amidaRoom(am.myFin), key = am.mons[am.myFin % am.mons.length];
-    am.myRoom = R; am.fighting = true; am.fightDone = false; am.noneSince = 0;
-    this.player.x = R.cx - 4 * TILE; this.player.y = R.cy;
+    am.myRoom = R; am.fighting = true; am.fightDone = false; am.noneSince = 0; am.fxBase = new Set((this.children && this.children.list) || []); // 観戦用：この時点にあった物は演出として送らない
+    this.player.x = (R.tx + 6) * TILE; this.player.y = R.cy; // 部屋の左寄り
     this.cameras.main.flash(300, 0, 0, 0);
-    const e = this.s2TrialSpawn(key, R.cx, R.cy, 900); // 調伏の儀と同じ作り方で、本物のモンスターを1体だけ出す
-    if (e) { e._rtLocal = true; e._amida = true; am.mon = e; }
+    const e = this.s2TrialSpawn(key, (R.tx + R.w - 8) * TILE, R.cy, 900); // 部屋の右寄り // 調伏の儀と同じ作り方で、本物のモンスターを1体だけ出す
+    if (e) { e._rtLocal = true; e._amida = true; am.mon = e; if (key === 'arms4') { e._form = 2; e._f2Open = 0; } } // 天使：最初から最後まで第2形態（白く光る体。_formBoss を付けないので形態変化は起きない。第2形態の開幕の技から始める）
     this.showBanner((ENEMY_JP_NAMES[key] || 'モンスター') + 'との戦い！', 2000);
   }
 
   amidaClearRoomEnemies() { // 自分のモンスターの部屋の敵・弾を片付ける（この画面だけの敵なので、ほかの敵には触らない）
+    try { this.a4AtkCleanup(); } catch (err) { /* 天使の攻撃が無ければ何もない */ }
     const kill = o => { try { if (o && o.destroy) o.destroy(); } catch (err) { /* 既に破棄済み */ } };
     let any = false;
     for (const e of this.enemies || []) {
@@ -5290,6 +5325,7 @@ class GameScene extends Phaser.Scene {
   amidaFightEnd(ok) { // 戦いが終わった：勝ち＝そのままあみだくじの部屋へ戻る／負け＝ゴーストとしてあみだくじの部屋へ戻る。結果は全員へ知らせる
     const pv = this.pv, am = pv && pv.amida; if (!am || am.fightDone) return;
     am.fightDone = true; am.fighting = false;
+    try { this.endClock(); } catch (err) { /* 時計が動いていなければ何もない */ } // 時計で止めている最中に戦いが終わったら、時間を戻す
     this.amidaClearRoomEnemies();
     am.myRoom = null; am.mon = null; // ここから先はカメラも元のあみだくじの部屋へ戻る
     const g = am.geo, my = this.net.uid;
@@ -5356,11 +5392,21 @@ class GameScene extends Phaser.Scene {
   amidaUpdate(pv) {
     const am = pv && pv.amida; if (!am) return;
     const A = PVP.amida, g = am.geo, now = performance.now(), my = this.net.uid, cam = this.cameras.main;
-    // カメラ：プレイヤーを追わず、あみだ全体が映るように固定（画面の大きさが変わっても毎フレーム合わせる）
+    // カメラ：あみだくじの間は、プレイヤーを追わず、あみだ全体が映るように固定（画面の大きさが変わっても毎フレーム合わせる）。戦闘中は自分を追う／観戦中は見ている人を追う
     const wT = (g.ex + A.endW - g.ax + 2) * TILE, hT = (g.bottom - g.top + 1 + 4) * TILE;
-    const myRoom = am.myRoom || am.specRoom || null; // 観戦中は見ている部屋、戦っている間は、自分のモンスターの部屋を映す（終わったら元のあみだくじの部屋）
-    if (myRoom) { cam.setZoom(Math.min(cam.width / ((myRoom.w + 2) * TILE), cam.height / ((myRoom.h + 2) * TILE))); cam.centerOn(myRoom.cx, myRoom.cy); }
-    else {
+    const zoom = window.GAME_VIEW_ZOOM || 1;
+    if (am.myRoom) { // 戦っている間：ふだんと同じ倍率で、自分を中心にカメラが動く
+      if (!am.camFollow) { am.camFollow = true; cam.setZoom(zoom); cam.centerOn(this.player.x, this.player.y); cam.startFollow(this.player, true, 0.15, 0.15); }
+    } else if (am.specRoom) { // 観戦中：見ている人を中心にカメラが動く（その人の丸がまだ届いていなければ部屋の真ん中）
+      if (am.camFollow) { am.camFollow = false; cam.stopFollow(); }
+      const rp0 = am.spec && this.remotePlayers[am.spec.uid], R = am.specRoom; // 見ている人の本物のアバター（滑らかに動く）を追う
+      const okA = !!(rp0 && rp0.gfx && rp0.gfx.scene), tx = okA ? rp0.gfx.x : R.cx, ty = okA ? rp0.gfx.y : R.cy;
+      let sc = am.specCam; // 他の人の動きは届く間隔で速さがゆれるので、カメラは少し遅れて追いかけて（ローパス）、画面全体のガタつきを消す
+      if (!sc || sc.uid !== am.spec.uid) sc = am.specCam = { uid: am.spec.uid, x: tx, y: ty, t: now };
+      else { const k = expSmooth(Math.min(0.1, (now - sc.t) / 1000), 0.12); sc.x += (tx - sc.x) * k; sc.y += (ty - sc.y) * k; sc.t = now; }
+      cam.setZoom(zoom); cam.centerOn(sc.x, sc.y);
+    } else {
+      if (am.camFollow) { am.camFollow = false; cam.stopFollow(); } // 戦いが終わったら、あみだ全体が映る固定カメラへ戻る
       cam.setZoom(Math.min(cam.width / wT, cam.height / hT));
       cam.centerOn((g.ax + (g.ex + A.endW - g.ax) / 2) * TILE, ((g.top + g.bottom + 1) / 2 + 0.6) * TILE);
     }
@@ -5414,12 +5460,14 @@ class GameScene extends Phaser.Scene {
       const nm = id => clipName((pv.info[id] || {}).name || '?', 8);
       for (const id in am.laneOf) { const sl = am.slots[this.amidaPath(am, am.laneOf[id]).finish]; sl.who.setText(nm(id)); }
     }
+    if (am.armDecor && am.armDecor.some(d => !d.done)) this.amidaArmDecorUpdate(am); // 出口の天使の腕（画像の準備待ち）
     if (am.warped) this.amidaGateUpdate(am, now, my); // 観戦ゲート
     if (am.spec) this.amidaSpecUpdate(am, now); // 観戦中の再現
     // 自分の部屋での戦い：部屋の敵を全部倒したら勝ち（スネークの胴体は数えない）、HPが0になったら負け
     if (am.fighting && !am.fightDone) {
       if (now - (am.watchedAt || -1e9) < 3000 && now - (am.stSentAt || 0) > 100) { am.stSentAt = now; this.amidaSendState(am); } // 誰かに観戦されている間だけ送る
-      if (this.playerHp <= 0 || this.isDowned) this.amidaFightEnd(false);
+      if (this.playerHp <= 0 && this.trySkullRevive()) { /* 💀 鬼火が残っていれば、HP1で復活して戦いを続ける */ }
+      else if (this.playerHp <= 0 || this.isDowned) this.amidaFightEnd(false);
       else if (!am.mon) this.amidaFightEnd(true);
       else {
         const alive = this.enemies.some(e => !e._removed && e.hp > 0 && !(e.type && e.type.snakeBody) && e.gfx && this.amidaInMyRoom(e.gfx.x, e.gfx.y));
@@ -5472,28 +5520,34 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  amidaSpecBar(on, text) { // 画面の下の「観戦中」バー（◀ ▶ で戦っている人を切り替え／「あみだくじに戻る」）
-    let bar = document.getElementById('amidaSpecBar');
-    if (!on) { if (bar) bar.style.display = 'none'; return; }
-    if (!bar) {
-      bar = document.createElement('div'); bar.id = 'amidaSpecBar';
-      bar.style.cssText = 'position:fixed; left:50%; bottom:3vh; transform:translateX(-50%); z-index:128; display:flex; gap:1.2vh; align-items:center; background:rgba(10,10,20,0.85); color:#fff; padding:1vh 2vh; border-radius:1vh; font-family:sans-serif; font-size:2.2vh; font-weight:bold;';
-      const btn = (id, label) => '<button id=\"' + id + '\" style=\"font-size:2.2vh; padding:0.6vh 1.8vh; border:0; border-radius:0.8vh; cursor:pointer; background:#3a3d4d; color:#fff; font-weight:bold;\">' + label + '</button>';
-      bar.innerHTML = btn('amidaSpecPrev', '◀') + '<span id=\"amidaSpecText\"></span>' + btn('amidaSpecNext', '▶') + btn('amidaSpecExit', 'あみだくじに戻る');
-      document.body.appendChild(bar);
+  amidaSpecBar(on, text) { // 観戦中の画面：左右の真ん中に ◀ ▶（戦っている人の切り替え）、上に「あみだくじに戻る」、下に誰を見ているか
+    let ui = document.getElementById('amidaSpecUi');
+    if (!on) { if (ui) ui.style.display = 'none'; return; }
+    if (!ui) {
+      ui = document.createElement('div'); ui.id = 'amidaSpecUi';
+      ui.style.cssText = 'position:fixed; inset:0; z-index:128; pointer-events:none; font-family:sans-serif; color:#fff; font-weight:bold;'; // 画面全体の入れ物（ボタンの所だけ押せる）
+      const b = 'position:absolute; pointer-events:auto; border:0; border-radius:1.4vh; cursor:pointer; background:rgba(30,32,48,0.85); color:#fff; font-weight:bold; box-shadow:0 0 0 0.3vh rgba(255,255,255,0.35);';
+      ui.innerHTML = '<button id=\"amidaSpecPrev\" style=\"' + b + 'left:2vh; top:50%; transform:translateY(-50%); font-size:7vh; padding:2.2vh 2.8vh;\">◀</button>'
+        + '<button id=\"amidaSpecNext\" style=\"' + b + 'right:2vh; top:50%; transform:translateY(-50%); font-size:7vh; padding:2.2vh 2.8vh;\">▶</button>'
+        + '<button id=\"amidaSpecExit\" style=\"' + b + 'left:50%; top:2vh; transform:translateX(-50%); font-size:3.6vh; padding:1.4vh 4vh;\">あみだくじに戻る</button>'
+        + '<div id=\"amidaSpecText\" style=\"position:absolute; left:50%; bottom:3vh; transform:translateX(-50%); font-size:3vh; padding:1vh 3vh; border-radius:1.2vh; background:rgba(10,10,20,0.85); white-space:nowrap;\"></div>';
+      document.body.appendChild(ui);
       document.getElementById('amidaSpecPrev').onclick = () => this.amidaSpecSwitch(-1);
       document.getElementById('amidaSpecNext').onclick = () => this.amidaSpecSwitch(1);
       document.getElementById('amidaSpecExit').onclick = () => this.amidaSpecStop();
     }
-    bar.style.display = 'flex'; document.getElementById('amidaSpecText').textContent = text;
+    ui.style.display = 'block'; document.getElementById('amidaSpecText').textContent = text;
   }
 
   amidaSpecStart(uid) { // 観戦を始める：その人の部屋にカメラを移して、飾りモンスターを隠す
     const pv = this.pv, am = pv && pv.amida; if (!am || am.spec) return;
     const fin = this.amidaFinishOf(am, uid); if (fin == null) return;
     am.spec = { uid, fin, pool: [], tgt: null, watchAt: 0 };
+    this.amidaEnsureArmTex(); // 天使の腕の画像を先に読み込んでおく
+    this.amidaOpenRoom(fin); // その部屋の床をここで作る（見ている間だけ必要）
+    this._specHid = []; // 観戦中は左右のスティックを隠す（◀ ▶ のボタンと重なるし、体は動かさないので）
+    for (const id of ['joystickZone', 'aimJoystickZone']) { const el = document.getElementById(id); if (el && el.style.display !== 'none') { this._specHid.push([el, el.style.display]); el.style.display = 'none'; } }
     am.specRoom = this.amidaRoom(fin); this._amidaSpec = true; // 観戦中は体を動かさない
-    for (const o of (am.decor && am.decor[fin]) || []) { try { o.setVisible(false); } catch (err) { /* 破棄済み */ } }
     this.cameras.main.flash(200, 0, 0, 0);
     this.amidaSpecBar(true, '👁 観戦中：' + clipName((pv.info[uid] || {}).name || '?', 8) + '（' + (ENEMY_JP_NAMES[am.mons[fin % am.mons.length]] || '') + '）');
   }
@@ -5501,12 +5555,14 @@ class GameScene extends Phaser.Scene {
   amidaSpecStop() { // 観戦をやめて、あみだくじの部屋へ戻る（再生用の丸を消して、ゲートの手前に立つ）
     const pv = this.pv, am = pv && pv.amida;
     this._amidaSpec = false; this.amidaSpecBar(false);
+    for (const [el, d] of this._specHid || []) el.style.display = d; // 隠していたスティックを戻す
+    this._specHid = [];
     if (!am || !am.spec) return;
     for (const e of am.spec.pool) for (const o of [e.c, e.b]) { try { o.destroy(); } catch (err) { /* 破棄済み */ } }
-    for (const o of (am.decor && am.decor[am.spec.fin]) || []) { try { o.setVisible(true); } catch (err) { /* 破棄済み */ } }
+    for (const q of am.spec.fx || []) { try { q.o.destroy(); } catch (err) { /* 破棄済み */ } }
     const gt = (am.gates || []).find(q => q.uid === am.spec.uid);
     if (gt) { this.player.x = gt.x - 2 * TILE; this.player.y = gt.y; }
-    am.spec = null; am.specRoom = null; am.specCool = performance.now() + 1500; // すぐ同じゲートにもう一度入らないように
+    am.spec = null; am.specRoom = null; am.specCam = null; am.specCool = performance.now() + 1500; // すぐ同じゲートにもう一度入らないように
     this.cameras.main.flash(200, 0, 0, 0);
   }
 
@@ -5520,8 +5576,8 @@ class GameScene extends Phaser.Scene {
 
   amidaSendState(am) { // 戦っている自分の部屋の様子（自分・敵）を観戦している人へ送る
     const es = (this.enemies || []).filter(e => !e._removed && e.hp > 0 && e.gfx && e.gfx.scene && this.amidaInMyRoom(e.gfx.x, e.gfx.y)).slice(0, 40)
-      .map(e => [Math.round(e.gfx.x), Math.round(e.gfx.y), Math.round(e.gfx.radius || 10), e.gfx.fillColor || 0xffffff, Math.round(100 * Math.max(0, Math.min(1, e.maxHp > 0 ? e.hp / e.maxHp : 1))), Math.round(100 * (e.gfx.alpha == null ? 1 : e.gfx.alpha)), (e.type && (e.type.isBoss || e.type.key === 'simahar')) ? 1 : 0]);
-    this.net.sendPvp({ a: 'astate', u: this.net.uid, c: this.playerColor, p: [Math.round(this.player.x), Math.round(this.player.y), Math.round(this.player.radius || 14), Math.round(100 * Math.max(0, Math.min(1, this.playerMaxHp > 0 ? this.playerHp / this.playerMaxHp : 1)))], e: es });
+      .map(e => [Math.round(e.gfx.x), Math.round(e.gfx.y), Math.round(e.gfx.radius || 10), e.gfx.fillColor || 0xffffff, Math.round(100 * Math.max(0, Math.min(1, e.maxHp > 0 ? e.hp / e.maxHp : 1))), Math.round(100 * (e.gfx.alpha == null ? 1 : e.gfx.alpha)), (e.type && (e.type.isBoss || e.type.key === 'simahar')) ? 1 : 0, e.gfx.isStroked ? Math.round(10 * (e.gfx.lineWidth || 0)) / 10 : 0, e.gfx.strokeColor || 0, Math.round(100 * (e.gfx.strokeAlpha == null ? 1 : e.gfx.strokeAlpha)), Math.round(100 * (e.gfx.scaleX || 1))]);
+    this.net.sendPvp({ a: 'astate', u: this.net.uid, c: this.playerColor, p: [Math.round(this.player.x), Math.round(this.player.y), Math.round(this.player.radius || 14), Math.round(100 * Math.max(0, Math.min(1, this.playerMaxHp > 0 ? this.playerHp / this.playerMaxHp : 1))), Math.round(1000 * (this.facing ? this.facing.rotation : 0)) / 1000], e: es, f: this.amidaCollectFx(am) });
   }
 
   amidaOnState(m) { // 観戦中：見ている人の状態が届いた
@@ -5534,23 +5590,69 @@ class GameScene extends Phaser.Scene {
     if (am && m && m.t === this.net.uid) am.watchedAt = performance.now();
   }
 
+  amidaCollectFx(am) { // 戦っている側：自分の部屋で戦闘開始後に増えた「弾・ビーム・爆発・床の攻撃」などの描画を、観戦用に軽くまとめる（敵本体・HP棒・文字・画面固定のUIは除く）
+    const R = am.myRoom, base = am.fxBase; if (!R || !base) return [];
+    const skip = new Set(); for (const e of this.enemies || []) for (const o of [e.gfx, e.hpBar]) if (o) skip.add(o);
+    const x0 = (R.tx - 3) * TILE, x1 = (R.tx + R.w + 3) * TILE, y0 = (R.ty - 3) * TILE, y1 = (R.ty + R.h + 3) * TILE, rd = v => Math.round(v * 10) / 10;
+    const gs = [], ss = [], ts = [], is = [];
+    for (const o of (this.children && this.children.list) || []) {
+      if (!o || !o.scene || !o.visible || (base.has(o) && o !== this._glowG) || skip.has(o) || o.scrollFactorX === 0 || !(o.alpha > 0.02) || !(o.depth < 20)) continue;
+      const ty = o.type, bm = o.blendMode || 0, d = rd(o.depth || 0);
+      if (ty === 'Text') { const tx = o.text; if (!tx || tx.length > 24 || o.x < x0 || o.x > x1 || o.y < y0 || o.y > y1) continue; ts.push([4, rd(o.x), rd(o.y), tx, o.style ? (parseInt(o.style.fontSize) || 14) : 14, (o.style && o.style.color) || '#ffffff', rd(o.alpha), d, rd(o.originX), rd(o.originY)]); continue; }
+      if (ty === 'Image' || ty === 'Sprite') { const tk = o.texture && o.texture.key; if (!tk || tk[0] === '_' || o.x < x0 || o.x > x1 || o.y < y0 || o.y > y1) continue; is.push([5, rd(o.x), rd(o.y), tk, rd(o.rotation || 0), rd(o.scaleX), rd(o.scaleY), rd(o.originX), rd(o.originY), rd(o.alpha), d]); continue; } // 腕の画像など
+      if (ty === 'Graphics') { const cb = o.commandBuffer; if (!cb || !cb.length || cb.length > 500) continue; gs.push([3, rd(o.x), rd(o.y), rd(o.rotation || 0), rd(o.alpha), d, bm, rd(o.scaleX), cb.map(rd)]); continue; }
+      if (o.x < x0 || o.x > x1 || o.y < y0 || o.y > y1) continue;
+      const st = o.isStroked ? 1 : 0, fa = o.isFilled === false ? 0 : rd(o.fillAlpha == null ? 1 : o.fillAlpha);
+      if (ty === 'Arc') ss.push([0, rd(o.x), rd(o.y), rd(o.radius), o.fillColor || 0, fa, st ? rd(o.lineWidth) : 0, o.strokeColor || 0, st ? rd(o.strokeAlpha) : 0, rd(o.alpha), d, bm, rd(o.scaleX)]);
+      else if (ty === 'Rectangle' || ty === 'Ellipse') ss.push([ty === 'Rectangle' ? 1 : 2, rd(o.x), rd(o.y), rd(o.width), rd(o.height), rd(o.rotation || 0), o.fillColor || 0, fa, st ? rd(o.lineWidth) : 0, o.strokeColor || 0, st ? rd(o.strokeAlpha) : 0, rd(o.alpha), d, bm, rd(o.scaleX)]);
+    }
+    ss.sort((a, b) => (b[0] === 0 ? b[3] : Math.max(b[3], b[4]) / 2) - (a[0] === 0 ? a[3] : Math.max(a[3], a[4]) / 2)); // 大きい物（ビーム・爆発の光）を優先、小さな火花は後回し
+    let budget = 1500; const out = [];
+    for (const q of gs) { if (out.length >= 30 || q[8].length > budget) continue; budget -= q[8].length; out.push(q); }
+    for (const q of is.slice(0, 12)) out.push(q);
+    for (const q of ts.slice(0, 20)) out.push(q);
+    for (const q of ss) { if (out.length >= 110) break; out.push(q); }
+    return out;
+  }
+
+  amidaSpecFx(sp, list) { // 観戦中：戦っている側から届いた演出（ビーム・爆発・弾など）を同じ場所に再現する
+    sp.fx = sp.fx || []; list = list || [];
+    const kill = q => { try { q.o.destroy(); } catch (err) { /* 破棄済み */ } };
+    while (sp.fx.length > list.length) { const q = sp.fx.pop(); kill(q); }
+    list.forEach((it, i) => {
+      const k = it[0]; let q = sp.fx[i];
+      if (q && (q.k !== k || (k === 5 && q.key !== it[3]))) { kill(q); q = null; }
+      if (!q) { const o = k === 5 ? this.add.image(0, 0, this.textures.exists(it[3]) ? it[3] : '__DEFAULT') : k === 4 ? this.add.text(0, 0, '', { fontFamily: 'sans-serif' }) : k === 3 ? this.add.graphics() : (k === 0 ? this.add.circle(0, 0, 1, 0xffffff) : k === 1 ? this.add.rectangle(0, 0, 1, 1, 0xffffff) : this.add.ellipse(0, 0, 1, 1, 0xffffff)); q = sp.fx[i] = { k, o, key: k === 5 ? it[3] : null }; }
+      const o = q.o; o.setVisible(true);
+      if (k === 5) { if (!this.textures.exists(it[3])) { this.amidaEnsureArmTex(); o.setVisible(false); return; } if (o.texture.key !== it[3]) o.setTexture(it[3]); o.setPosition(it[1], it[2]).setOrigin(it[7], it[8]).setRotation(it[4]).setScale(it[5], it[6]).setAlpha(it[9]).setDepth(it[10]); return; }
+      if (k === 4) { o.setText(it[3]).setFontSize(it[4]).setColor(it[5]).setOrigin(it[8], it[9]).setPosition(it[1], it[2]).setAlpha(it[6]).setDepth(it[7]); return; }
+      if (k === 3) { o.setPosition(it[1], it[2]).setRotation(it[3]).setAlpha(it[4]).setDepth(it[5]).setBlendMode(it[6]).setScale(it[7] || 1); o.commandBuffer = it[8].slice(); return; }
+      if (k === 0) { o.setPosition(it[1], it[2]).setRadius(it[3]).setFillStyle(it[4], it[5]).setAlpha(it[9]).setDepth(it[10]).setBlendMode(it[11]).setScale(it[12] || 1); if (it[6] > 0) o.setStrokeStyle(it[6], it[7], it[8]); else o.setStrokeStyle(); return; }
+      o.setPosition(it[1], it[2]).setSize(it[3], it[4]).setRotation(it[5]).setFillStyle(it[6], it[7]).setAlpha(it[11]).setDepth(it[12]).setBlendMode(it[13]).setScale(it[14] || 1);
+      if (it[8] > 0) o.setStrokeStyle(it[8], it[9], it[10]); else o.setStrokeStyle();
+    });
+  }
+
   amidaSpecUpdate(am, now) { // 観戦中：見ていると知らせ続ける／届いた状態に丸を合わせる（なめらかに追いかける）
     const sp = am.spec; if (!sp) return;
     if (am.fight[sp.uid] != null) { this.showBanner('この戦いは終わりました', 1500); this.amidaSpecStop(); return; }
     if (now - sp.watchAt > 800) { sp.watchAt = now; this.net.sendPvp({ a: 'awatch', t: sp.uid }); }
     const m = sp.tgt; if (!m) return;
-    const items = [{ x: m.p[0], y: m.p[1], r: m.p[2], col: m.c != null ? m.c : 0xffffff, hp: m.p[3], al: 100, boss: 0, me: 1 }].concat((m.e || []).map(q => ({ x: q[0], y: q[1], r: q[2], col: q[3], hp: q[4], al: q[5], boss: q[6], me: 0 })));
+    const items = (m.e || []).map(q => ({ x: q[0], y: q[1], r: q[2], col: q[3], hp: q[4], al: q[5], boss: q[6], me: 0, lw: q[7], sc: q[8], sa: q[9], sk: q[10] }));
     while (sp.pool.length < items.length) {
-      const c = this.add.circle(0, 0, 10, 0xffffff).setDepth(4), b = this.add.rectangle(0, 0, 10, 4, 0xff5b5b).setDepth(4.1);
+      const c = this.add.circle(0, 0, 10, 0xffffff).setDepth(4), b = this.add.rectangle(0, 0, 10, 4, 0xff5b5b).setOrigin(0, 0.5).setDepth(4.1); // 左端を基準にして、HPが減ると右から縮む（通常の敵のHPバーと同じ見た目）
       sp.pool.push({ c, b, x: null, y: null });
     }
     sp.pool.forEach((e, i) => {
       const it = items[i]; e.c.setVisible(!!it); e.b.setVisible(!!it); if (!it) { e.x = null; return; }
       if (e.x == null) { e.x = it.x; e.y = it.y; } else { e.x += (it.x - e.x) * 0.4; e.y += (it.y - e.y) * 0.4; }
       e.c.setPosition(e.x, e.y).setRadius(it.r).setFillStyle(it.col, it.al / 100);
-      e.c.setStrokeStyle(it.boss ? 3 : 2, it.me ? 0xffffff : (it.boss ? 0xffd54c : 0x000000), it.me ? 0.9 : (it.boss ? 0.9 : 0.3));
-      e.b.setPosition(e.x, e.y - it.r - 8).setSize(Math.max(1, it.r * 2 * it.hp / 100), 4);
+      if (it.lw != null) { if (it.lw > 0) e.c.setStrokeStyle(it.lw, it.sc, it.sa / 100); else e.c.setStrokeStyle(); } else e.c.setStrokeStyle(it.boss ? 3 : 2, it.boss ? 0xffd54c : 0x000000, it.boss ? 0.9 : 0.3); // 縁取りは戦っている側の実際の値
+      e.c.setScale(it.sk != null ? it.sk / 100 : 1);
+      e.b.setPosition(e.x - it.r, e.y - it.r - 8).setSize(Math.max(1, it.r * 2 * it.hp / 100), 4); // 左端＝敵の左端（バーの全長は直径）
     });
+    // 戦っている本人の丸・HPバー・向きの棒は出さない（本物のアバターがすでに出ている）。ここでは敵と演出だけ再現する
+    this.amidaSpecFx(sp, m.f);
   }
 
   amidaClear() { // 作った物を片づけて、床を壁に戻し、カメラをもとに戻す
@@ -6616,17 +6718,27 @@ class GameScene extends Phaser.Scene {
     }
     if (pv.mode === 'amida') { // あみだくじ：誰がどのモンスターに当たったかの一覧だけ
       const hist = pv.amidaHist || {}, cell = 'padding:1.1vh 2.2vh; text-align:center;';
-      const body = pv.ids.map(id => {
-        const me = id === my, list = (hist[id] || []).map(k => ENEMY_JP_NAMES[k] || k);
+      // 順位：勝者が1位。あとは「何ラウンドまで残ったか」が多い順（同じラウンドで負けた人は同順位）。参加したラウンド数＝当たったモンスターの記録の数
+      const winners = pv.winners || (winnerUid ? [winnerUid] : []);
+      const rows = pv.ids.map(id => ({ id, win: winners.indexOf(id) >= 0 ? 1 : 0, n: (hist[id] || []).length }));
+      rows.sort((a, b) => b.win - a.win || b.n - a.n);
+      rows.forEach((r, i) => { r.rank = (i > 0 && r.win === rows[i - 1].win && r.n === rows[i - 1].n) ? rows[i - 1].rank : i + 1; });
+      const body = rows.map(r => {
+        const id = r.id, me = id === my, cnt = {}, list = [];
+        (hist[id] || []).forEach(k => { const nm = ENEMY_JP_NAMES[k] || k; if (!(nm in cnt)) { cnt[nm] = 0; list.push(nm); } cnt[nm]++; }); // 同じモンスターはまとめる（初めて当たった順）
+        for (let i = 0; i < list.length; i++) { const nm = list[i]; if (cnt[nm] > 1) list[i] = nm + '×' + cnt[nm]; }
         return '<tr style=\"' + (me ? 'background:rgba(120,160,255,0.14);' : '') + '\">'
+          + '<td style=\"' + cell + 'font-weight:bold;' + (r.rank === 1 ? 'color:#ffd980;' : '') + '\">' + r.rank + '位</td>'
           + '<td style=\"' + cell + 'text-align:left;\">' + escapeHtml((pv.info[id] || {}).name || '???') + (me ? '（あなた）' : '') + '</td>'
+          + '<td style=\"' + cell + '\">' + r.n + '</td>'
           + '<td style=\"' + cell + 'text-align:left;\">' + (list.length ? escapeHtml(list.join('、')) : '-') + '</td></tr>';
       }).join('');
       ov.innerHTML = '<div style=\"width:min(92vw,110vh); max-height:94vh; overflow-y:auto; text-align:center;\">'
         + '<div style=\"font-size:7vh; letter-spacing:0.2em; line-height:1.1; font-family:serif;\">RESULT</div>'
         + '<div style=\"font-size:4vh; margin:1vh 0 2.4vh; font-weight:bold; color:#e6b8ff;\">あみだくじ</div>'
+        + '<div style=\"font-size:2.8vh; margin:-1vh 0 2.4vh; color:#cfd3e6;\">ラウンド数：' + (pv.amidaRounds || 1) + '</div>'
         + '<table style=\"margin:0 auto; border-collapse:collapse; font-size:2.4vh;\">'
-        + '<thead><tr style=\"color:#9aa0b8; font-size:2vh;\"><th style=\"' + cell + 'text-align:left;\">プレイヤー</th><th style=\"' + cell + 'text-align:left;\">当たったモンスター</th></tr></thead>'
+        + '<thead><tr style=\"color:#9aa0b8; font-size:2vh;\"><th style=\"' + cell + '\">順位</th><th style=\"' + cell + 'text-align:left;\">プレイヤー</th><th style=\"' + cell + '\">参加ラウンド</th><th style=\"' + cell + 'text-align:left;\">当たったモンスター</th></tr></thead>'
         + '<tbody>' + body + '</tbody></table>'
         + '<div style=\"margin-top:3vh; display:flex; gap:2vh; justify-content:center; flex-wrap:wrap;\">'
         + '<button id=\"pvpResultNext\" style=\"font-size:2.6vh; padding:1.2vh 3.6vh; border:0; border-radius:1vh; cursor:default; pointer-events:none; background:#4a6cf7; color:#fff; font-weight:bold;\">次のゲームまで</button>'
@@ -7723,11 +7835,11 @@ class GameScene extends Phaser.Scene {
     return o;
   }
   activateClock() {
-    if (this.accKey !== 'clock' || this.pvp || this._clkOn) return;
+    if (this.accKey !== 'clock' || (this.pvp && !this.amidaFighting()) || this._clkOn) return; // PvPでは使えない（あみだくじの戦闘中だけ使える）
     if (this._resultOpen || this.transitioning || this.isGhost || this.isDowned) return;
     if ((this._clkCd || 0) > 0) return;
     this.startClock(ACC_CLOCK.duration, true);
-    if (this.mp && this.net) { try { this.net.sendShot({ clockFx: true, dur: ACC_CLOCK.duration, floor: this.floor }); } catch (err) { /* 通信の失敗で戦闘を止めない */ } } // 協力プレイ：全員の画面で時を止める
+    if (this.mp && this.net && !this.pvp) { try { this.net.sendShot({ clockFx: true, dur: ACC_CLOCK.duration, floor: this.floor }); } catch (err) { /* 通信の失敗で戦闘を止めない */ } } // 協力プレイ：全員の画面で時を止める
   }
   // 時を止める（自分が発動した時も、協力プレイで他のプレイヤーが発動した通知を受けた時も、ここを通る）。mine＝自分が発動したか（自分の時だけリロードが始まる）
   startClock(dur, mine) {
@@ -7751,7 +7863,7 @@ class GameScene extends Phaser.Scene {
       this._clkCd = Math.max(0, this._clkCd - dt);
     }
     const b = document.getElementById('clockBtn');
-    const usable = this.accKey === 'clock' && !this.pvp && !this._resultOpen && !this.transitioning && !this.isGhost && !this.isDowned && !this.arms4Ritual;
+    const usable = this.accKey === 'clock' && (!this.pvp || this.amidaFighting()) && !this._resultOpen && !this.transitioning && !this.isGhost && !this.isDowned && !this.arms4Ritual;
     if (!usable) { if (b) b.style.display = 'none'; return; }
     const btn = this.clockBtnEl();
     if (this.clockKey && Phaser.Input.Keyboard.JustDown(this.clockKey)) this.activateClock();
@@ -7768,7 +7880,7 @@ class GameScene extends Phaser.Scene {
   updateSerialKiller(dt) {
     this.drawSerialKillerFx(dt); // 斬撃線の描画（装飾品を外した後も、残っている線は消えるまで描く）
     if (this.accKey !== 'serialkiller') { this._skT = 0; return; }
-    if (this.isGhost || this.isDowned || this._astral || this.transitioning || this._resultOpen || this.pvp || !this.player || !this.enemies || (this.pv && this.pv.dead)) return;
+    if (this.isGhost || this.isDowned || this._astral || this.transitioning || this._resultOpen || (this.pvp && !this.amidaFighting()) || !this.player || !this.enemies || (this.pv && this.pv.dead)) return; // PvPでは使えない（あみだくじの戦闘中だけ使える）
     const C = ACC_SERIALKILLER;
     this._skT = (this._skT || 0) + dt;
     if (this._skT < C.interval) return;
@@ -14150,7 +14262,10 @@ class GameScene extends Phaser.Scene {
     if (this.playerHp <= 0) this.onPlayerDeath();
   }
 
-  a4Room() { const rs = this.dungeon.rooms, r = (this.mp && this.dungeon.ritual) ? this.dungeon.ritual : rs[rs.length - 1]; // ボス部屋は常に最後（演出後は1部屋だけになる）／協力プレイは儀式部屋
+  a4Amida() { const pv = this.pv, am = pv && pv.mode === 'amida' && pv.amida; return (am && am.fighting && !am.fightDone && am.myRoom) ? am : null; } // あみだくじで自分のモンスターと戦っている間だけ、その状態を返す
+  a4Room() {
+    const am = this.a4Amida(); if (am) { const Q = am.myRoom; return { x0: Q.tx * TILE, x1: (Q.tx + Q.w) * TILE, y0: Q.ty * TILE, y1: (Q.ty + Q.h) * TILE, cx: Q.cx, cy: Q.cy }; } // あみだくじ：部屋＝自分のモンスターの部屋
+    const rs = this.dungeon.rooms, r = (this.mp && this.dungeon.ritual) ? this.dungeon.ritual : rs[rs.length - 1]; // ボス部屋は常に最後（演出後は1部屋だけになる）／協力プレイは儀式部屋
     return { x0: r.x * TILE, x1: (r.x + r.w) * TILE, y0: r.y * TILE, y1: (r.y + r.h) * TILE, cx: (r.x + r.w / 2) * TILE, cy: (r.y + r.h / 2) * TILE }; }
   a4Hard(a4) { return 1 + 0.3 * (1 - Math.max(0, a4.hp) / (a4.maxHp || 1)); } // 1.0（HP満タン）〜1.3（HPゼロ付近）。今はどこからも使っていない（HPが減っても弾数・間隔は変わらない）
   // 戦闘中の攻撃用の「手の先」の座標。弾・ビームの根元・溜めの光は必ずここを使う（arms4HandPos は導入演出で調整済みなので触らない）。
@@ -14519,7 +14634,7 @@ class GameScene extends Phaser.Scene {
   }
 
   updateArms4Atk(dt) {
-    const tr = this.s2Any();
+    const amA = this.a4Amida(), tr = this.s2Any() || (amA ? (amA._a4Tr = amA._a4Tr || { phase: 'fight', amida: true }) : null); // あみだくじ：調伏の儀の代わりに、自分の部屋での戦闘中だけ動かす
     if (this._a4Sp) this.a4SplitUpdate(dt); // 分離中の時間切れ・撃破・統合
     let S = this._a4A;
     const a4 = (tr && tr.phase === 'fight') ? this.enemies.find(e => e.type && e.type.key === 'arms4' && !e._removed && e.hp > 0 && !e._a4Clone) : null;
@@ -14535,7 +14650,7 @@ class GameScene extends Phaser.Scene {
     this.a4ExtraUpdate(a4, dt); // 第3形態の追加腕4本は、本体の技とは別に技を出す
     if (!S.atk) {
       if (a4._formCut) return; // 形態変化の演出中は攻撃を始めない
-      if (this.mp && !this.isHost && !this.rtLive()) { // 協力プレイの参加側（儀式の本人は除く）：ホストの合図(a4atk)が来たら、同じ技を自分の画面でも動かす
+      if (!amA && this.mp && !this.isHost && !this.rtLive()) { // 協力プレイの参加側（儀式の本人は除く）：ホストの合図(a4atk)が来たら、同じ技を自分の画面でも動かす
         const pd = this._a4Pend; if (!pd) return; this._a4Pend = null;
         this._a4Tgt = pd.tgt; this.a4Pl();
         const fn = this['a4Atk_' + pd.name];
@@ -14543,13 +14658,13 @@ class GameScene extends Phaser.Scene {
         if (!S.atk) { a4._atkLock = false; a4._tele = false; }
         return;
       }
-      if (this.mp ? !this.a4Alive() : (this.isGhost || this.isDowned)) return;
+      if (amA ? (this.isGhost || this.isDowned) : (this.mp ? !this.a4Alive() : (this.isGhost || this.isDowned))) return; // あみだくじは自分の画面だけで動かす
       if (this._a4Sp && this._a4Sp.phase === 'merge') return; // 統合の間は攻撃しない
       S.cd -= dt;
       if (S.cd > 0) return;
       // 直前の2つを除いて、重みつきで選ぶ
       const form1 = (a4._form || 1) < 2 && !a4._splitPool && !A4_TEST_ONLY; // 第1形態は A4_FORM1_KEYS の技だけ
-      const base0 = a4._splitPool ? a4._splitPool.map(n => [n, 1]) : A.pool; // 分離中は、見えている腕で撃てる技だけ
+      const base0 = a4._splitPool ? a4._splitPool.map(n => [n, 1]) : (amA ? A.pool.filter(p => p[0] !== 'split' && p[0] !== 'smash') : A.pool); // あみだくじでは「分離」「殴り飛ばし」は出さない // 分離中は、見えている腕で撃てる技だけ
       const base1 = form1 ? base0.filter(p => A4_FORM1_KEYS.has(p[0])) : base0;
       const base = base1; // 協力プレイでも「分離」を使う
       let cand = base.filter(p => !S.hist.includes(p[0]) && !(p[0] === 'wall' && ((this._a4Walls && this._a4Walls.length >= 2) || this._a4Hold)));
@@ -14576,6 +14691,7 @@ class GameScene extends Phaser.Scene {
       if (fOpen) {
         name = fOpen.list[a4[fOpen.k]]; tIdx = -1;
       }
+      if (amA && (name === 'smash' || name === 'split')) { const alt = base.filter(p => p[0] !== 'smash' && p[0] !== 'split'); name = alt[Math.floor(Math.random() * alt.length)][0]; } // 開幕の固定順に入っていても、あみだくじでは出さない
       S.hist.push(name); if (S.hist.length > 2) S.hist.shift();
       a4._atkLock = true; a4._tele = true;
       if (this.mp && this.rtLive()) { this._a4Tgt = this.a4PickTgt(); this.a4Pl(); } // 協力プレイ：今回狙う相手を決める（儀式の本人の画面だけで動く）
