@@ -999,7 +999,7 @@ const PVP = {
   // あみだくじ：countdown＝始まる前のカウントダウン(秒。この間はボックスに入れない)／pickTime＝ボックスを選べる制限時間(秒)／graceTime＝時間切れから横線が見えて体が動き出すまで(秒。この間は3→1のカウントダウン。選んでいない人の割り当て待ちも兼ねる)／speed＝線の上を進む速さ(タイル/秒)／
   // hopTime＝横線で隣の線へ移る時間(秒。移る人だけが止まるので、右端へ着く時間は人それぞれ)／warpWait＝最後の人が着いてから、それぞれのモンスターの部屋へワープするまで(秒)／fightMax＝ワープしてから、戦いが終わっていなくても締め切るまで(秒)／returnStay＝全員の戦いが終わってから結果に進むまで(秒)／rows＝横線を引ける段数／rungChance＝横線が入る確率／
   // マップの大きさ：maxLanes＝線の本数の上限／gap＝線と線の間隔(タイル。偶数)／spawnW＝左端のスポーン部屋の幅／boxW＝ボックスの一辺／lineLen＝ボックスの右から右端の出口までの線の長さ／endW＝右端の出口の幅／monRoom＝モンスターの部屋（cols＝横に並べる数／w・h＝部屋の大きさ／gap＝部屋の間隔。タイル。マップの右の遠くに作る）
-  amida: { countdown: 5, pickTime: 20, graceTime: 1, speed: 8, hopTime: 0.2, warpWait: 3, fightMax: 120, returnStay: 5, rows: 24, rungChance: 0.5, maxLanes: 12, gap: 4, spawnW: 6, boxW: 3, lineLen: 26, endW: 3, monRoom: { cols: 4, w: 36, h: 24, gap: 40 } },
+  amida: { countdown: 5, pickTime: 20, graceTime: 1, speed: 8, hopTime: 0.2, warpWait: 3, fightMax: 120, monFloor: 10, returnStay: 5, rows: 24, rungChance: 0.5, maxLanes: 12, gap: 4, spawnW: 6, boxW: 3, lineLen: 26, endW: 3, monRoom: { cols: 4, w: 36, h: 24, gap: 40 } },
   weaponZone: { cx: 10, cy: 4.5, size: 4, holdTime: 3 }, // 武器変更ゾーン（準備室の上側の正方形。中心タイル座標・一辺のタイル数）。holdTime：武器固定の時、全員が入ってからホストが選び直すまでの秒数
   // 人狼ゲームのマップ（バトルフィールドの右隣に作る）。中心に円形の広場、そこから放射状に道が伸びて、道の先に家（円形・入口が1つ）がある。それ以外は岩（壁）。
   werewolf: { wolves: 1, wolvesMany: 2, manyFrom: 8, bloodyTime: 20, roleLot: { villager: 1, watchman: 1, seer: 1, detective: 1, dupMul: 0.05 }, detectiveTime: 5, detectiveR: 2.2, trailTiles: 30, trailStep: 0.5, seerTime: 15, seerR: 2.5, seerPerNight: 1, quotaHold: 15, watchOilMul: 2, watchViewMul: 3, wolfViewMul: 2, wolfSwordLv: 5, houses: 10, mapVersion: 2, size2: 96, houseDist2: 38, mapSeed2: 20261010, plazaR: 9, houseDist: 30, houseIn: 4.5, houseOut: 6.5, roadW: 3, size: 80, gap: 4, rays: 600, viewR: 20, time: 900, dayTime: 60, dayTime2: 170, voteTime: 30, resultTime: 12, nightTime: 90, nightViewR: 6, nightHole: 0.94, oilMax: 100, oilBurn: 2, oilRegen: 4, oilLow: 0.3, oilMinR: 1.2, oilStartMin: 0.3, oilStartMax: 0.7 },
@@ -2201,7 +2201,7 @@ const DEFAULT_SAVE = {
   version: 1,
   soloBestFloor: 0,      // ソロ（通常ダンジョン）の最高到達階層
   nightmareBestFloor: 0, // ナイトメアの最高到達階層（通常ダンジョンの記録・装飾品の解放とは別）
-  nightmareClears: 0,    // ナイトメアを全クリア（25階オールクリア）した回数
+  nightmareClears: 0,    // ナイトメアを全クリア（10階のボスを倒してクリア）した回数
   soloTotalKills: 0,     // ソロの雑魚敵の累計撃破数
   soloTotalBosses: 0,    // ソロのボスの累計撃破数
   frontlineBestSec: 0,   // 最北戦線（ソロ）の最長生存時間（秒）
@@ -2240,10 +2240,12 @@ const ACCESSORIES = [
   { key: 'skull',  icon: '💀', name: '鬼火',     stat: 'soloBestFloor',    goal: 25,  unit: '階',  desc: 'ダンジョン（ソロ）で25階層に到達', effect: '三度、HP1で生き返る' },
   { key: 'clock', icon: '🕒', name: '懐中時計', stat: 'soloClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）をクリア', effect: '10秒間時を止める能力を獲得' }, // 入手条件：ダンジョン（ソロ）を25階まで全クリアする（soloClears）。効果：画面下の時計ボタン（またはQキー）で発動。敵・敵の弾・自分の弾が10秒止まる。リロード60秒（ACC_CLOCK）
   { key: 'armor', icon: '🪖', name: '鎧', stat: 'armorFloor10Fast', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で10階層を4分以内にクリア', effect: '最大HPが2倍' }, // 入手条件：ダンジョン（ソロ）を始めてから、10階層のボスを倒すまでが4分以内（armorFloor10Fast。ARMOR_UNLOCK）
+  { key: 'cloak', icon: '🧥', name: '透明マント', stat: 'nightmareClears', goal: 1, unit: '回', desc: 'ナイトメアをクリア', effect: '雑魚敵に認識されない（攻撃しない限り）' }, // 入手条件：ナイトメアを10階のボスまで倒してクリアする（nightmareClears）。効果：ボス以外の敵は、付けている人を狙わなくなる（getNearestPlayerTarget の cloakEnemy）。こちらから攻撃した敵は、その人を認識する（cloakReveal）
   { key: 'flame',  icon: '🔥', name: '炎',         stat: 'bossRushBestBosses', goal: 15,  unit: '体',  desc: 'ボスラッシュで15体目のボスを倒す', effect: '攻撃した敵が燃える（合計21ダメージ）' },
   { key: 'blackhole', icon: '🕳️', name: 'ブラックホール', stat: 'bossRushBestBosses', goal: 20, unit: '体', desc: 'ボスラッシュで20体目のボスを倒す', effect: '10秒に一度simaharのビームを撃つ' },
   { key: 'swords', icon: '⚔️', name: '双剣', stat: 'soloTotalKills',   goal: 500, unit: '体',  desc: 'ダンジョン（ソロ）で雑魚敵を累計500体倒す', effect: 'ノックバックが2倍になる' },
   { key: 'snow',   icon: '❄️', name: '雪',   stat: 'frontlineBestSec', goal: 300, unit: '秒',  desc: '最北戦線（ソロ）で5分間生き残る', effect: '移動速度+10%' },
+  { key: 'trophy', icon: '🏆', name: 'トロフィー', stat: 'pvpWins', goal: 10, unit: '勝', desc: 'PvPで10回勝つ', effect: '開始時の武器レベル+1' }, // 入手条件：PvPで累計10回勝つ（pvpWins。recordPvpWin で加算）。効果：始まる時／やり直す時の武器レベルに ACC_TROPHY.levelBonus を足す（宝箱のエフェクトで途中から付けた場合は、開始時ではないので変わらない）
   { key: 'angelhalo', icon: '🪽', name: 'エンジェルヘイロー', stat: 'arms4RitualClears', goal: 1, unit: '回', desc: '天使を調伏する', effect: '1分ごとに50%の確率で天使を召喚' }, // 入手条件：ダンジョン（ソロ）またはロビーの【期間限定】天使・調伏の儀で、天使の調伏の儀に成功する（arms4RitualClears。デベロッパーモード・協力プレイでは入手できない）
   { key: 'serialkiller', icon: '🔪', name: 'ナイフ', all: true, goal: 0, unit: '個', desc: '他のすべての装飾品を獲得', effect: '近づいた敵を切り刻む' }, // 入手条件：他の装飾品をすべて入手済み（all:true。進捗は入手済みの個数）。効果：範囲内の敵へ絶え間なく斬撃（ACC_SERIALKILLER）。斬られた敵に白と赤の斬撃線が出る。必ず表の最後に置く
 ];
@@ -2314,6 +2316,8 @@ function accFxStar(g, x, y, size, a) {
 // 🪽 エンジェルヘイロー：first＝ゲーム開始から何秒後に最初の1回を必ず発動するか／cooldown＝それ以降、何秒に一度、抽選するか／chance＝その時に発動する確率
 // 🪖 鎧：maxHpMult＝最大HPの倍率／ARMOR_UNLOCK＝入手条件（ダンジョンを始めてから sec 秒以内に floor 階のボスを倒す）
 const ACC_ARMOR = { maxHpMult: 2 };
+// 🏆 トロフィー：levelBonus＝開始時の武器レベルに足す数（ダンジョン・ボスラッシュなど、始まる時とやり直す時に足す。入手条件は ACCESSORIES の trophy）
+const ACC_TROPHY = { levelBonus: 1 };
 const ARMOR_UNLOCK = { floor: 10, sec: 240 };
 const ACC_ANGELHALO = { first: 30, cooldown: 60, chance: 0.5 };
 // 🕒 時計：duration＝時が止まる秒数／cooldown＝止まっていた時間が終わってから、次に使えるようになるまでの秒数
@@ -2384,6 +2388,31 @@ const ACC_FX = {
       const ang = accR(0, Math.PI * 2), r = accR(14, 30);
       return { x: x + Math.cos(ang) * r, y: y + Math.sin(ang) * r * 0.9, vx: Math.cos(ang + Math.PI / 2) * accR(10, 26), vy: accR(-26, -8), life: accR(0.6, 1.2), size: accR(1.6, 3), color: Math.random() < 0.5 ? 0xffe9a8 : 0xbfe9ff, kind: 'spark' };
     });
+  },
+  // 🧥 透明マント：体が黒い影に包まれる。足元に影だまりが広がり、黒紫の影がゆらゆら揺れ、黒い煙のような粒が立ちのぼる（暗い床でも見えるよう、縁だけ淡い紫）
+  // 軽くするための工夫：円（fillCircle＝1個で約100点）ではなく、点の少ない楕円（fillEllipse の smoothness）で描く／黒い筋は1本のパスにまとめる／煙の粒は最大10個・点の少ない 'smoke'
+  cloak(g, fx, x, y, t, dt, a) {
+    fx.maxParts = 10;
+    const w = Math.sin(t * 2.1), w2 = Math.sin(t * 3.4 + 1);
+    g.fillStyle(0x07040d, 0.30 * a); g.fillEllipse(x, y + 10, 36 + w * 2, 13, 20);               // 足元の影だまり
+    g.fillStyle(0x1b0f33, 0.16 * a); g.fillEllipse(x, y, 44 + w * 4, 44 + w * 4, 24);           // 影のもや（外側）
+    g.fillStyle(0x0b0614, 0.24 * a); g.fillEllipse(x, y, 34 + w2 * 3, 34 + w2 * 3, 24);         // 影のもや（内側）
+    g.lineStyle(1.2, 0x7a4fd0, (0.20 + 0.12 * w) * a); g.strokeEllipse(x, y, 36 + w2 * 3, 36 + w2 * 3, 24); // 淡い紫の縁（暗い床でも見える）
+    g.lineStyle(3, 0x0b0614, 0.38 * a); g.beginPath(); // 影の揺らぎ：体から外へ揺れながら伸びる黒い筋（7本を1つのパスに）
+    for (let k = 0; k < 7; k++) {
+      const ang = t * 0.7 + (k * Math.PI * 2) / 7, r0 = 13, r1 = 20 + 5 * Math.sin(t * 2.6 + k * 1.7);
+      g.moveTo(x + Math.cos(ang) * r0, y + Math.sin(ang) * r0); g.lineTo(x + Math.cos(ang + 0.18) * r1, y + Math.sin(ang + 0.18) * r1);
+    }
+    g.strokePath();
+    if (fx.gt) { fx.gt.fillStyle(0x07040d, 0.34 * a); fx.gt.fillEllipse(x, y, 23, 23, 20); } // 体の上にも薄く影をかぶせて、黒いシルエットにする
+    accFxEmit(fx, dt, 5, () => ({ x: x + accR(-12, 12), y: y + accR(-4, 13), vx: accR(-5, 5), vy: accR(-22, -9), life: accR(0.8, 1.2), size: accR(2.2, 4), color: Math.random() < 0.6 ? 0x0b0614 : 0x2a1a4a, kind: 'smoke' })); // 黒い煙
+  },
+  // 🏆 トロフィー：体のまわりに金色の細い輪がゆっくり脈打ち、ときどき金色のきらめきが光る（軽く動くよう、点の少ない楕円と少数のきらめきだけ）
+  trophy(g, fx, x, y, t, dt, a) {
+    fx.maxParts = 8;
+    const w = Math.sin(t * 2.4);
+    g.lineStyle(1.5, 0xffd54c, (0.30 + 0.15 * w) * a); g.strokeEllipse(x, y, 34 + w * 2, 34 + w * 2, 24);
+    accFxEmit(fx, dt, 3, () => ({ x: x + accR(-15, 15), y: y + accR(-15, 12), vx: 0, vy: accR(-10, -4), life: accR(0.5, 0.9), size: accR(2.5, 4), color: 0xfff0a0, kind: 'spark' }));
   },
   // 🪽 エンジェルヘイロー：頭の上に天使の輪が浮かび、ゆっくり上下する。ときどき光の粒がこぼれる
   angelhalo(g, fx, x, y, t, dt, a) {
@@ -2517,6 +2546,9 @@ function accFxUpdate(fx, key, x, y, dt, alpha) {
       const sz = q.size * (0.4 + k), al = Math.min(1, k * 1.6) * alpha;
       g.lineStyle(1.5, q.color, al);
       g.lineBetween(q.x - sz, q.y, q.x + sz, q.y); g.lineBetween(q.x, q.y - sz, q.x, q.y + sz);
+    } else if (q.kind === 'smoke') { // 点の少ない楕円の粒（円より軽い）
+      const d = q.size * 2 * (0.35 + 0.65 * k);
+      g.fillStyle(q.color, Math.min(1, k * 1.4) * 0.85 * alpha); g.fillEllipse(q.x, q.y, d, d, 10);
     } else {
       g.fillStyle(q.color, Math.min(1, k * 1.4) * 0.85 * alpha);
       g.fillCircle(q.x, q.y, q.size * (0.35 + 0.65 * k));
@@ -2525,7 +2557,7 @@ function accFxUpdate(fx, key, x, y, dt, alpha) {
 }
 // 【テスト用】true の間は、条件に関係なく全ての装飾品（エフェクト）を入手済みにして試せる。試し終わったら false に戻す。
 // 注意：起動時に入手済みとしてセーブへ書き込まれるので、false に戻しても解放済みのままになる（ロビーの「リセット」で消せる）。
-const TEST_UNLOCK_ALL_ACC = false;
+const TEST_UNLOCK_ALL_ACC = true;
 // 条件を満たした装飾品を入手済みにする。今回新しく入手したものの配列を返す（save自体は呼び出し側で保存する）。
 function unlockAccessories(save) {
   const added = [];
@@ -2659,7 +2691,7 @@ class GameScene extends Phaser.Scene {
     const startWeaponType = (this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey)) || WEAPON_TYPES[0];
     // デベロッパーモード（とボスラッシュ）では、選んだ武器がいきなり高いレベルからスタートする（通常プレイは常にレベル1から）。
     // 開始時のレベルはデベロッパーモードの「武器レベル」で決める（ボスラッシュや、レベル未指定の場合は5）。
-    const startWeaponLevel = this.devWeaponKey ? Math.max(1, Math.floor(this.devWeaponLevel) || 5) : 1;
+    const startWeaponLevel = (this.devWeaponKey ? Math.max(1, Math.floor(this.devWeaponLevel) || 5) : 1) + (this.accKey === 'trophy' ? ACC_TROPHY.levelBonus : 0); // 🏆 トロフィー：開始時の武器レベル+1
     this.weapon = applyWeaponLevel(startWeaponType, startWeaponLevel); // 最初はデフォルトで剣を所持（デベロッパーモードなら選んだ武器）
     this.weaponLevels[this.weapon.key] = startWeaponLevel;
     this.projectiles = [];
@@ -2890,6 +2922,7 @@ class GameScene extends Phaser.Scene {
     if (!payload || payload.floor !== this.floor) return;
     const enemy = this.enemyById[payload.enemyId];
     if (!enemy) return;
+    if (payload.cl && payload.uid && payload.damage > 0 && !payload.burn) this.cloakReveal(enemy, payload.uid); // 🧥 マントの人に攻撃された敵は、その人を認識する
     if (payload.chaseStarPop) {
       // ゲストが「飛び回っている星の近くで攻撃しようとした」と申告してきた場合：
       // 星の状態を権威として持つホストが代わりに爆発させる（ダメージ計算は行わない専用の申告）。
@@ -3776,6 +3809,8 @@ class GameScene extends Phaser.Scene {
             if (brand() < p2 * D.bossThirdFactor * D.bossThirdFactor) bossCount = 4;
           }
         }
+        // ナイトメア：5階はボス2体、10階（ボス階）はボス4体に固定する（抽選の乱数は上で消費済みなので、ほかの階の並びは変わらない）
+        if (this.nightmare) { if (this.floor === 5) bossCount = 2; else if (this.floor === 10) bossCount = 4; }
         const remainingPool = bossPool.slice(); // 同じ階のボスは、なるべく種類が重ならないようにする
         const bossUiTypes = []; let firstBossId = null;
         for (let bi = 0; bi < bossCount; bi++) {
@@ -5299,7 +5334,7 @@ class GameScene extends Phaser.Scene {
     am.myRoom = R; am.fighting = true; am.fightDone = false; am.noneSince = 0; am.fxBase = new Set((this.children && this.children.list) || []); // 観戦用：この時点にあった物は演出として送らない
     this.player.x = (R.tx + 6) * TILE; this.player.y = R.cy; // 部屋の左寄り
     this.cameras.main.flash(300, 0, 0, 0);
-    const e = this.s2TrialSpawn(key, (R.tx + R.w - 8) * TILE, R.cy, 900); // 部屋の右寄り // 調伏の儀と同じ作り方で、本物のモンスターを1体だけ出す
+    const e = this.s2TrialSpawn(key, (R.tx + R.w - 8) * TILE, R.cy, 900, PVP.amida.monFloor); // 部屋の右寄り // 調伏の儀と同じ作り方で、本物のモンスターを1体だけ出す
     if (e) { e._rtLocal = true; e._amida = true; am.mon = e; if (key === 'arms4') { e._form = 2; e._f2Open = 0; } } // 天使：最初から最後まで第2形態（白く光る体。_formBoss を付けないので形態変化は起きない。第2形態の開幕の技から始める）
     this.showBanner((ENEMY_JP_NAMES[key] || 'モンスター') + 'との戦い！', 2000);
   }
@@ -5577,17 +5612,20 @@ class GameScene extends Phaser.Scene {
   amidaSendState(am) { // 戦っている自分の部屋の様子（自分・敵）を観戦している人へ送る
     const es = (this.enemies || []).filter(e => !e._removed && e.hp > 0 && e.gfx && e.gfx.scene && this.amidaInMyRoom(e.gfx.x, e.gfx.y)).slice(0, 40)
       .map(e => [Math.round(e.gfx.x), Math.round(e.gfx.y), Math.round(e.gfx.radius || 10), e.gfx.fillColor || 0xffffff, Math.round(100 * Math.max(0, Math.min(1, e.maxHp > 0 ? e.hp / e.maxHp : 1))), Math.round(100 * (e.gfx.alpha == null ? 1 : e.gfx.alpha)), (e.type && (e.type.isBoss || e.type.key === 'simahar')) ? 1 : 0, e.gfx.isStroked ? Math.round(10 * (e.gfx.lineWidth || 0)) / 10 : 0, e.gfx.strokeColor || 0, Math.round(100 * (e.gfx.strokeAlpha == null ? 1 : e.gfx.strokeAlpha)), Math.round(100 * (e.gfx.scaleX || 1))]);
-    this.net.sendPvp({ a: 'astate', u: this.net.uid, c: this.playerColor, p: [Math.round(this.player.x), Math.round(this.player.y), Math.round(this.player.radius || 14), Math.round(100 * Math.max(0, Math.min(1, this.playerMaxHp > 0 ? this.playerHp / this.playerMaxHp : 1))), Math.round(1000 * (this.facing ? this.facing.rotation : 0)) / 1000], e: es, f: this.amidaCollectFx(am) });
+    const nowW = performance.now(), to = Object.keys(am.watchers || {}).filter(u => nowW - am.watchers[u] < 3000); // 見ている人にだけ送る
+    this.net.sendPvpFast({ a: 'astate', s: (am.stSeq = (am.stSeq || 0) + 1), u: this.net.uid, c: this.playerColor, p: [Math.round(this.player.x), Math.round(this.player.y), Math.round(this.player.radius || 14), Math.round(100 * Math.max(0, Math.min(1, this.playerMaxHp > 0 ? this.playerHp / this.playerMaxHp : 1))), Math.round(1000 * (this.facing ? this.facing.rotation : 0)) / 1000], e: es, f: this.amidaCollectFx(am) }, to.length ? to : null); // 順序保証なし・再送なしで送る（s＝通し番号。古い物が後から届いても捨てる）
   }
 
   amidaOnState(m) { // 観戦中：見ている人の状態が届いた
     const am = this.pv && this.pv.amida;
-    if (am && am.spec && m && m.u === am.spec.uid) am.spec.tgt = m;
+    const sp = am && am.spec; if (!sp || !m || m.u !== sp.uid) return;
+    if (m.s != null) { if (m.s <= (sp.seq || 0)) return; sp.seq = m.s; } // 順序が入れ替わって届いた古い状態は捨てる
+    sp.tgt = m;
   }
 
   amidaOnWatch(m) { // 戦っている側：誰かが自分を見ている（数秒の間、状態を送る）
     const am = this.pv && this.pv.amida;
-    if (am && m && m.t === this.net.uid) am.watchedAt = performance.now();
+    if (am && m && m.t === this.net.uid) { am.watchedAt = performance.now(); if (m.u) (am.watchers = am.watchers || {})[m.u] = am.watchedAt; } // 誰が見ているか覚える（その人にだけ状態を送る）
   }
 
   amidaCollectFx(am) { // 戦っている側：自分の部屋で戦闘開始後に増えた「弾・ビーム・爆発・床の攻撃」などの描画を、観戦用に軽くまとめる（敵本体・HP棒・文字・画面固定のUIは除く）
@@ -5636,7 +5674,7 @@ class GameScene extends Phaser.Scene {
   amidaSpecUpdate(am, now) { // 観戦中：見ていると知らせ続ける／届いた状態に丸を合わせる（なめらかに追いかける）
     const sp = am.spec; if (!sp) return;
     if (am.fight[sp.uid] != null) { this.showBanner('この戦いは終わりました', 1500); this.amidaSpecStop(); return; }
-    if (now - sp.watchAt > 800) { sp.watchAt = now; this.net.sendPvp({ a: 'awatch', t: sp.uid }); }
+    if (now - sp.watchAt > 800) { sp.watchAt = now; this.net.sendPvp({ a: 'awatch', t: sp.uid, u: this.net.uid }); }
     const m = sp.tgt; if (!m) return;
     const items = (m.e || []).map(q => ({ x: q[0], y: q[1], r: q[2], col: q[3], hp: q[4], al: q[5], boss: q[6], me: 0, lw: q[7], sc: q[8], sa: q[9], sk: q[10] }));
     while (sp.pool.length < items.length) {
@@ -9497,6 +9535,7 @@ class GameScene extends Phaser.Scene {
       this.net.sendAttack({
         enemyId: enemy.id, damage, floor: this.floor,
         newHp: enemy.hp, killed, angle, knockback, burn: !!isBurn,
+        uid: (this.net && this.net.uid) || 'me', cl: this.accKey === 'cloak', // 🧥 ホストが「マントの人に攻撃された敵」を覚えるため
       });
       if (!enemy.type.teleportOnHit) this.predictKnockback(enemy, angle, knockback); // テレポートする敵は吹き飛ばない
       if (killed) {
@@ -9511,6 +9550,7 @@ class GameScene extends Phaser.Scene {
       return;
     }
     enemy.hp -= damage;
+    if (damage > 0 && !isBurn && this.accKey === 'cloak') this.cloakReveal(enemy, (this.net && this.net.uid) || 'me'); // 🧥 マントの人が攻撃した敵は、その人を認識する（召喚した味方の攻撃は accKey が空なので対象外）
     // ホスト（またはソロ）は敵の位置そのものを動かして良い唯一の存在なので、ここで
     // 直接ノックバックを適用する。次のupdateEnemy()呼び出しから速度として反映され、
     // ホストがpublishEnemySnapshot()で配信することで、ゲスト側にも自然に伝わる
@@ -16567,12 +16607,12 @@ class GameScene extends Phaser.Scene {
     if (a4) { a4._introAnim = false; a4.hpBar.setVisible(true); a4.hpBar.setPosition(a4.gfx.x, a4.gfx.y - a4.type.radius - 8); }
   }
 
-  s2TrialSpawn(key, x, y, idx) {
+  s2TrialSpawn(key, x, y, idx, floorOverride) { // floorOverride：強さを決める階層を固定する（あみだくじ用）
     let t = ENEMY_TYPES.find(o => o.key === key);
     if (!t) return null;
     if (t.invulnerable) t = Object.assign({}, t, { invulnerable: false, hideHpBar: false, vanishInMagicCircle: false }); // ゴースト：儀式の間だけHPがあり、普通に倒せる
     if (t.finalTrial) t = Object.assign({}, t, t.finalTrial); // 最終試練の強さに上書き
-    const D = DUNGEON_DIFFICULTY, fl = Math.max(1, this.floor || 1);
+    const D = DUNGEON_DIFFICULTY, fl = Math.max(1, floorOverride || this.floor || 1);
     const isBoss = !!(t.isBoss || key === 'simahar');
     const flN = fl + (this.bossRush ? SUMMON2.bossRushFloorBonus : 0); // ボスラッシュでは召喚の味方と同じく階層に+10して数える
     const noScale = !!t.noFloorScale; // 調伏の儀の天使：階層による強化をかけない（HPは finalTrial.hp のまま）
@@ -18075,15 +18115,21 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  // 🧥 透明マント：ボス以外の敵は、マントを付けている人を認識できない（ボスは今まで通り見える）。ただし、その人が攻撃した敵（_cloakSeen）は、その人を認識できる。true＝この敵にはその人（uid）が見えない
+  cloakBlinds(e, uid) { return !(e.type.isBoss || e.bossGroupId != null || e.type.snake || e.type.snakeBody || (e._cloakSeen && e._cloakSeen[uid])); }
+  cloakReveal(e, uid) { (e._cloakSeen = e._cloakSeen || {})[uid] = true; } // マントの人に攻撃された敵：以後、その人が見える
+  cloakNote(ex, ey, px, py) { const d = Math.hypot(ex - px, ey - py); if (d < this._cloakHidD) this._cloakHidD = d; } // マントで見えない人のうち、いちばん近い人との距離（敵のAIを動かす範囲の判定に使う）
+
   // 指定した座標（敵の位置）から見て一番近い「生存中（ゴーストでない）」プレイヤーを返す。
   // ソロプレイ、または協力プレイでも自分しかいない場合は自分自身を返す。
   // 誰も対象にできない場合（全員ゴースト等）は null を返す。
-  getNearestPlayerTarget(ex, ey) {
+  getNearestPlayerTarget(ex, ey, cloakEnemy) { // cloakEnemy：敵を渡すと、透明マントを付けている人のうち、その敵に見えない人は候補から外す（ボス以外の敵の索敵用）
     // 呼び出し元では戻り値をその場で読むだけで次フレームまで保持しないため、
     // 敵の数だけ毎フレーム新規オブジェクトを作らず、使い回し用のスクラッチに書き込む。
     const scratch = this._nearestTargetScratch || (this._nearestTargetScratch = { x: 0, y: 0 });
     let best = null, bestDist = Infinity;
-    if (!this.isGhost && !this.isDowned) {
+    if (cloakEnemy && !this.isGhost && !this.isDowned && this.accKey === 'cloak' && this.cloakBlinds(cloakEnemy, (this.net && this.net.uid) || 'me')) this.cloakNote(ex, ey, this.player.x, this.player.y); // 🧥 見えない人との距離を覚える（敵を動かす範囲の判定用）
+    if (!this.isGhost && !this.isDowned && !(cloakEnemy && this.accKey === 'cloak' && this.cloakBlinds(cloakEnemy, (this.net && this.net.uid) || 'me'))) {
       scratch.x = this.player.x; scratch.y = this.player.y;
       best = scratch;
       bestDist = Phaser.Math.Distance.Between(ex, ey, this.player.x, this.player.y);
@@ -18094,6 +18140,7 @@ class GameScene extends Phaser.Scene {
         if (this.net && uid === this.net.uid) continue; // 自分は上で見た
         const p = players[uid];
         if (!p || p.eliminated || p.downed) continue;
+        if (cloakEnemy && p.acc === 'cloak' && this.cloakBlinds(cloakEnemy, uid)) { if (p.floor === this.floor) this.cloakNote(ex, ey, p.x, p.y); continue; } // 🧥 透明マントの人は、ボス以外の敵には見えない（攻撃してきた人は別）
         if (p.floor !== this.floor) continue;
         if (typeof p.x !== 'number' || typeof p.y !== 'number') continue;
         const d = Phaser.Math.Distance.Between(ex, ey, p.x, p.y);
@@ -18264,8 +18311,8 @@ class GameScene extends Phaser.Scene {
     if (ignorePlayer) {
       // ゴーストは敵に認識されない：追跡も射撃もせず、その場でゆるく徘徊するだけにする
       if (e.state && e.state !== 'idle') e.state = 'idle'; // 突進の予備動作/突進中だった場合は解除
-      if (e.timer <= 0) { e.dirX = Math.random() * 2 - 1; e.dirY = Math.random() * 2 - 1; e.timer = 1 + Math.random() * 1.5; }
-      moveX = e.dirX * 0.4; moveY = e.dirY * 0.4;
+      if (e.timer <= 0) { e.dirX = Math.random() * 2 - 1; e.dirY = Math.random() * 2 - 1; e.timer = e._cloakBlind ? ((t.behavior === 'erratic') ? 0.25 + Math.random() * 0.35 : (t.wanderIntervalMin != null ? t.wanderIntervalMin + Math.random() * (t.wanderIntervalMax != null ? t.wanderIntervalMax : 1.5) : 1 + Math.random() * 1.5)) : 1 + Math.random() * 1.5; } // 🧥 マントの人が見えない敵は、普通のうろうろ（コウモリは細かく方向転換）
+      moveX = e.dirX * (e._cloakBlind ? 1 : 0.4); moveY = e.dirY * (e._cloakBlind ? 1 : 0.4); // 🧥 マントの人が見えない敵：普通のうろうろ。ゴースト（全員）の時だけゆるい徘徊
     } else if (t.behavior === 'wander') {
       const aggro = t.aggroRange || 150;
       if (playerDist < aggro) {
@@ -19232,8 +19279,10 @@ class GameScene extends Phaser.Scene {
         // 索敵対象探し（他プレイヤー全員との距離計算を含む）もここでだけ行う。
         // 以前はゲスト/演出中の敵も含めて毎フレーム全敵ぶん計算しており、
         // 協力プレイのゲスト側クライアントでは完全に無駄な計算になっていた。
-        const target = this.frontline ? this.getFrontlineTarget(e) : ((this.s2Trial && this.s2Trial.phase === 'fight' && !(e.type.snakeBody && this.snakeLeader(e))) ? this.s2TrialTarget(e) : ((this.rt && this.rt.phase === 'fight' && !(e.type.snakeBody && this.snakeLeader(e)) && this.rtInRoom(e.gfx.x, e.gfx.y)) ? this.rtTarget(e) : this.getNearestPlayerTarget(e.gfx.x, e.gfx.y)));
+        this._cloakHidD = Infinity; // 🧥 この敵から見て、マントで見えない人との距離（下の getNearestPlayerTarget が書き込む）
+        const target = this.frontline ? this.getFrontlineTarget(e) : ((this.s2Trial && this.s2Trial.phase === 'fight' && !(e.type.snakeBody && this.snakeLeader(e))) ? this.s2TrialTarget(e) : ((this.rt && this.rt.phase === 'fight' && !(e.type.snakeBody && this.snakeLeader(e)) && this.rtInRoom(e.gfx.x, e.gfx.y)) ? this.rtTarget(e) : this.getNearestPlayerTarget(e.gfx.x, e.gfx.y, e)));
         const pd = target ? Phaser.Math.Distance.Between(target.x, target.y, e.gfx.x, e.gfx.y) : Infinity;
+        const cloakD = target ? Infinity : this._cloakHidD; e._cloakBlind = cloakD < Infinity; // 🧥 狙い先が無いのはマントの人が見えないから：近くにいる間は止めずに、うろうろ動かす
         if (S2_DEBUG_AIM && this._s2DbgG && !(e.type.snakeBody)) { // 【確認用・一時】
           const toEnemy = !!(target && target.radius != null);
           if (target) { this._s2DbgG.lineStyle(2, toEnemy ? 0xff3b3b : 0x3bff6a, 0.9); this._s2DbgG.beginPath(); this._s2DbgG.moveTo(e.gfx.x, e.gfx.y); this._s2DbgG.lineTo(target.x, target.y); this._s2DbgG.strokePath(); }
@@ -19252,7 +19301,7 @@ class GameScene extends Phaser.Scene {
           if (!ct) { ct = Object.assign({}, e.type, { aggroRange: Infinity, chaseRange: Infinity }); cache.set(e.type, ct); }
           e.type = ct; e._allRange = true;
         }
-        if (this.frontline || bossAll || pd <= AI_ACTIVE_RADIUS) { // 最北戦線は廊下の奥の敵も止めずに歩かせる
+        if (this.frontline || bossAll || pd <= AI_ACTIVE_RADIUS || cloakD <= AI_ACTIVE_RADIUS) { // 最北戦線は廊下の奥の敵も止めずに歩かせる
           const pa = target ? Phaser.Math.Angle.Between(e.gfx.x, e.gfx.y, target.x, target.y) : 0;
           this.updateEnemy(e, dt, pd, pa, !target, target);
         }
@@ -19608,8 +19657,9 @@ class GameScene extends Phaser.Scene {
     if (this.nightmare) { // ナイトメアは別の記録だけ更新する（通常ダンジョンの累計・装飾品の解放には足さない）
       if (this.floor > (save.nightmareBestFloor || 0)) save.nightmareBestFloor = this.floor;
       if (this._allClear) save.nightmareClears = (save.nightmareClears || 0) + 1;
+      const nmAdded = unlockAccessories(save); // 🧥 透明マント：ナイトメアをクリアすると入手
       writeSave(save);
-      return [];
+      return nmAdded;
     }
     if (this.frontline) {
       const sec = Math.floor(this.fl ? this.fl.elapsed : st.time);
@@ -20074,8 +20124,9 @@ class GameScene extends Phaser.Scene {
       const respawnLevel = rushBase
         ? (this.arms4Ritual ? Math.max(1, Math.floor(this.devWeaponLevel) || 8) : (this.isDevMode ? Math.max(1, Math.floor(this.devWeaponLevel) || 5) : 5))
         : (devBase ? Math.max(1, Math.floor(this.devWeaponLevel) || 5) : 1);
-      this.weapon = applyWeaponLevel(respawnBase, respawnLevel);
-      this.weaponLevels[this.weapon.key] = respawnLevel;
+      const respawnLv = respawnLevel + (this.accKey === 'trophy' ? ACC_TROPHY.levelBonus : 0); // 🏆 トロフィー：やり直しでも開始時の武器レベル+1
+      this.weapon = applyWeaponLevel(respawnBase, respawnLv);
+      this.weaponLevels[this.weapon.key] = respawnLv;
       this.reloading = false;
       this.resetAmmoForWeapon(this.weapon);
       this.baseSeed = this.fixedSeed != null ? this.fixedSeed : ((Math.random() * 1e9) | 0); // シード指定ありなら、やり直しても同じダンジョン
@@ -20343,7 +20394,7 @@ class GameScene extends Phaser.Scene {
       this.healFull(); // ボス階の全てのボスを倒したらHP全回復
       this.recordArmorClear(); // 🪖 鎧の入手条件（開始から4分以内に10階層のボスを倒す）
       this.showClearTime(); // 次の部屋に進むまで経過時間を上に出す
-      if (this.floor >= 25) this.triggerAllClear(); else this.openBossRushExit(pos, true);
+      if (this.floor >= 25 || (this.nightmare && this.floor >= 10)) this.triggerAllClear(); else this.openBossRushExit(pos, true);
       return;
     }
     if (this.mp && this.net) {
@@ -20999,11 +21050,12 @@ class Net {
     try { ch.send(JSON.stringify(msgObj)); return true; } catch (e) { return false; }
   }
 
-  _broadcastToGuests(channelName, msgObj, excludeUid) {
+  _broadcastToGuests(channelName, msgObj, excludeUid, onlyUids) { // onlyUids：あれば、その人たちにだけ送る
     if (!this._guestPeers) return;
     const raw = JSON.stringify(msgObj);
     this._guestPeers.forEach((entry, uid) => {
       if (uid === excludeUid) return;
+      if (onlyUids && onlyUids.indexOf(uid) < 0) return;
       const ch = entry.channels && entry.channels[channelName];
       if (ch && ch.readyState === 'open') { try { ch.send(raw); } catch (e) {} }
     });
@@ -21048,6 +21100,8 @@ class Net {
       this._frontlineSeqSeen = msg.seq;
       this._frontlineMirror = msg.p;
       if (this._frontlineCb) this._frontlineCb(msg.p);
+    } else if (msg.t === 'fast') { // 「いまの状態」（順序保証なし・再送なしの state チャネルで届く）
+      this._fireLocal(msg.k, msg.p);
     } else if (msg.t === 'event') {
       this._fireLocal(msg.k, msg.p);
     }
@@ -21062,6 +21116,9 @@ class Net {
       this._hotMap[guestUid] = this._mergeInto(Object.assign({}, this._hotMap[guestUid] || {}), msg.p);
       this._recomputeMergedPlayers();
       // ここでは配信し返さない。ホストの定期送信(updateOwnState内の_broadcastPlayers)にまとめて乗せる。
+    } else if (msg.t === 'fast') { // 「いまの状態」：宛先（to）が決まっていれば、その人たちにだけ中継する（ホスト自身が宛先なら自分にも）
+      if (!msg.to || msg.to.indexOf(this.uid) >= 0) this._fireLocal(msg.k, msg.p);
+      this._broadcastToGuests('state', msg, guestUid, msg.to);
     } else if (msg.t === 'event') {
       if (msg.k === 'chat') { // チャット：送信者uidはホストが確定し（なりすまし防止）、長さ・連投を制限してから中継する
         const cp = msg.p;
@@ -21234,6 +21291,12 @@ class Net {
 
   // PvPモード：準備・開始・被弾・脱落・終了の通知（自分にも届く）
   sendPvp(payload) { this._sendEvent('pvp', payload, true); }
+  // 位置・HPなど「いまの状態」：順序保証も再送もしない state チャネル（UDPのような送り方）で送る。古い情報は待たずに捨てる。toUids があれば、その人たちにだけ届ける（自分には折り返さない）
+  sendPvpFast(payload, toUids) {
+    const msg = { t: 'fast', k: 'pvp', p: payload, to: toUids || null };
+    if (this.isHost) this._broadcastToGuests('state', msg, null, toUids);
+    else this._sendToHost('state', msg);
+  }
   sendChat(payload) { this._sendEvent('chat', payload, true); }
   listenChat(cb) { this._eventCbs.chat = cb; }
   listenPvp(cb) { this._eventCbs.pvp = cb; }
@@ -21326,6 +21389,7 @@ class OfflineNet {
   setHostUid(uid, isHost) { this.isHost = !!isHost; this._hostUid = uid; }
   // 送信系：selfEcho のあるものだけ自分に折り返す（本物のNetと同じ）
   sendPvp(p) { this._fireLocal('pvp', p); }
+  sendPvpFast(p) { this._fireLocal('pvp', p); }
   sendChat(p) { this._fireLocal('chat', p); }
   listenChat(cb) { this._eventCbs.chat = cb; }
   sendAttack(p) { this._fireLocal('attack', p); }
