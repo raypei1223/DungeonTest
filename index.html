@@ -1432,6 +1432,13 @@ const ENEMY_TYPES = [
     chaseErratic: true, chaseBias: 0.3 }, // プレイヤー追跡中もコウモリのようにランダムな揺れを混ぜてジグザグに動かす
   { key: 'charger', color: 0xff6b6b, radius: 16, hp: 28, speed: 55,  dashSpeed: 320, damage: 14, behavior: 'charge', minFloor: 2 },
   { key: 'brute',   color: 0xffa552, radius: 20, hp: 55, speed: 55,  damage: 18, behavior: 'chase', minFloor: 3 },
+  // ボマー（ナイトメア専用の雑魚）：クリーパー風。プレイヤーに歩いて近づき、fuseRange まで来るとその場で止まって
+  // 膨らみ、白く点滅（fuseTime 秒）してから自爆する。一度火が付いたら、離れても止まらない。
+  // 爆発（blastRadius）はプレイヤー・味方・ほかの敵を全員巻き込む（ほかの敵へのダメージも damage と同じ値）。
+  // 接触ダメージは無し（noContactDamage）。自爆した個体は倒した数に数えず、ドロップも無し。通常のダンジョンには出ない（nightmareOnly）。
+  { key: 'bomber',  color: 0x57c84d, radius: 14, hp: 24, speed: 64,  damage: 30, behavior: 'bomber', minFloor: 2, spawnWeight: 0.8,
+    nightmareOnly: true, noContactDamage: true, aggroRange: 320,
+    fuseRange: 60, fuseTime: 1.1, blastRadius: 85, blastKnockback: 240 },
   // 四つ腕（降魔術の最後の技）：丸い体の左右に大きな腕が2本ずつ。腕の画像は updateArms() が体に追従させて描く。
   // arms＝腕の設定（len：上側の腕の長さ(px)／up・low：上側・下側の腕の開き具合(rad。大きいほど横へ広げる)）。minFloor を大きくして、通常のダンジョンには出ない。
   { key: 'arms4', color: 0xffffff, radius: 40, hp: 15000, speed: 70, damage: 100000, noFloorScale: true, behavior: 'chase', minFloor: 9999, aggroRange: 900,
@@ -1847,7 +1854,8 @@ const WEAPON_TYPES = [
   { key: 'jet', name: 'ロケット', type: 'jet', damage: 20, cooldown: 0.8, minFloor: 3,
     alignDeg: 48, alignDegKeyboard: 48, minMove: 0.35, minCharge: 0.25,
     speedDoubleTime: 1.2, damageDoubleTime: 1.0,
-    blastRadius: 50, blastPerSec: 14, wallBreakTime: 2, knockback: 300 },
+    blastRadius: 50, blastPerSec: 14, wallBreakTime: 2, knockback: 300,
+    hidden: true }, // hidden: true＝一旦なし（宝箱・武器選択画面に出ない）。戻す時はこの hidden を消す
 ];
 
 // 召喚された味方の表示名（バナー用）
@@ -1952,7 +1960,7 @@ const SUMMON_BALANCE = {
   deathPenalty: 0.49,    // 【通常の敵】がやられた時に受けるダメージ（最大HPの割合。0.49＝49%）。0にするとペナルティなし
   bossDeathPenalty: 0.99,// 【ボス級】がやられた時に受けるダメージ（最大HPの割合。0.99＝99%）。カルテットは射手が全滅した時に1回だけ
   bossHp: 500,           // 元のHPがこれ以上の敵、およびカルテット（とその射手）は「ボス級」として扱う
-  excludeKeys: ['simahar', 'quartet_shooter', 'snake_body'], // 抽選から外す敵。シマハル（ダメージ99999の最終ボス）と、分裂・体節用の内部データ
+  excludeKeys: ['simahar', 'quartet_shooter', 'snake_body', 'bomber'], // 抽選から外す敵。シマハル（ダメージ99999の最終ボス）と、分裂・体節用の内部データ
   // --- 階層・武器レベルによる強化（召喚した時点の階層とレベルで決まり、その味方が消えるまで固定） ---
   hpFloorGrowth: 0.10,   // 階層が1つ深くなるごとに味方HPが増える割合。敵の「ダメージ成長(+0.10/階)」に合わせてあり、受けるダメージとの釣り合いが階層で崩れにくい
   dmgFloorGrowth: 0.16,  // 階層が1つ深くなるごとに味方ダメージが増える割合。敵の「HP成長(+0.16/階)」に合わせてあり、敵を倒すまでの時間が階層で変わりにくい
@@ -2127,7 +2135,7 @@ const SUMMON2 = {
 };
 const SUMMON2_SLOT_NAMES = ['上', '右上', '右', '右下', '下', '左下', '左', '左上'];
 const ALLY_NAMES = {
-  slime: 'スライム', bat: 'コウモリ', spore: '胞子', charger: 'チャージャー', brute: 'ブルート',
+  slime: 'スライム', bat: 'コウモリ', spore: '胞子', charger: 'チャージャー', brute: 'ブルート', bomber: 'ボマー',
   shooter: 'シューター', ghost: 'ゴースト', overlord: 'オーバーロード', quartet: 'カルテット',
   detonator: 'デトネーター', quartet_shooter: 'カルテットの射手', simahar: 'シマハル', arms4: '天使',
 };
@@ -3792,7 +3800,7 @@ class GameScene extends Phaser.Scene {
     const d = this.dungeon;
     // isBoss扱いの敵（オーバーロード等）は通常のランダム抽選には含めない。
     // ボスはこの後の専用ブロックで「各フロアに必ず1体・ラベル付き」で配置する。
-    const eligible = ENEMY_TYPES.filter(t => t.minFloor <= this.floor && !t.isBoss);
+    const eligible = ENEMY_TYPES.filter(t => t.minFloor <= this.floor && !t.isBoss && (!t.nightmareOnly || this.nightmare)); // nightmareOnly（ボマー）はナイトメアでだけ出す
     const startRoom = d.rooms[0];
     const candidateRooms = d.rooms.filter(r => r !== startRoom);
     const hpMult = (1 + (this.floor - 1) * DUNGEON_DIFFICULTY.hpPerFloor) * this.dungeonPartyMult().hp * this.nightmareMult();
@@ -10031,6 +10039,12 @@ class GameScene extends Phaser.Scene {
       }
       return;
     }
+    // ボマー：攻撃を受けると導火線に火が付く（カウントダウン開始）。最初の一撃で倒れてしまう場合は、HP1で踏みとどまってカウントダウンを始める。
+    // 火が付いたあとの攻撃で倒せば、爆発せずに消える。
+    if (enemy.type.behavior === 'bomber' && damage > 0 && enemy.hp > 0 && !enemy._boomed && enemy.state !== 'fuse') {
+      enemy.state = 'fuse'; enemy.fuseT = 0;
+      if (enemy.hp - damage <= 0) damage = Math.max(0, enemy.hp - 1);
+    }
     enemy.hp -= damage;
     if (damage > 0 && !isBurn && this.accKey === 'cloak') this.cloakReveal(enemy, (this.net && this.net.uid) || 'me'); // 🧥 マントの人が攻撃した敵は、その人を認識する（召喚した味方の攻撃は accKey が空なので対象外）
     // ホスト（またはソロ）は敵の位置そのものを動かして良い唯一の存在なので、ここで
@@ -10640,11 +10654,34 @@ class GameScene extends Phaser.Scene {
     this.snakeRecordTrail(e);
   }
 
+  // ボマーの自爆：爆風はプレイヤー・味方・ほかの敵を全員巻き込む。自爆した本人は倒した数・ドロップに数えない。
+  // 敵の更新ループの途中で呼ばれるので、倒れた敵の片付けはループの後（_bomberCleanup）に回す。
+  bomberExplode(e) {
+    const t = e.type, cx = e.gfx.x, cy = e.gfx.y, r = t.blastRadius, dmg = e.damage;
+    e._boomed = true;
+    if (e._fuseRing) { e._fuseRing.destroy(); e._fuseRing = null; }
+    this.explodeAt(cx, cy, dmg, r); // 見た目・プレイヤーへのダメージ・壁の破壊
+    this.cameras.main.shake(120, 0.006);
+    for (const en of this.enemies.slice()) {
+      if (en === e || en.hp <= 0 || en._introAnim || en._pvp || en.type.invulnerable) continue;
+      if (Phaser.Math.Distance.Between(cx, cy, en.gfx.x, en.gfx.y) < r + en.type.radius) {
+        this.damageEnemy(en, dmg, Phaser.Math.Angle.Between(cx, cy, en.gfx.x, en.gfx.y), t.blastKnockback || 0);
+      }
+    }
+    for (const a of (this.allies || [])) {
+      if (a.dead || a.spawnDelay > 0) continue;
+      if (Phaser.Math.Distance.Between(cx, cy, a.gfx.x, a.gfx.y) < r + a.type.radius) this.damageAlly(a, dmg, null);
+    }
+    e.hp = 0; e._banished = true; // 自爆：倒した数に数えず、ドロップも無し
+    this._bomberCleanup = true;
+  }
+
   cleanupDeadEnemies() {
     let bossPos = null, defeatedGid = null, headDiedGid = null, bossAuth = true, headAuth = true;
     this.enemies = this.enemies.filter(e => {
       if (e.hp <= 0) {
         if (e._doomText) { e._doomText.destroy(); e._doomText = null; } // カウントダウンの文字
+        if (e._fuseRing) { e._fuseRing.destroy(); e._fuseRing = null; } // ボマーの爆発範囲の予告円
         if (e.type && e.type.snakeLen && e.bossGroupId != null) { headDiedGid = e.bossGroupId; headAuth = !this.rtNoAuth(e); } // スネークの先頭が倒された
         const keepGfx = !!(e.type && e.type.snakeBody) && !this.rtNoAuth(e); // スネークの胴体：見た目だけ残す（灰色）
         // 分裂ボス（カルテット等）は本体が分裂した時点では「ボス撃破」扱いにしない
@@ -18858,6 +18895,26 @@ class GameScene extends Phaser.Scene {
       if (playerDist < aggro) { moveX = Math.cos(playerAngle); moveY = Math.sin(playerAngle); }
       else if (e.timer <= 0) { e.dirX = Math.random() * 2 - 1; e.dirY = Math.random() * 2 - 1; e.timer = 1.5; moveX = e.dirX * 0.3; moveY = e.dirY * 0.3; }
       else { moveX = e.dirX * 0.3; moveY = e.dirY * 0.3; }
+    } else if (t.behavior === 'bomber') {
+      // ボマー：近づく → 止まって膨らみ点滅 → 自爆。一度火が付いたら、離れても止まらない。
+      if (e.hp <= 0 || e._boomed) { moveX = 0; moveY = 0; }
+      else if (e.state === 'fuse') {
+        moveX = 0; moveY = 0;
+        e.fuseT = (e.fuseT || 0) + dt;
+        const prog = Math.min(1, e.fuseT / t.fuseTime);
+        e.gfx.setFillStyle(Math.floor(e.fuseT * (6 + 14 * prog)) % 2 === 0 ? 0xffffff : t.color);
+        e.gfx.setScale(1 + 0.35 * prog);
+        if (!e._fuseRing) e._fuseRing = this.add.circle(e.gfx.x, e.gfx.y, t.blastRadius, 0xff3b3b, 0.12).setStrokeStyle(2, 0xff6b6b, 0.7).setDepth(3);
+        e._fuseRing.setPosition(e.gfx.x, e.gfx.y);
+        if (e.fuseT >= t.fuseTime) this.bomberExplode(e); // 導火線は止まらない（離れても爆発する）
+      } else if (playerDist < t.fuseRange) {
+        e.state = 'fuse'; e.fuseT = 0; moveX = 0; moveY = 0;
+      } else if (playerDist < (t.aggroRange || 320)) {
+        moveX = Math.cos(playerAngle); moveY = Math.sin(playerAngle);
+      } else {
+        if (e.timer <= 0) { e.dirX = Math.random() * 2 - 1; e.dirY = Math.random() * 2 - 1; e.timer = 1.5; }
+        moveX = (e.dirX || 0) * 0.3; moveY = (e.dirY || 0) * 0.3;
+      }
     } else if (t.behavior === 'charge') {
       if (e.state === 'idle') {
         if (t.chaseWhileIdle && playerDist < (t.chaseRange != null ? t.chaseRange : 620)) {
@@ -19832,7 +19889,7 @@ class GameScene extends Phaser.Scene {
       }
       // 味方への接触ダメージ。自分のHPと同じく、自分の画面で見えている敵の位置を使って
       // 持ち主の画面で判定する（協力プレイでもソロと同じ動き）。
-      if (this.allies.length && !e._introAnim && !this.isEnemyFrozen(e)) {
+      if (this.allies.length && !e._introAnim && !e.type.noContactDamage && !this.isEnemyFrozen(e)) {
         e.allyHitCooldown = Math.max(0, (e.allyHitCooldown || 0) - dt);
         if (e.allyHitCooldown <= 0) {
           for (const a of this.allies) {
@@ -19846,7 +19903,7 @@ class GameScene extends Phaser.Scene {
         }
       }
       const dist2 = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.gfx.x, e.gfx.y);
-      if (!this.isGhost && !this.isDowned && dist2 < r + e.type.radius && e.hitCooldown <= 0 && this.playerInvuln <= 0 && !this.isEnemyFrozen(e) && !this.snakeWhirlBlocked(e)) { // ウロボロスの振り回しは壁越しには当たらない
+      if (!this.isGhost && !this.isDowned && dist2 < r + e.type.radius && !e.type.noContactDamage && e.hitCooldown <= 0 && this.playerInvuln <= 0 && !this.isEnemyFrozen(e) && !this.snakeWhirlBlocked(e)) { // ウロボロスの振り回しは壁越しには当たらない
         const dmgTaken = this.accDmgTaken(Math.round(e.damage * (e._dmgMult || 1))); this.recordDamageTaken(dmgTaken); // 装飾品（盾）の軽減後のダメージ
         this.playerHp -= dmgTaken;
         this.playerInvuln = 0.6;
@@ -19874,6 +19931,7 @@ class GameScene extends Phaser.Scene {
 
     // 十字架の魔法陣に触れた幽霊を消す（敵を動かしている側＝ホスト/ソロだけが判定する）
     if (!(this.mp && !this.isHost && this._enemySnapshotSeen)) this.banishEnemiesInMagicCircles();
+    if (this._bomberCleanup) { this._bomberCleanup = false; this.cleanupDeadEnemies(); } // ボマーの自爆で倒れた敵（自分自身も含む）を、敵のループが終わってから片付ける
 
     // 幽霊は壁をすり抜けるため、複数体が同じ場所に集まって重なり合ってしまいやすい。
     // 見分けが付かなくなるのを防ぐため、幽霊同士だけはお互いに軽く押し合って
