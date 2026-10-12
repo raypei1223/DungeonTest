@@ -2269,7 +2269,7 @@ const ACCESSORIES = [
   { key: 'shield', icon: '🛡️', name: '盾',         stat: 'soloBestFloor',    goal: 15,  unit: '階',  desc: 'ダンジョン（ソロ）で15階層に到達', effect: '受けるダメージ-5' },
   { key: 'crown',  icon: '👑', name: '王冠',       stat: 'soloBestFloor',    goal: 20,  unit: '階',  desc: 'ダンジョン（ソロ）で20階層に到達', effect: '近くの敵の速度を半減' },
   { key: 'skull',  icon: '💀', name: '鬼火',     stat: 'soloBestFloor',    goal: 25,  unit: '階',  desc: 'ダンジョン（ソロ）で25階層に到達', effect: '三度、HP1で生き返る' },
-  { key: 'clock', icon: '🕒', name: '懐中時計', stat: 'soloClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）をクリア', effect: '10秒間時を止める能力を獲得' }, // 入手条件：ダンジョン（ソロ）を25階まで全クリアする（soloClears）。効果：画面下の時計ボタン（またはQキー）で発動。敵・敵の弾・自分の弾が10秒止まる。リロード60秒（ACC_CLOCK）
+  { key: 'clock', icon: '⏱', name: '懐中時計', stat: 'soloClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）をクリア', effect: '10秒間時を止める能力を獲得' }, // 入手条件：ダンジョン（ソロ）を25階まで全クリアする（soloClears）。効果：画面下の時計ボタン（またはQキー）で発動。敵・敵の弾・自分の弾が10秒止まる。リロード60秒（ACC_CLOCK）
   { key: 'armor', icon: '🪖', name: '鎧', stat: 'armorFloor10Fast', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で10階層を4分以内にクリア', effect: '最大HPが2倍' }, // 入手条件：ダンジョン（ソロ）を始めてから、10階層のボスを倒すまでが4分以内（armorFloor10Fast。ARMOR_UNLOCK）
   { key: 'cloak', icon: '🧥', name: '透明マント', stat: 'nightmareClears', goal: 1, unit: '回', desc: 'ナイトメアをクリア', effect: '雑魚敵に認識されない（攻撃しない限り）' }, // 入手条件：ナイトメアを10階のボスまで倒してクリアする（nightmareClears）。効果：ボス以外の敵は、付けている人を狙わなくなる（getNearestPlayerTarget の cloakEnemy）。こちらから攻撃した敵は、その人を認識する（cloakReveal）
   { key: 'flame',  icon: '🔥', name: '炎',         stat: 'bossRushBestBosses', goal: 15,  unit: '体',  desc: 'ボスラッシュで15体目のボスを倒す', effect: '攻撃した敵が燃える（合計21ダメージ）' },
@@ -8145,7 +8145,7 @@ class GameScene extends Phaser.Scene {
       b = document.createElement('div');
       b.id = 'clockBtn';
       b.style.cssText = 'position:fixed;bottom:2.5vh;left:50%;transform:translateX(-50%);z-index:25;width:9vh;height:9vh;border-radius:50%;background:rgba(10,10,16,0.75);border:0.35vh solid rgba(255,255,255,0.35);display:none;align-items:center;justify-content:center;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;';
-      b.innerHTML = '<span class="ci" style="font-size:5.5vh;line-height:1;">🕒</span><span class="ct" style="position:absolute;font-size:3.6vh;font-weight:bold;color:#fff;text-shadow:0 0 0.8vh #000,0 0 0.8vh #000;"></span>';
+      b.innerHTML = '<span class="ci" style="font-size:5.5vh;line-height:1;">⏱</span><span class="ct" style="position:absolute;font-size:3.6vh;font-weight:bold;color:#fff;text-shadow:0 0 0.8vh #000,0 0 0.8vh #000;"></span>';
       const go = ev => { ev.preventDefault(); ev.stopPropagation(); if (b._scene && b._scene.activateClock) b._scene.activateClock(); };
       b.addEventListener('pointerdown', go);
       b.addEventListener('touchstart', go, { passive: false });
