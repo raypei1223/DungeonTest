@@ -1838,15 +1838,16 @@ const WEAPON_TYPES = [
     hidden: true }, // hidden: true＝一旦なし（宝箱・武器選択画面に出ない）。戻す時はこの hidden を消す
   // ロケット（旧ロケットランチャーとは別の武器）：移動スティックと武器スティックの向きが一致している間だけ「ため」が進む。
   // ためている間は体から光るトレイルが出て、移動速度とダメージが指数関数的に上がっていく（speedDoubleTime／damageDoubleTime 秒ごとに2倍）。
-  // スティックを離すか、2本の向きがずれると、ためた分のダメージの爆発をその場で起こす（minCharge 秒未満なら不発）。
+  // スティックを離す／2本の向きがずれる／何か（敵・宝箱・壁・相手プレイヤー）に触れると、ためた分のダメージの爆発をその場で起こす（minCharge 秒未満なら不発。触れて爆発するのも minCharge 秒ためてから）。
+  // 速度・ダメージ・ため時間・爆風の半径に上限は無い（ためた分だけ際限なく伸びる）。
   // alignDeg：向きが一致していると見なす角度のずれ（度。小さいほどシビア）。PCはキー入力が8方向なので alignDegKeyboard を使う。
   // minMove：移動スティックをどれだけ倒していれば「動いている」と見なすか（0〜1）。
-  // damage：ため0秒の基礎ダメージ（レベルで+15%/Lv）／maxSpeedMult：移動速度の倍率の上限／maxChargeTime：ための上限（秒）
-  // blastRadius・blastPerSec・blastMax：爆風の半径（ため1秒ごとに増える。上限あり）／wallBreakTime：これ以上ためると壁も壊せる（秒）
+  // damage：ため0秒の基礎ダメージ（レベルで+15%/Lv）
+  // blastRadius・blastPerSec：爆風の半径（ため0秒の半径と、ため1秒ごとに増える量）／wallBreakTime：これ以上ためると壁も壊せる（秒）
   { key: 'jet', name: 'ロケット', type: 'jet', damage: 20, cooldown: 0.8, minFloor: 3,
-    alignDeg: 8, alignDegKeyboard: 16, minMove: 0.35, minCharge: 0.25, maxChargeTime: 6,
-    speedDoubleTime: 1.2, maxSpeedMult: 4, damageDoubleTime: 1.0,
-    blastRadius: 50, blastPerSec: 14, blastMax: 150, wallBreakTime: 2, knockback: 300 },
+    alignDeg: 8, alignDegKeyboard: 16, minMove: 0.35, minCharge: 0.25,
+    speedDoubleTime: 1.2, damageDoubleTime: 1.0,
+    blastRadius: 50, blastPerSec: 14, wallBreakTime: 2, knockback: 300 },
 ];
 
 // 召喚された味方の表示名（バナー用）
@@ -9195,7 +9196,7 @@ class GameScene extends Phaser.Scene {
 
   // ============== ロケット（jet） ==============
   // 移動スティックと武器スティックの向きが一致している間だけ「ため」が進み、体から光るトレイルが出る。
-  // ため時間 t に応じて、移動速度は 2^(t/speedDoubleTime)（上限 maxSpeedMult）、ダメージは 2^(t/damageDoubleTime) 倍になる。
+  // ため時間 t に応じて、移動速度は 2^(t/speedDoubleTime)（上限なし）、ダメージは 2^(t/damageDoubleTime) 倍になる。
   // 離す／向きがずれる／使えない状態になると終わり、minCharge 秒以上ためていれば、その場でためた分の爆発を起こす。
   jetMoveDir() { // 移動入力（スマホ：左スティック／PC：WASD・矢印キー）の向きと強さ
     let dx = 0, dy = 0;
@@ -9211,11 +9212,11 @@ class GameScene extends Phaser.Scene {
   jetSpeedMult() { // いまの移動速度の倍率（ためている間だけ >1）
     const w = this.weapon, j = this._jet;
     if (!j || !w || w.type !== 'jet') return 1;
-    return Math.min(w.maxSpeedMult || 4, Math.pow(2, j.t / (w.speedDoubleTime || 1.2)));
+    return Math.pow(2, j.t / (w.speedDoubleTime || 1.2)); // 上限なし
   }
 
   jetDamage(w, t) { return Math.round(w.damage * Math.pow(2, t / (w.damageDoubleTime || 1))); } // ため t 秒の爆発ダメージ（指数関数）
-  jetRadius(w, t) { return Math.min(w.blastMax || 150, (w.blastRadius || 50) + (w.blastPerSec || 14) * t); } // ため t 秒の爆風半径
+  jetRadius(w, t) { return (w.blastRadius || 50) + (w.blastPerSec || 14) * t; } // ため t 秒の爆風半径（上限なし）
 
   updateJet(dt) {
     const w = this.weapon;
@@ -9244,7 +9245,7 @@ class GameScene extends Phaser.Scene {
         j = this._jet = { t: 0, on: true, txt: this.add.text(this.player.x, this.player.y - 30, '', { fontSize: '13px', color: '#fff2c2', fontFamily: 'sans-serif', fontStyle: 'bold' }).setOrigin(0.5).setDepth(12) };
         j.txt.setStroke('#7a2a00', 3);
       }
-      j.t = Math.min(w.maxChargeTime || 6, j.t + dt);
+      j.t += dt; // ため時間に上限は無い
     } else if (j) {
       this.jetEnd(false); // 離した／向きがずれた：ためた分の爆発
       j = null;
@@ -9254,6 +9255,37 @@ class GameScene extends Phaser.Scene {
       j.txt.setText('速度 ×' + this.jetSpeedMult().toFixed(1) + '  ダメージ ' + this.jetDamage(w, j.t));
     }
     this.jetDrawFx(dt);
+  }
+
+  // ロケットで進む：1フレームの移動を細かく刻み（速くても壁・敵をすり抜けない）、壁・敵・宝箱に触れた瞬間に爆発する。
+  // 触れて爆発するのは minCharge 秒ためてから（始めてすぐ、壁際や敵の前で不発にならないように）。
+  jetMove(dx, dy, moveSpeed, dt, r) {
+    const pl = this.player, j = this._jet, w = this.weapon;
+    const steps = Math.max(1, Math.ceil(moveSpeed * dt / Math.max(2, r * 0.5)));
+    const sx = dx * moveSpeed * dt / steps, sy = dy * moveSpeed * dt / steps;
+    const armed = j.t >= (w.minCharge != null ? w.minCharge : 0.25);
+    for (let i = 0; i < steps; i++) {
+      let touched = false;
+      const nx = pl.x + sx, ny = pl.y + sy;
+      if (!this.circleHitsWall(nx, pl.y, r)) pl.x = nx; else if (sx !== 0) touched = true;
+      if (!this.circleHitsWall(pl.x, ny, r)) pl.y = ny; else if (sy !== 0) touched = true;
+      if (!touched && armed) touched = this.jetTouching(pl.x, pl.y, r);
+      if (touched && armed) { this.jetEnd(false); return; }
+    }
+  }
+
+  jetTouching(x, y, r) { // 敵・宝箱に触れているか（倒せない敵・出現中の敵は除く）
+    for (const en of this.enemies) {
+      if (!(en.hp > 0) || en._introAnim || !en.gfx || !en.type || en.type.invulnerable) continue;
+      if (Phaser.Math.Distance.Between(x, y, en.gfx.x, en.gfx.y) <= r + en.type.radius + 1) return true;
+    }
+    if (this.chests && this.chests.length) {
+      for (const c of this.chests) {
+        if (c.broken || c.taken) continue;
+        if (Phaser.Math.Distance.Between(x, y, c.x, c.y) <= r + CHEST_HIT_RADIUS) return true;
+      }
+    }
+    return false;
   }
 
   // 光るトレイルと、体の光（ためが進むほど長く・太く・白く）
@@ -19582,6 +19614,8 @@ class GameScene extends Phaser.Scene {
       const ny = this.player.y + dy * moveSpeed * dt;
       this.player.x = nx;
       this.player.y = ny;
+    } else if (this._jet && this._jet.on && this.weapon && this.weapon.type === 'jet') {
+      this.jetMove(dx, dy, moveSpeed, dt, r); // ロケット：細かく刻んで進み、何かに触れた瞬間に爆発する（速すぎて壁や敵をすり抜けないように）
     } else {
       const nx = this.player.x + dx * moveSpeed * dt;
       const ny = this.player.y + dy * moveSpeed * dt;
