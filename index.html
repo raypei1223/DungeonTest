@@ -1840,12 +1840,12 @@ const WEAPON_TYPES = [
   // ためている間は体から光るトレイルが出て、移動速度とダメージが指数関数的に上がっていく（speedDoubleTime／damageDoubleTime 秒ごとに2倍）。
   // スティックを離す／2本の向きがずれる／何か（敵・宝箱・壁・相手プレイヤー）に触れると、ためた分のダメージの爆発をその場で起こす（minCharge 秒未満なら不発。触れて爆発するのも minCharge 秒ためてから）。
   // 速度・ダメージ・ため時間・爆風の半径に上限は無い（ためた分だけ際限なく伸びる）。
-  // alignDeg：向きが一致していると見なす角度のずれ（度。小さいほどシビア。スマホ用）。PCはキー入力が8方向なので alignDegKeyboard を使う（今はどちらも30度）。
+  // alignDeg：向きが一致していると見なす角度のずれ（度。小さいほどシビア。スマホ用）。PCはキー入力が8方向なので alignDegKeyboard を使う（今はどちらも48度）。
   // minMove：移動スティックをどれだけ倒していれば「動いている」と見なすか（0〜1）。
   // damage：ため0秒の基礎ダメージ（レベルで+15%/Lv）
   // blastRadius・blastPerSec：爆風の半径（ため0秒の半径と、ため1秒ごとに増える量）／wallBreakTime：これ以上ためると壁も壊せる（秒）
   { key: 'jet', name: 'ロケット', type: 'jet', damage: 20, cooldown: 0.8, minFloor: 3,
-    alignDeg: 30, alignDegKeyboard: 30, minMove: 0.35, minCharge: 0.25,
+    alignDeg: 48, alignDegKeyboard: 48, minMove: 0.35, minCharge: 0.25,
     speedDoubleTime: 1.2, damageDoubleTime: 1.0,
     blastRadius: 50, blastPerSec: 14, wallBreakTime: 2, knockback: 300 },
 ];
