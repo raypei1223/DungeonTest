@@ -9126,7 +9126,7 @@ class GameScene extends Phaser.Scene {
       if (!this.meleeCanReach(enemy.gfx.x, enemy.gfx.y, enemy.type.radius)) continue; // 壁の向こうには届かない
       const ex = enemy.gfx.x, ey = enemy.gfx.y, er = enemy.type.radius; // 倒れて消える前の位置と大きさを控えておく
       this.damageEnemy(enemy, w.damage, a, w.knockback);
-      if (w.bloodFx) this.knifeBlood(ex, ey, enemy.hp <= 0 ? angle : a, er, enemy.hp <= 0); // ナイフ：当たった敵から血しぶき（倒した時は、ナイフの向いていた方向へスプレー）
+      if (w.bloodFx && !(enemy.type.key === 'ghost' || isChargeGhostId(enemy.id))) this.knifeBlood(ex, ey, enemy.hp <= 0 ? angle : a, er, enemy.hp <= 0); // ナイフ：当たった敵から血しぶき（倒した時は、ナイフの向いていた方向へスプレー）
     }
 
     // 宝箱（壊れていないもの）にも同じ扇形判定でダメージを与える
