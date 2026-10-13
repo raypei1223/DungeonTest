@@ -489,10 +489,10 @@
       <button id="soloBtn">ダンジョン</button>
     </div>
     <div class="lobbyBox lobbySide lobbyRight">
-      <button id="arms4RitualBtn" class="challengeBtn" style="background:#b26bff;">【期間限定】天使・調伏の儀</button>
+      <button id="arms4RitualBtn" class="challengeBtn" style="background:#ffe58a;">【期間限定】天使・調伏の儀</button>
       <button id="bossRushBtn" class="challengeBtn" style="background:#ff8a5b;">ボスラッシュ</button>
       <button id="frontlineBtn" class="challengeBtn" style="background:#4fd67a;">最北戦線</button>
-      <button id="nightmareBtn" class="challengeBtn" style="background:#7a1f3d;">ナイトメア</button> <!-- ダンジョン＋壁の裏が見えない -->
+      <button id="nightmareBtn" class="challengeBtn" style="background:#a064e8;">ナイトメア</button> <!-- ダンジョン＋壁の裏が見えない -->
     </div>
   </div>
 </div>
@@ -1436,7 +1436,7 @@ const ENEMY_TYPES = [
   // 膨らみ、白く点滅（fuseTime 秒）してから自爆する。一度火が付いたら、離れても止まらない。
   // 爆発（blastRadius）はプレイヤー・味方・ほかの敵を全員巻き込む（ほかの敵へのダメージも damage と同じ値）。
   // 接触ダメージは無し（noContactDamage）。自爆した個体は倒した数に数えず、ドロップも無し。通常のダンジョンには出ない（nightmareOnly）。
-  { key: 'bomber',  color: 0x57c84d, radius: 14, hp: 24, speed: 64,  damage: 30, behavior: 'bomber', minFloor: 2, spawnWeight: 0.8,
+  { key: 'bomber',  color: 0xb8a22a, radius: 14, hp: 24, speed: 64,  damage: 30, behavior: 'bomber', minFloor: 1, spawnWeight: 0.8,
     nightmareOnly: true, noContactDamage: true, aggroRange: 320,
     fuseRange: 60, fuseTime: 1.1, blastRadius: 85, blastKnockback: 240 },
   // 四つ腕（降魔術の最後の技）：丸い体の左右に大きな腕が2本ずつ。腕の画像は updateArms() が体に追従させて描く。
@@ -1753,6 +1753,8 @@ function pickChestWeaponChoices(eligible, count, rand) {
 const WEAPON_TYPES = [
   { key: 'sword',   name: '剣',           type: 'melee',  damage: 16, range: 56, arcDeg: 100, rangeGrowth: 9, arcGrowth: 12, arcMax: 360, cooldown: 0.35, knockback: 112, minFloor: 1 },
   { key: 'club',    name: '棍棒',         type: 'melee',  damage: 32, range: 70, arcDeg: 20,  fixedArc: true, rangeGrowth: 10, cooldown: 0.55, knockback: 460, minFloor: 1 },
+  // ナイフ：リーチがとても短い代わりに1発が重い近接武器。当たった敵から血しぶきが出る（bloodFx）。
+  { key: 'knife',   name: 'ナイフ',       type: 'melee',  damage: 44, range: 20, arcDeg: 15,  fixedArc: true, rangeGrowth: 0, cooldown: 0.5, cooldownGrowth: 0.04, cooldownMin: 0.15, knockback: 5, bloodFx: true, minFloor: 1 },
   // isFreeze: 弾が命中（敵 or 壁）した場所に魔法陣を作る特殊武器。ダメージは無く、
   // circleLifetime秒のあいだ魔法陣として残り、触れている敵の動きと攻撃を止める。
   // circleLifetime/circleRadiusはapplyWeaponLevel()でレベルに応じて伸びる（装填数は据え置き）。
@@ -1901,6 +1903,10 @@ const NET_STALE_WARNING_MS = 3000;
 // NET_STALE_WARNING_MS(赤文字警告)より少し長めに取り、警告が出てもすぐには動かさず
 // 様子を見てから手を打つ。
 const NET_FORCE_RECONNECT_MS = 5000;
+// あみだくじ：通信が止まって部屋から消えて見えた人を、この時間（ミリ秒）たつまでは「まだいる」とみなす（すぐ「参加者が1人以下」で終了しないように）
+const AMIDA_ABSENT_GRACE_MS = 15000;
+// 順序保証なしの「いまの状態」を送る時、送信待ちのデータがこのバイト数を超えていたら、古くなる状態は送らずに捨てる（詰まりをさらに悪化させない）
+const NET_FAST_BUSY_BYTES = 64 * 1024;
 // [調査用] trueにすると、協力プレイ中に1秒おきの接続状況(isConnected/lastAckAtからの経過時間)を
 // 画面右下に小さく表示し続ける。20秒程度のフリーズが起きた瞬間の記録を残して原因切り分けするための
 // 一時的な仕込み。原因が特定できたら false に戻すかコードごと消してよい。
@@ -2153,6 +2159,7 @@ function applyWeaponLevel(base, level) {
   w.damage = Math.round(base.damage * (1 + 0.15 * bonus));
   if (base.type === 'melee') {
     w.range = base.range + (base.rangeGrowth != null ? base.rangeGrowth : 6) * bonus;
+    if (base.cooldownGrowth) w.cooldown = Math.max(base.cooldownMin != null ? base.cooldownMin : 0.1, base.cooldown - base.cooldownGrowth * bonus); // cooldownGrowth＝1レベルごとに短くなる攻撃間隔（秒）。ナイフはレベルで攻撃速度が上がる
     w.arcDeg = base.fixedArc ? base.arcDeg : Math.min(base.arcMax != null ? base.arcMax : 220, base.arcDeg + (base.arcGrowth != null ? base.arcGrowth : 8) * bonus);
   } else if (base.type === 'summon2') {
     w.maxAmmo = 1;
@@ -2278,7 +2285,7 @@ const ACCESSORIES = [
   { key: 'snow',   icon: '❄️', name: '雪',   stat: 'frontlineBestSec', goal: 300, unit: '秒',  desc: '最北戦線（ソロ）で5分間生き残る', effect: '移動速度+10%' },
   { key: 'trophy', icon: '🏆', name: 'トロフィー', stat: 'pvpWins', goal: 10, unit: '勝', desc: 'PvPで10回勝つ', effect: '開始時の武器レベル+1' }, // 入手条件：PvPで累計10回勝つ（pvpWins。recordPvpWin で加算）。効果：始まる時／やり直す時の武器レベルに ACC_TROPHY.levelBonus を足す（宝箱のエフェクトで途中から付けた場合は、開始時ではないので変わらない）
   { key: 'angelhalo', icon: '🪽', name: 'エンジェルヘイロー', stat: 'arms4RitualClears', goal: 1, unit: '回', desc: '天使を調伏する', effect: '1分ごとに50%の確率で天使を召喚' }, // 入手条件：ダンジョン（ソロ）またはロビーの【期間限定】天使・調伏の儀で、天使の調伏の儀に成功する（arms4RitualClears。デベロッパーモード・協力プレイでは入手できない）
-  { key: 'serialkiller', icon: '🔪', name: 'ナイフ', all: true, goal: 0, unit: '個', desc: '他のすべての装飾品を獲得', effect: '近づいた敵を切り刻む' }, // 入手条件：他の装飾品をすべて入手済み（all:true。進捗は入手済みの個数）。効果：範囲内の敵へ絶え間なく斬撃（ACC_SERIALKILLER）。斬られた敵に白と赤の斬撃線が出る。必ず表の最後に置く
+  { key: 'serialkiller', icon: '🔪', name: 'シリアルキラー', all: true, goal: 0, unit: '個', desc: '他のすべての装飾品を獲得', effect: '近づいた敵を切り刻む' }, // 入手条件：他の装飾品をすべて入手済み（all:true。進捗は入手済みの個数）。効果：範囲内の敵へ絶え間なく斬撃（ACC_SERIALKILLER）。斬られた敵に白と赤の斬撃線が出る。必ず表の最後に置く
 ];
 function accessoryByKey(key) { return ACCESSORIES.find(a => a.key === key) || null; }
 // 受け取ったkeyが正しい装飾品なら絵文字を返す（他のプレイヤーから届いた値は、必ずこの表を通して描く）
@@ -2637,6 +2644,7 @@ class GameScene extends Phaser.Scene {
     this.playerColor = (typeof app.color === 'number') ? app.color : 0x5bd1ff;
     this._bh = null; // ブラックホールのビームの状態（毎回作り直す）
     this.accKey = (!app.arms4Ritual && accessoryByKey(app.acc)) ? app.acc : ''; // 付けている装飾品のkey（無ければ''）。四つ腕の調伏の儀は装飾品なし
+    this._usedAccKeys = this.accKey ? [this.accKey] : []; // リザルト用：このゲーム中に付けた装飾品のkey（最初から付けていたものも含む。付けた順）
     this._skFx = []; this._skG = null; this._skT = 0; // 🔪 シリアルキラーの斬撃線
     this._clkOn = false; this._clkMine = false; this._clkCd = 0; this._clkLeft = 0; // 🕒 時計：発動中か／次に使えるまでの秒数（最初は使える）
     try { if (this.time) this.time.timeScale = 1; if (this.tweens) this.tweens.timeScale = 1; } catch (e) { /* 初回起動前 */ }
@@ -3125,7 +3133,10 @@ class GameScene extends Phaser.Scene {
   // 自分自身のプレイヤーに対して個別に行う（＝自分のHPは自分のクライアントでしか減らさない）。
   onIncomingEnemyShot(payload) {
     if (!payload || payload.floor !== this.floor) return;
-    if (this.isHost) return; // ホストは自分で撃った時点で既にローカルに追加済み
+    const amv = this.pv && this.pv.mode === 'amida' && this.pv.amida;
+    if (amv) { // あみだくじ：部屋の敵は戦っている人の画面で動いている。ゴーストで見ている部屋の弾だけ出す（ほかの部屋の弾は、誰の画面でも要らない）
+      if (!amv.spec || !this.amidaInRoom(amv.specRoom, payload.x != null ? payload.x : payload.x1, payload.y != null ? payload.y : payload.y1)) return;
+    } else if (this.isHost) return; // ホストは自分で撃った時点で既にローカルに追加済み
     if (payload.isWallBreak) {
       this.destroyWallsInRadius(payload.x, payload.y, payload.radius);
       this.spawnBurst(payload.x, payload.y, 0xffd54c, 14);
@@ -3188,13 +3199,6 @@ class GameScene extends Phaser.Scene {
         for (const e of this.enemies || []) {
           if (!e || e._pvp || e._removed || !(e.hp > 0) || !e.gfx || !e.gfx.scene || e.gfx.visible === false) continue; // _pvp＝PvPの相手プレイヤーの当たり判定用（撃った本人にも当たってしまうので除く。PvPの弾は下の pvpLive が処理する）
           if (Math.hypot(p.gfx.x - e.gfx.x, p.gfx.y - e.gfx.y) < (e.gfx.radius || 10) * (e.gfx.scaleX || 1) + pr) { eh = true; break; }
-        }
-        const sp = this.pv && this.pv.amida && this.pv.amida.spec;
-        if (!eh && sp && sp.pool) {
-          for (const e of sp.pool) {
-            if (!e || !e.c || !e.c.scene || !e.c.visible) continue;
-            if (Math.hypot(p.gfx.x - e.c.x, p.gfx.y - e.c.y) < (e.c.radius || 10) * (e.c.scaleX || 1) + pr) { eh = true; break; }
-          }
         }
         if (eh) { this.spawnBurst(p.gfx.x, p.gfx.y, 0xffffff, 3); p.gfx.destroy(); return false; }
       }
@@ -3413,19 +3417,7 @@ class GameScene extends Phaser.Scene {
     delete this.remotePlayers[uid];
   }
 
-  publishEnemySnapshot() {
-    if (!this.mp || !this.net) return;
-    const snap = {};
-    const prev = this._lastPublishedSnapshot;
-    // 送信するのは「変化した敵だけ」の差分オブジェクト（全敵まるごと送ると、召喚術や
-    // 最北戦線で敵数が増えた時に1回の書き込みが重くなり、回線が細い瞬間に詰まって
-    // 数十秒分の更新がまとめて届く＝フリーズして見える原因になっていたため）。
-    const diff = {};
-    let anyDiff = false;
-    const whirlGids = new Set(); // 振り回し中のウロボロスのグループ（この間だけ、胴体の位置もホストから送る）
-    for (const o of this.enemies) if (o.whirl && o.hp > 0 && o.bossGroupId != null) whirlGids.add(String(o.bossGroupId));
-    for (const e of this.enemies) {
-      if (this.rtOwn(e)) continue; // 調伏の儀の敵は儀式をやる人の画面だけのもの：配信しない
+  buildEnemyEntry(e, prev, whirlGids) { // 敵1体ぶんの同期データ（ダンジョンの配信と、あみだくじの観戦で共通）
       // typeも一緒に配信する。ゲスト側が最初から知っている敵は元々位置合わせだけで
       // よかったが、ゲーム中に増殖などで新しく生まれた敵はゲスト側にまだ実体が
       // 無いため、見た目を作るのに種類の情報が要る。
@@ -3469,6 +3461,27 @@ class GameScene extends Phaser.Scene {
           entry.cs = Math.round(e.chaseStar.x) + ',' + Math.round(e.chaseStar.y) + ',' + (e.chaseStar.state === 'orbiting' ? 1 : 0);
         }
       }
+    if (e.type.arms && e._armRot && e.hp > 0) { // 四つ腕（天使）：4本の腕の今の角度と、攻撃の予告中かどうか（観戦側で同じ腕の動き・光り方にする）
+      entry.ao = e._armRot.slice(0, 4).map(v => Math.round((v || 0) * 100) / 100).join(',');
+      if (e._tele) entry.tl = 1;
+    }
+    return entry;
+  }
+
+  publishEnemySnapshot() {
+    if (!this.mp || !this.net) return;
+    const snap = {};
+    const prev = this._lastPublishedSnapshot;
+    // 送信するのは「変化した敵だけ」の差分オブジェクト（全敵まるごと送ると、召喚術や
+    // 最北戦線で敵数が増えた時に1回の書き込みが重くなり、回線が細い瞬間に詰まって
+    // 数十秒分の更新がまとめて届く＝フリーズして見える原因になっていたため）。
+    const diff = {};
+    let anyDiff = false;
+    const whirlGids = new Set(); // 振り回し中のウロボロスのグループ（この間だけ、胴体の位置もホストから送る）
+    for (const o of this.enemies) if (o.whirl && o.hp > 0 && o.bossGroupId != null) whirlGids.add(String(o.bossGroupId));
+    for (const e of this.enemies) {
+      if (this.rtOwn(e)) continue; // 調伏の儀の敵は儀式をやる人の画面だけのもの：配信しない
+      const entry = this.buildEnemyEntry(e, prev, whirlGids);
       snap[e.id] = entry;
       const p = prev && prev[e.id];
       // 遠くの敵はAI自体を間引いて静止させているので、何も変わっていない敵は差分から除外する。
@@ -3533,6 +3546,13 @@ class GameScene extends Phaser.Scene {
     if (!hasData && !this._enemySnapshotSeen) return;
     if (hasData) this._enemySnapshotSeen = true;
     this._enemySnapshot = obj;
+    this.syncEnemyMirrors();
+  }
+
+  // 届いた敵のスナップショット（this._enemySnapshot）に合わせて、この画面の敵の実体を作る・消す。
+  // ダンジョンの参加側と、あみだくじの観戦（ゴーストとして戦っている人の部屋へ行って見る）で共通
+  syncEnemyMirrors() {
+    const obj = this._enemySnapshot || {};
     // ホストが攻撃報告に追いついて、実際にそのIDがスナップショットから消えたのを
     // 確認できたらガードも解除する。
     for (const pid of this._pendingDeathIds) {
@@ -3581,6 +3601,7 @@ class GameScene extends Phaser.Scene {
         dirX: 0, dirY: 0, hitCooldown: 0,
         _multiplyScheduled: true, // ゲスト側では増殖の判断はしない（権威はホストのみ）
       };
+      if (this._amidaMirOn) child._amidaMir = true; // あみだくじの観戦：戦っている人の画面の敵を映しているだけの実体（AI・当たり判定の権威は持たない）
       if (snap.bg != null) child.bossGroupId = snap.bg;
       const isRitualBoss = type.isBoss && String(id).indexOf('_boss') >= 0 && type.key !== 'quartet_shooter' && !type.snakeBody; // 協力プレイの調伏の儀（s2TrialSpawn）で出たボス：ホストと同じ金の縁取り＋「ボス」の文字
       if ((this.frontline && type.isBoss && snap.bg != null && type.key !== 'quartet_shooter' && !type.snakeBody) || isRitualBoss) {
@@ -4890,9 +4911,13 @@ class GameScene extends Phaser.Scene {
 
   // 他プレイヤーを「見えない敵」として登録（位置は相手の描画オブジェクトをそのまま使うので自動で追従する）
   pvpSyncProxies() {
-    const pv = this.pv;
+    const pv = this.pv, lps = this.latestPlayers || {};
     for (const uid in this.remotePlayers) {
       const rp = this.remotePlayers[uid];
+      // 当たり判定を持たせない相手：あみだくじ（プレイヤー同士の戦闘なし）と、ゴースト（脱落した人・あみだくじで観戦に来た人＝eliminated が立つ）。
+      // 見えない敵として登録すると、ダメージが入らなくても自分の弾がそこで消えてしまうため、弾はすり抜ける（他人の弾の見た目を消す処理 3210行 の「脱落した人はすり抜ける」と同じ）
+      const lp = lps[uid];
+      if (pv.mode === 'amida' || (lp && lp.eliminated)) { if (pv.proxies[uid]) this.pvpRemoveProxy(uid); continue; }
       let e = pv.proxies[uid];
       if (e && e.gfx !== rp.gfx) { this.pvpRemoveProxy(uid); e = null; }
       if (!e) {
@@ -5371,7 +5396,7 @@ class GameScene extends Phaser.Scene {
     if (am.myFin != null && !(am.prize && am.prize.exit === am.myFin)) this.amidaOpenRoom(am.myFin); // 景品の出口には部屋がない
   }
 
-  amidaFighting() { // あみだくじで、自分のモンスターの部屋で戦っている最中か（鬼火・ナイフ・時計は、PvPの中でもこの間だけ使える）
+  amidaFighting() { // あみだくじで、自分のモンスターの部屋で戦っている最中か（鬼火・シリアルキラー・時計は、PvPの中でもこの間だけ使える）
     const am = this.pv && this.pv.mode === 'amida' && this.pv.amida;
     return !!(am && am.fighting && !am.fightDone);
   }
@@ -5547,16 +5572,8 @@ class GameScene extends Phaser.Scene {
     // カメラ：あみだくじの間は、プレイヤーを追わず、あみだ全体が映るように固定（画面の大きさが変わっても毎フレーム合わせる）。戦闘中は自分を追う／観戦中は見ている人を追う
     const wT = (g.ex + A.endW - g.ax + 2) * TILE, hT = (g.bottom - g.top + 1 + 4) * TILE;
     const zoom = window.GAME_VIEW_ZOOM || 1;
-    if (am.myRoom) { // 戦っている間：ふだんと同じ倍率で、自分を中心にカメラが動く
+    if (am.myRoom || am.specRoom) { // 戦っている間／ゴーストで観戦している間：ふだんと同じ倍率で、自分を中心にカメラが動く
       if (!am.camFollow) { am.camFollow = true; cam.setZoom(zoom); cam.centerOn(this.player.x, this.player.y); cam.startFollow(this.player, true, 0.15, 0.15); }
-    } else if (am.specRoom) { // 観戦中：見ている人を中心にカメラが動く（その人の丸がまだ届いていなければ部屋の真ん中）
-      if (am.camFollow) { am.camFollow = false; cam.stopFollow(); }
-      const rp0 = am.spec && this.remotePlayers[am.spec.uid], R = am.specRoom; // 見ている人の本物のアバター（滑らかに動く）を追う
-      const okA = !!(rp0 && rp0.gfx && rp0.gfx.scene), tx = okA ? rp0.gfx.x : R.cx, ty = okA ? rp0.gfx.y : R.cy;
-      let sc = am.specCam; // 他の人の動きは届く間隔で速さがゆれるので、カメラは少し遅れて追いかけて（ローパス）、画面全体のガタつきを消す
-      if (!sc || sc.uid !== am.spec.uid) sc = am.specCam = { uid: am.spec.uid, x: tx, y: ty, t: now };
-      else { const k = expSmooth(Math.min(0.1, (now - sc.t) / 1000), 0.12); sc.x += (tx - sc.x) * k; sc.y += (ty - sc.y) * k; sc.t = now; }
-      cam.setZoom(zoom); cam.centerOn(sc.x, sc.y);
     } else {
       if (am.camFollow) { am.camFollow = false; cam.stopFollow(); } // 戦いが終わったら、あみだ全体が映る固定カメラへ戻る
       cam.setZoom(Math.min(cam.width / wT, cam.height / hT));
@@ -5617,7 +5634,7 @@ class GameScene extends Phaser.Scene {
     if (am.spec) this.amidaSpecUpdate(am, now); // 観戦中の再現
     // 自分の部屋での戦い：部屋の敵を全部倒したら勝ち（スネークの胴体は数えない）、HPが0になったら負け
     if (am.fighting && !am.fightDone) {
-      if (now - (am.watchedAt || -1e9) < 3000 && now - (am.stSentAt || 0) > 60) { am.stSentAt = now; this.amidaSendState(am); } // 誰かに観戦されている間だけ送る（0.06秒＝通常のマルチと同じ間隔）
+      if (now - (am.watchedAt || -1e9) < 3000 && now - (am.stSentAt || 0) > 60) { am.stSentAt = now; this.amidaSendRoom(am); } // 誰かに観戦されている間だけ送る（0.06秒＝通常のマルチと同じ間隔）
       if (this.playerHp <= 0 && this.trySkullRevive()) { /* 💀 鬼火が残っていれば、HP1で復活して戦いを続ける */ }
       else if (this.playerHp <= 0 || this.isDowned) this.amidaFightEnd(false);
       else if (!am.mon) this.amidaFightEnd(true);
@@ -5628,10 +5645,10 @@ class GameScene extends Phaser.Scene {
     }
     // ホストだけ：全員の戦いが終わったら（または締め切りが来たら）、returnStay 秒後に終わる
     if (this.isHost && am.warped && !am.endSet) {
-      const present = this.latestPlayers || {}, need = pv.ids.filter(id => am.laneOf[id] != null && present[id]);
+      const need = pv.ids.filter(id => am.laneOf[id] != null && this.amidaHere(id, now)); // 通信が一瞬止まっているだけの人は、猶予の間は「いる」とみなして戦いの終わりを待つ
       if (need.every(id => am.fight[id] != null)) { // 締め切りなし：全員の戦いが終わる（＝あみだくじの前へ戻る）まで待つ
         am.endSet = true;
-        am.survivors = am.part.filter(id => am.fight[id] === true && present[id]); // 自分のモンスターに勝った人だけが生き残る
+        am.survivors = am.part.filter(id => am.fight[id] === true && this.amidaHere(id, now)); // 自分のモンスターに勝った人だけが生き残る
         if (am.survivors.length <= (this.pvpTest ? 0 : 1)) { am.nextSent = true; pv.endAt = now + A.returnStay * 1000; } // 残りが1人以下：最後の1人が勝ち（0人なら引き分け）で、returnStay 秒後に終了
         else am.nextAt = now + A.returnStay * 1000; // まだ2人以上：returnStay 秒後に次のあみだくじ
       }
@@ -5644,7 +5661,14 @@ class GameScene extends Phaser.Scene {
 
   // ===== あみだくじ：観戦ゲート =====
   // ワープのあと、スポーン部屋の右（ボックスの手前）に、戦っている人ごとのゲートが出る。戦い終わった人・ゴーストがゲートに入ると、その人の部屋の戦いを見られる。
-  // 見られる側の画面は、観戦されている間だけ、位置・HP・敵の状態を 0.1 秒ごとに送る（'astate'）。見る側は、同じ部屋に再現用の丸を出して、カメラをその部屋へ移す。
+  // 見られる側の画面は、観戦されている間だけ、部屋の敵の状態を 0.06 秒ごとに送る（'aroom'）。見る側はゴーストでその部屋へ行き、敵の実体を作って追いかける。
+  amidaHere(id, now) { // ホストだけ使う：その人が部屋にいるか（猶予つき）。観戦などで重くなって通信が止まっても、AMIDA_ABSENT_GRACE_MS の間は「いる」とみなす
+    const pv = this.pv, ab = (pv.amidaAbsent = pv.amidaAbsent || {});
+    if ((this.latestPlayers || {})[id]) { delete ab[id]; return true; }
+    if (!ab[id]) ab[id] = now;
+    return now - ab[id] < AMIDA_ABSENT_GRACE_MS;
+  }
+
   amidaFinishOf(am, uid) { return am.laneOf[uid] != null ? this.amidaPath(am, am.laneOf[uid]).finish : null; }
 
   amidaMakeGates() { // 全員：戦う人ごとのゲートを作る（ラウンドが終わると amidaClear で片づく）
@@ -5672,17 +5696,18 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  amidaSpecBar(on, text) { // 観戦中の画面：左右の真ん中に ◀ ▶（戦っている人の切り替え）、上に「あみだくじに戻る」、下に誰を見ているか
+  amidaSpecBar(on, text) { // 観戦中（ゴーストで部屋に入っている間）の画面：上に ◀ あみだくじに戻る ▶（戦っている人の切り替え）、下に誰を見ているか。スティックはそのまま使える（ゴーストなので部屋の中を自由に動ける）
     let ui = document.getElementById('amidaSpecUi');
     if (!on) { if (ui) ui.style.display = 'none'; return; }
     if (!ui) {
       ui = document.createElement('div'); ui.id = 'amidaSpecUi';
       ui.style.cssText = 'position:fixed; inset:0; z-index:128; pointer-events:none; font-family:sans-serif; color:#fff; font-weight:bold;'; // 画面全体の入れ物（ボタンの所だけ押せる）
-      const b = 'position:absolute; pointer-events:auto; border:0; border-radius:1.4vh; cursor:pointer; background:rgba(30,32,48,0.85); color:#fff; font-weight:bold; box-shadow:0 0 0 0.3vh rgba(255,255,255,0.35);';
-      ui.innerHTML = '<button id=\"amidaSpecPrev\" style=\"' + b + 'left:2vh; top:50%; transform:translateY(-50%); font-size:7vh; padding:2.2vh 2.8vh;\">◀</button>'
-        + '<button id=\"amidaSpecNext\" style=\"' + b + 'right:2vh; top:50%; transform:translateY(-50%); font-size:7vh; padding:2.2vh 2.8vh;\">▶</button>'
-        + '<button id=\"amidaSpecExit\" style=\"' + b + 'left:50%; top:2vh; transform:translateX(-50%); font-size:3.6vh; padding:1.4vh 4vh;\">あみだくじに戻る</button>'
-        + '<div id=\"amidaSpecText\" style=\"position:absolute; left:50%; bottom:3vh; transform:translateX(-50%); font-size:3vh; padding:1vh 3vh; border-radius:1.2vh; background:rgba(10,10,20,0.85); white-space:nowrap;\"></div>';
+      const b = 'pointer-events:auto; border:0; border-radius:1.4vh; cursor:pointer; background:rgba(30,32,48,0.85); color:#fff; font-weight:bold; box-shadow:0 0 0 0.3vh rgba(255,255,255,0.35);';
+      ui.innerHTML = '<div style="position:absolute; left:50%; top:2vh; transform:translateX(-50%); display:flex; gap:1.6vh; align-items:center; pointer-events:none;">'
+        + '<button id="amidaSpecPrev" style="' + b + 'font-size:4.2vh; padding:1.1vh 2.4vh;">◀</button>'
+        + '<button id="amidaSpecExit" style="' + b + 'font-size:3.4vh; padding:1.4vh 3.4vh; white-space:nowrap;">あみだくじに戻る</button>'
+        + '<button id="amidaSpecNext" style="' + b + 'font-size:4.2vh; padding:1.1vh 2.4vh;">▶</button></div>'
+        + '<div id="amidaSpecText" style="position:absolute; left:50%; bottom:3vh; transform:translateX(-50%); font-size:3vh; padding:1vh 3vh; border-radius:1.2vh; background:rgba(10,10,20,0.85); white-space:nowrap;"></div>';
       document.body.appendChild(ui);
       document.getElementById('amidaSpecPrev').onclick = () => this.amidaSpecSwitch(-1);
       document.getElementById('amidaSpecNext').onclick = () => this.amidaSpecSwitch(1);
@@ -5691,35 +5716,41 @@ class GameScene extends Phaser.Scene {
     ui.style.display = 'block'; document.getElementById('amidaSpecText').textContent = text;
   }
 
-  amidaSpecStart(uid) { // 観戦を始める：その人の部屋にカメラを移して、飾りモンスターを隠す
+  // ===== あみだくじ：観戦 =====
+  // 観戦する人は「ゴースト」になって、戦っている人の部屋へ本当に行く（ダンジョンのゴーストと同じ：壁をすり抜けて動ける・攻撃も被弾もない）。
+  // 戦っている人の画面は今までどおり本人だけで動かし（遅れなく戦える）、部屋の敵の状態を、ダンジョンのホストが参加側へ配信するのと同じ形のスナップショット（'aroom'）にして、
+  // 見られている間だけ見ている人へ送る。見る側は、ダンジョンの参加側と同じ処理（syncEnemyMirrors）で敵の実体を作って追いかける。
+  // 敵の弾はダンジョンと同じ敵弾の配信（sendEnemyShot）をそのまま使い、一瞬で終わる演出だけ 'aev' で送る。
+  amidaSpecStart(uid) {
     const pv = this.pv, am = pv && pv.amida; if (!am || am.spec) return;
     const fin = this.amidaFinishOf(am, uid); if (fin == null) return;
-    am.spec = { uid, fin, pool: [], tgt: null, watchAt: 0 };
+    am.spec = { uid, fin, watchAt: 0, seq: 0 };
     this.amidaEnsureArmTex(); // 天使の腕の画像を先に読み込んでおく
     this.amidaOpenRoom(fin); // その部屋の床をここで作る（見ている間だけ必要）
-    this._specHid = []; // 観戦中は左右のスティックを隠す（◀ ▶ のボタンと重なるし、体は動かさないので）
-    for (const id of ['joystickZone', 'aimJoystickZone']) { const el = document.getElementById(id); if (el && el.style.display !== 'none') { this._specHid.push([el, el.style.display]); el.style.display = 'none'; } }
-    am.specRoom = this.amidaRoom(fin); this._amidaSpec = true; // 観戦中は体を動かさない
+    am.specGhosted = !this.isGhost; // 生きている人は観戦の間だけゴーストになる（やられた人は元からゴースト）
+    if (am.specGhosted) this.pvpSetSpectator(true);
+    this._amidaMirOn = true; this._enemySnapshot = {}; this._enemySnapshotSeen = true; this._gSnake = {}; // ここから届く敵の状態を、ダンジョンの参加側と同じ扱いで映す
+    const R = this.amidaRoom(fin); am.specRoom = R; this._amidaSpec = true;
+    this.player.x = (R.tx + 6) * TILE; this.player.y = R.cy; // 部屋の左寄り（戦っている人が出るのと同じ場所）
+    if (this.facing) { this.facing.x = this.player.x; this.facing.y = this.player.y; }
+    this.cameras.main.centerOn(this.player.x, this.player.y);
     this.cameras.main.flash(200, 0, 0, 0);
     this.amidaSpecBar(true, '👁 観戦中：' + clipName((pv.info[uid] || {}).name || '?', 8) + '（' + (ENEMY_JP_NAMES[am.mons[fin % am.mons.length]] || '') + '）');
   }
 
-  amidaSpecStop() { // 観戦をやめて、あみだくじの部屋へ戻る（再生用の丸を消して、ゲートの手前に立つ）
+  amidaSpecStop() { // 観戦をやめて、あみだくじの部屋のゲートの手前へ戻る（映していた敵を消して、観戦のためにゴーストになった人は元に戻る）
     const pv = this.pv, am = pv && pv.amida;
-    this._amidaSpec = false; this.amidaSpecBar(false);
-    for (const [el, d] of this._specHid || []) el.style.display = d; // 隠していたスティックを戻す
-    this._specHid = [];
+    this._amidaSpec = false; this.amidaSpecBar(false); try { this.a4SpecCleanup(); } catch (err) { /* 天使の演出が無ければ何もない */ }
+    if (this._amidaMirOn) this.amidaDropMirrors(am && am.specRoom);
     if (!am || !am.spec) return;
-    for (const e of am.spec.pool) for (const o of [e.c, e.b]) { try { o.destroy(); } catch (err) { /* 破棄済み */ } }
-    for (const q of am.spec.fx || []) { try { q.o.destroy(); } catch (err) { /* 破棄済み */ } }
-    if (am.spec.pj) for (const q of am.spec.pj.values()) { try { q.o.destroy(); } catch (err) { /* 破棄済み */ } }
     const gt = (am.gates || []).find(q => q.uid === am.spec.uid);
     if (gt) { this.player.x = gt.x - 2 * TILE; this.player.y = gt.y; }
-    am.spec = null; am.specRoom = null; am.specCam = null; am.specCool = performance.now() + 1500; // すぐ同じゲートにもう一度入らないように
+    if (am.specGhosted) { am.specGhosted = false; this.pvpSetSpectator(false); }
+    am.spec = null; am.specRoom = null; am.specCool = performance.now() + 1500; // すぐ同じゲートにもう一度入らないように
     this.cameras.main.flash(200, 0, 0, 0);
   }
 
-  amidaSpecSwitch(dir) { // いま戦っている別の人の観戦へ切り替える（いなければ戻る）
+  amidaSpecSwitch(dir) { // いま戦っている別の人の観戦へ切り替える（いなければそのまま）
     const pv = this.pv, am = pv && pv.amida; if (!am || !am.spec) return;
     const my = this.net.uid, list = (am.gates || []).filter(q => am.fight[q.uid] == null && q.uid !== my).map(q => q.uid);
     const k = list.indexOf(am.spec.uid), next = list.length ? list[(k + dir + list.length * 2) % list.length] : null;
@@ -5727,39 +5758,98 @@ class GameScene extends Phaser.Scene {
     this.amidaSpecStop(); am.specCool = 0; this.amidaSpecStart(next);
   }
 
-  amidaSendState(am) { // 戦っている自分の部屋の様子（自分・敵）を観戦している人へ送る
-    // ウロボロス：胴体は頭の通った道をなぞるだけなので、胴体の位置は送らない（頭だけ位置を送り、観戦側が自分の画面で胴体を並べる）。
-    // 振り回し中だけは胴体の位置も送る。観戦を始めた直後の数回も、並びを合わせるために胴体の位置を送る（am.fullSend）。
-    const whirlG = new Set(); for (const o of this.enemies || []) if (o.whirl && o.hp > 0 && o.bossGroupId != null) whirlG.add(String(o.bossGroupId));
-    const forceFull = (am.fullSend || 0) > 0; if (forceFull) am.fullSend--;
-    const es = (this.enemies || []).filter(e => !e._removed && e.hp > 0 && e.gfx && e.gfx.scene && this.amidaInMyRoom(e.gfx.x, e.gfx.y)).slice(0, 40)
-      .map(e => { const t = e.type, isSn = !!(t && t.snake && e.snakeIdx != null && e.bossGroupId != null), fol = isSn && !forceFull && !!t.snakeBody && !whirlG.has(String(e.bossGroupId)) && !!this.snakeLeader(e); return [fol ? 0 : Math.round(e.gfx.x), fol ? 0 : Math.round(e.gfx.y), Math.round(e.gfx.radius || 10), e.gfx.fillColor || 0xffffff, Math.round(100 * Math.max(0, Math.min(1, e.maxHp > 0 ? e.hp / e.maxHp : 1))), Math.round(100 * (e.gfx.alpha == null ? 1 : e.gfx.alpha)), (e.type && (e.type.isBoss || e.type.key === 'simahar')) ? 1 : 0, e.gfx.isStroked ? Math.round(10 * (e.gfx.lineWidth || 0)) / 10 : 0, e.gfx.strokeColor || 0, Math.round(100 * (e.gfx.strokeAlpha == null ? 1 : e.gfx.strokeAlpha)), Math.round(100 * (e.gfx.scaleX || 1)), isSn ? [e.bossGroupId, e.snakeIdx, fol ? 1 : 0] : 0, e._aid || (e._aid = (am.aidN = (am.aidN || 0) + 1))]; }); // 最後から2番目：ウロボロスだけ [グループID, 先頭からの番号, 1＝位置を送らない胴体]／最後：敵ごとの通し番号（観戦側が同じ敵を追い続けるため） // 最後の要素：ウロボロスだけ [グループID, 先頭からの番号, 1＝位置を送らない胴体]
-    const nowW = performance.now(), to = Object.keys(am.watchers || {}).filter(u => nowW - am.watchers[u] < 3000); // 見ている人にだけ送る
-    const pkt = { a: 'astate', s: (am.stSeq = (am.stSeq || 0) + 1), u: this.net.uid, c: this.playerColor, p: [Math.round(this.player.x), Math.round(this.player.y), Math.round(this.player.radius || 14), Math.round(100 * Math.max(0, Math.min(1, this.playerMaxHp > 0 ? this.playerHp / this.playerMaxHp : 1))), Math.round(1000 * (this.facing ? this.facing.rotation : 0)) / 1000], e: es, f: this.amidaCollectFx(am) };
-    if (NET_DEBUG_LOG) this._netLogMaxAstateBytes = Math.max(this._netLogMaxAstateBytes || 0, JSON.stringify(pkt).length); // 調査用：観戦の状態パケットの大きさ（NET_DEBUG_LOG を true にすると、右下のログに出る）
-    this.net.sendPvpFast(pkt, to.length ? to : null); // 順序保証なし・再送なしで送る（s＝通し番号。古い物が後から届いても捨てる）
-    // 単発の知らせ（弾ける粒・爆発・浮かぶ文字・敵の弾の誕生と消滅）は、取りこぼすと困るので、順序保証ありの確実なチャンネルで、見ている人にだけ送る
-    const ev = this.amidaTakeFxEv(am), pd = this.amidaProjDelta(am);
-    if (to.length && (ev || pd.pj.length || pd.pk.length)) {
-      const evp = { a: 'aev', u: this.net.uid };
-      if (ev) evp.v = ev; if (pd.pj.length) evp.pj = pd.pj; if (pd.pk.length) evp.pk = pd.pk;
-      this.net.sendPvpTo(evp, to);
+  amidaInRoom(R, x, y) { return !!R && x >= (R.tx - 2) * TILE && x <= (R.tx + R.w + 2) * TILE && y >= (R.ty - 2) * TILE && y <= (R.ty + R.h + 2) * TILE; } // 部屋（と、そのまわり2タイル）の中か
+
+  amidaDropMirrors(R) { // 観戦のために映していた敵と弾を片付ける
+    const kill = o => { try { if (o && o.destroy) o.destroy(); } catch (err) { /* 既に破棄済み */ } };
+    let any = false;
+    for (const e of this.enemies || []) {
+      if (!e._amidaMir) continue;
+      any = true;
+      try { this.cleanupSimaharGuestFx(e); } catch (err) { /* シマハルでなければ何もない */ }
+      if (e.gfx) this.tweens.killTweensOf(e.gfx);
+      e.hp = 0; e._removed = true;
+      kill(e.gfx); kill(e.hpBar); kill(e.label); kill(e._doomText);
+      delete this.enemyById[e.id];
     }
+    if (any) this.enemies = this.enemies.filter(e => !e._removed);
+    this._amidaMirOn = false; this._enemySnapshot = {}; this._enemySnapshotSeen = false; this._gSnake = {};
+    this.enemyProjectiles = (this.enemyProjectiles || []).filter(pr => { if (!R || (pr && pr.gfx && this.amidaInRoom(R, pr.gfx.x, pr.gfx.y))) { kill(pr && pr.gfx); return false; } return true; });
   }
 
-  amidaOnState(m) { // 観戦中：見ている人の状態が届いた
-    const am = this.pv && this.pv.amida;
-    const sp = am && am.spec; if (!sp || !m || m.u !== sp.uid) return;
+  amidaSendRoom(am) { // 戦っている側：自分の部屋の敵を、ダンジョンのホストが配信するのと同じ形（buildEnemyEntry）にして、見ている人にだけ送る
+    const nowW = performance.now(), to = Object.keys(am.watchers || {}).filter(u => nowW - am.watchers[u] < 3000);
+    if (!to.length) { am.fxEv = []; return; }
+    const whirlG = new Set(); for (const o of this.enemies || []) if (o.whirl && o.hp > 0 && o.bossGroupId != null) whirlG.add(String(o.bossGroupId));
+    const forceFull = (am.fullSend || 0) > 0; if (forceFull) am.fullSend--; // 見始めた直後の数回は、全体を送る（ウロボロスの胴体の位置もそのまま送って、並びを合わせる）
+    const last = am.roomPrev, prev = forceFull ? null : last, snap = {};
+    let n = 0;
+    for (const e of this.enemies || []) {
+      if (e._removed || !(e.hp > 0) || !e.gfx || !e.gfx.scene || !this.amidaInMyRoom(e.gfx.x, e.gfx.y)) continue;
+      if (++n > 40) break;
+      snap[e.id] = this.buildEnemyEntry(e, prev, whirlG);
+    }
+    am.roomPrev = snap;
+    // ダンジョンの配信（publishEnemySnapshot / Net.publishEnemies）と同じ考え方：ふだんは変わった項目だけの差分を送り、
+    // 全体は「見始めた直後」と「ENEMY_FULL_INTERVAL_MS ごと」に送る（state は取りこぼすので、全体が差分のズレを直す）。何も変わらなければ送らない。
+    const sendFull = forceFull || !last || !am.roomFullAt || nowW - am.roomFullAt >= ENEMY_FULL_INTERVAL_MS;
+    const out = {}; let any = false;
+    if (sendFull) {
+      am.roomFullAt = nowW; any = true;
+      for (const id in snap) out[id] = encodeEnemyEntry(snap[id]);
+    } else {
+      for (const id in snap) {
+        const en = snap[id], p = last[id];
+        if (!p) { out[id] = encodeEnemyEntry(en); any = true; continue; } // 出現直後の敵は、全項目を送る（受け取る側が実体を作れるように）
+        let fd = null;
+        for (const k in en) if (p[k] !== en[k]) (fd || (fd = {}))[k] = en[k];
+        for (const k in p) if (!(k in en)) (fd || (fd = {}))[k] = null; // 無くなった項目は null で削除を伝える
+        if (fd) { out[id] = encodeEnemyEntry(fd); any = true; }
+      }
+      for (const id in last) if (!snap[id]) { out[id] = null; any = true; } // 消えた敵
+    }
+    // 味方（降魔術の天使・エンジェルヘイローの天使など）：あみだくじの部屋はダンジョンの Firebase の配信（allies）に頼らず、部屋の状態に載せて見ている人へ送る。変わった時と全体の時だけ（0＝いなくなった）
+    const alp = this.buildAlliesPayload(), alJ = alp ? JSON.stringify(alp) : '';
+    let alSend = false;
+    if (sendFull || alJ !== am.alPrev) { am.alPrev = alJ; alSend = true; any = true; }
+    if (any) {
+      const msg = { a: 'aroom', s: (am.stSeq = (am.stSeq || 0) + 1), u: this.net.uid, e: out, f: sendFull ? 1 : 0 };
+      if (alSend) msg.al = alp || 0;
+      this.net.sendPvpFast(msg, to); // 順序保証なし・再送なし（s＝通し番号で古い物は捨てる／f＝全体）
+    }
+    const ev = this.amidaTakeFxEv(am);
+    if (ev) this.net.sendPvpTo({ a: 'aev', u: this.net.uid, v: ev }, to); // 単発の演出は、取りこぼさないよう確実なチャンネルで
+  }
+
+  amidaOnRoom(m) { // 観戦中：見ている人の部屋の敵の状態が届いた（全体なら置き換え、差分なら項目ごとに重ねる。ダンジョンの参加側の Net._onMessageFromHost と同じ）
+    const am = this.pv && this.pv.amida, sp = am && am.spec;
+    if (!sp || !m || m.u !== sp.uid || !m.e) return;
     if (m.s != null) { if (m.s <= (sp.seq || 0)) return; sp.seq = m.s; } // 順序が入れ替わって届いた古い状態は捨てる
-    m._rx = performance.now(); // 届いた時刻（観戦側の先読みに使う）
-    sp.tgt = m;
+    if (m.al !== undefined) sp.allies = Array.isArray(m.al) ? m.al : (m.al ? Object.values(m.al) : []); // 戦っている人の味方（天使の本体など）：renderRemoteAllies が他のプレイヤーの味方と同じ形で表示する
+    let mirror;
+    if (m.f) { // 全体：丸ごと置き換える（差分の取りこぼしがあってもここで直る）
+      mirror = {}; for (const id in m.e) mirror[id] = decodeEnemyEntry(m.e[id]);
+    } else { // 差分：null は「消えた敵」または「消えた項目」
+      mirror = Object.assign({}, sp.mirror || {});
+      for (const id in m.e) {
+        const v = m.e[id];
+        if (v === null) { delete mirror[id]; continue; }
+        const d = decodeEnemyEntry(v), old = mirror[id];
+        if (!old && d.type === undefined) continue; // 出現時の配信を取りこぼした敵：次の全体を待つ
+        const merged = Object.assign({}, old || {});
+        for (const k in d) { if (d[k] === null) delete merged[k]; else merged[k] = d[k]; }
+        mirror[id] = merged;
+      }
+    }
+    sp.mirror = mirror;
+    this._enemySnapshot = mirror; this._enemySnapshotSeen = true;
+    this.syncEnemyMirrors();
   }
 
-  amidaOnEvents(m) { // 観戦中：単発の知らせが届いた（確実なチャンネルなので、順番どおり・取りこぼしなしで届く）
+  amidaOnEvents(m) { // 観戦中：単発の演出の知らせが届いた（確実なチャンネルなので、順番どおり・取りこぼしなしで届く）
     const am = this.pv && this.pv.amida;
     const sp = am && am.spec; if (!sp || !m || m.u !== sp.uid) return;
-    this.amidaSpecProjAdd(sp, m); // 敵の弾の誕生・消滅
-    this.amidaSpecReplayFx(m.v); // 弾ける粒・爆発の粒・浮かぶ文字は、知らせを受けて自分の画面で出す
+    this.amidaSpecReplayFx(m.v); // 弾ける粒・爆発の粒・浮かぶ文字・天使の演出は、知らせを受けて自分の画面で出す
   }
 
   amidaOnWatch(m) { // 戦っている側：誰かが自分を見ている（数秒の間、状態を送る）
@@ -5770,11 +5860,14 @@ class GameScene extends Phaser.Scene {
   // ----- 観戦：一瞬で終わる演出（弾ける粒・爆発の粒・浮かぶ文字）は、図形を毎回送らず「いつ・どこで・何が起きたか」だけを送る -----
   amidaFxRec(ev) { // 戦っている側：自分の部屋で、誰かに見られている間だけ、演出の知らせをためる
     const am = this.pv && this.pv.amida;
-    if (!am || !am.fighting || am.fightDone || this._fxReplay || !am.myRoom) return;
+    if (!am || !am.fighting || am.fightDone || this._fxReplay || this._fxNoRec || !am.myRoom) return;
     if (performance.now() - (am.watchedAt || -1e9) > 3000) return; // 見られていない間は何もためない
     if (!this.amidaInMyRoom(ev[1], ev[2])) return;
-    const q = am.fxEv || (am.fxEv = []); if (q.length < 40) q.push(ev);
+    const q = am.fxEv || (am.fxEv = []); if (q.length < (ev[0] >= 12 ? 160 : 40)) q.push(ev); // 天使の弾は一度にたくさん出るので、多めにためる
   }
+  // 観戦への演出の記録だけを止めて fn を実行する。敵の自爆・爆弾・シマハルの爆発は、観戦者へ 'eshot'（敵弾の配信）で届き、観戦者の画面で爆発が再現されるので、
+  // 'aev' でも送ると粒・衝撃波が二重に出る。ここでは記録（amidaFxRec）だけを止める（画面の揺れなど、本人の画面の演出は _fxReplay と違って止めない）。
+  amidaNoRec(fn) { const r0 = this._fxNoRec; this._fxNoRec = true; try { fn(); } finally { this._fxNoRec = r0; } }
   amidaTakeFxEv(am) { const q = am.fxEv; am.fxEv = []; return q && q.length ? q : 0; } // ためた知らせを渡して空にする（なければ 0）
   amidaSpecReplayFx(list) { // 観戦中：届いた知らせの通りに、自分の画面で演出を出す（粒の動きは乱数なので、見た目は少し違ってよい）
     if (!list || !list.length) return;
@@ -5793,6 +5886,15 @@ class GameScene extends Phaser.Scene {
         else if (ev[0] === 9) this.arms4Blood(ev[1], ev[2], ev[3]);
         else if (ev[0] === 10) this.arms4LandDust(ev[1], ev[2]);
         else if (ev[0] === 11) this.amidaSpecA4(ev); // 天使の演出（ヘイロー・降魔術）
+        else if (ev[0] === 12) this.amidaSpecA4Shot(ev); // 敵の天使の弾
+        else if (ev[0] === 13) this.amidaSpecA4Beam(ev); // 敵の天使のビーム
+        else if (ev[0] === 14) this.amidaSpecA4Wall(ev); // 敵の天使の壁から生える腕
+        else if (ev[0] === 15) this.amidaSpecA4Orb(ev); // 敵の天使の手の光の玉
+        else if (ev[0] === 16) this.a4Bomb(ev[1], ev[2], ev[3], ev[4], 0, true); // 敵の天使の床の爆発
+        else if (ev[0] === 17) this.a4Wave(ev[1], ev[2], { speed: ev[3], gapAng: ev[4], gapW: ev[5], maxR: ev[6] || undefined, spec: true }); // 敵の天使の衝撃波
+        else if (ev[0] === 18) this.amidaSpecA4Palm(ev); // 敵の天使の巨大な手のひら
+        else if (ev[0] === 19) this.amidaSpecA4BigOrb(ev); // 敵の天使の大きな光球（闇・光・土星・黒星・波動弾）が出る
+        else if (ev[0] === 20) this.amidaSpecA4BigOrbRel(ev); // その光球を放つ
       }
     } catch (err) { /* 演出に失敗しても観戦は続ける */ }
     this._fxReplay = false;
@@ -5800,184 +5902,13 @@ class GameScene extends Phaser.Scene {
 
   // ----- 観戦：敵の弾（まっすぐ飛ぶ）は、毎回位置を送らず、生まれた時の位置・速度と、消えた時の番号だけ送る -----
   // 戦っている側：自分の部屋の弾に番号を付け、生まれた弾と消えた弾の番号を、確実なチャンネル（aev）で1回だけ送る。
-  amidaProjDelta(am) {
-    const st = am.pjSt || (am.pjSt = { n: 0, live: new Set(), kq: [] });
-    const alive = new Set(), pj = [], rd = v => Math.round(v * 100) / 100, resend = !!am.pjResend; am.pjResend = false; // resend：新しい人が見始めた（すでに送った弾も、もう一度送る）
-    for (const p of this.enemyProjectiles || []) {
-      if (!p || !p.gfx || !p.gfx.scene || !this.amidaInMyRoom(p.gfx.x, p.gfx.y)) continue;
-      if (!p.pid) { p.pid = ++st.n; p.pjN = 0; p.gfx._nofx = true; st.live.add(p.pid); } // 番号を付けた弾は、図形まとめ（amidaCollectFx）の対象外にする
-      alive.add(p.pid);
-      if ((p.pjN < 1 || resend) && pj.length < 40) { p.pjN = 1; pj.push([p.pid, Math.round(p.gfx.x), Math.round(p.gfx.y), Math.round(p.vx), Math.round(p.vy), rd(p.gfx.radius || 5), p.gfx.fillColor || 0xff5b5b, rd(Math.max(0, p.life))]); }
-    }
-    for (const id of st.live) if (!alive.has(id)) { st.live.delete(id); st.kq.push([id, 1]); } // 当たった・斬られた・壁に当たった・時間切れ
-    const pk = []; st.kq = st.kq.filter(q => { pk.push(q[0]); return --q[1] > 0; });
-    return { pj, pk };
-  }
-  amidaSpecProjAdd(sp, m) { // 観戦中：生まれた弾を作り、消えた弾を消す
-    if (!m || (!m.pj && !m.pk)) return;
-    const P = sp.pj || (sp.pj = new Map()), dead = sp.pjDead || (sp.pjDead = new Set());
-    for (const q of m.pj || []) {
-      if (P.has(q[0]) || dead.has(q[0])) continue;
-      P.set(q[0], { o: this.add.circle(q[1], q[2], q[5], q[6]).setDepth(6), vx: q[3], vy: q[4], life: q[7] });
-    }
-    for (const id of m.pk || []) { dead.add(id); const q = P.get(id); if (q) { try { q.o.destroy(); } catch (err) { /* 破棄済み */ } P.delete(id); } }
-  }
-  amidaSpecProjStep(sp, dt) { // 観戦中：弾を、戦っている側と同じ速さでまっすぐ動かす（壁・寿命で消える）
-    const P = sp.pj; if (!P || !P.size) return;
-    for (const [id, q] of P) {
-      q.o.x += q.vx * dt; q.o.y += q.vy * dt; q.life -= dt;
-      let gone = q.life <= 0 || this.isWall(q.o.x, q.o.y);
-      if (!gone) { // 戦っている人（観戦側の再現アバター）に当たった弾も消す（戦っている側からの「消えた」知らせを待たずに）
-        const rp = this.remotePlayers && this.remotePlayers[sp.uid];
-        if (rp && rp.gfx && rp.gfx.scene && rp.gfx.visible && Math.hypot(q.o.x - rp.gfx.x, q.o.y - rp.gfx.y) < (rp.gfx.radius || 10) + (q.o.radius || 5)) { gone = true; this.spawnBurst(q.o.x, q.o.y, 0xff5b5b, 3); }
-      }
-      if (gone) { try { q.o.destroy(); } catch (err) { /* 破棄済み */ } P.delete(id); }
-    }
-  }
 
-  amidaCollectFx(am) { // 戦っている側：自分の部屋で戦闘開始後に増えた「弾・ビーム・爆発・床の攻撃」などの描画を、観戦用に軽くまとめる（敵本体・HP棒・文字・画面固定のUIは除く）
-    const R = am.myRoom, base = am.fxBase; if (!R || !base) return [];
-    const skip = new Set(); for (const e of this.enemies || []) for (const o of [e.gfx, e.hpBar]) if (o) skip.add(o);
-    const x0 = (R.tx - 3) * TILE, x1 = (R.tx + R.w + 3) * TILE, y0 = (R.ty - 3) * TILE, y1 = (R.ty + R.h + 3) * TILE, rd = v => Math.round(v * 10) / 10;
-    const gs = [], ss = [], ts = [], is = [];
-    for (const o of (this.children && this.children.list) || []) {
-      if (!o || !o.scene || !o.visible || o._nofx || (base.has(o) && o !== this._glowG) || skip.has(o) || o.scrollFactorX === 0 || !(o.alpha > 0.02) || !(o.depth < 20)) continue;
-      const ty = o.type, bm = o.blendMode || 0, d = rd(o.depth || 0);
-      if (ty === 'Text') { const tx = o.text; if (!tx || tx.length > 24 || o.x < x0 || o.x > x1 || o.y < y0 || o.y > y1) continue; ts.push([4, rd(o.x), rd(o.y), tx, o.style ? (parseInt(o.style.fontSize) || 14) : 14, (o.style && o.style.color) || '#ffffff', rd(o.alpha), d, rd(o.originX), rd(o.originY)]); continue; }
-      if (ty === 'Image' || ty === 'Sprite') { const tk = o.texture && o.texture.key; if (!tk || tk[0] === '_' || o.x < x0 || o.x > x1 || o.y < y0 || o.y > y1) continue; is.push([5, rd(o.x), rd(o.y), tk, rd(o.rotation || 0), rd(o.scaleX), rd(o.scaleY), rd(o.originX), rd(o.originY), rd(o.alpha), d]); continue; } // 腕の画像など
-      if (ty === 'Graphics') { const cb = o.commandBuffer; if (!cb || !cb.length || cb.length > 500) continue; gs.push([3, rd(o.x), rd(o.y), rd(o.rotation || 0), rd(o.alpha), d, bm, rd(o.scaleX), cb.map(rd)]); continue; }
-      if (o.x < x0 || o.x > x1 || o.y < y0 || o.y > y1) continue;
-      const st = o.isStroked ? 1 : 0, fa = o.isFilled === false ? 0 : rd(o.fillAlpha == null ? 1 : o.fillAlpha);
-      if (ty === 'Arc') ss.push([0, rd(o.x), rd(o.y), rd(o.radius), o.fillColor || 0, fa, st ? rd(o.lineWidth) : 0, o.strokeColor || 0, st ? rd(o.strokeAlpha) : 0, rd(o.alpha), d, bm, rd(o.scaleX)]);
-      else if (ty === 'Rectangle' || ty === 'Ellipse') ss.push([ty === 'Rectangle' ? 1 : 2, rd(o.x), rd(o.y), rd(o.width), rd(o.height), rd(o.rotation || 0), o.fillColor || 0, fa, st ? rd(o.lineWidth) : 0, o.strokeColor || 0, st ? rd(o.strokeAlpha) : 0, rd(o.alpha), d, bm, rd(o.scaleX)]);
-    }
-    ss.sort((a, b) => (b[0] === 0 ? b[3] : Math.max(b[3], b[4]) / 2) - (a[0] === 0 ? a[3] : Math.max(a[3], a[4]) / 2)); // 大きい物（ビーム・爆発の光）を優先、小さな火花は後回し
-    let budget = 1500; const out = [];
-    for (const q of gs) { if (out.length >= 30 || q[8].length > budget) continue; budget -= q[8].length; out.push(q); }
-    for (const q of is.slice(0, 12)) out.push(q);
-    for (const q of ts.slice(0, 20)) out.push(q);
-    for (const q of ss) { if (out.length >= 110) break; out.push(q); }
-    return out;
-  }
-
-  amidaSpecFx(sp, list) { // 観戦中：戦っている側から届いた演出（ビーム・爆発・弾など）を同じ場所に再現する
-    sp.fx = sp.fx || []; list = list || [];
-    const kill = q => { try { q.o.destroy(); } catch (err) { /* 破棄済み */ } };
-    while (sp.fx.length > list.length) { const q = sp.fx.pop(); kill(q); }
-    list.forEach((it, i) => {
-      const k = it[0]; let q = sp.fx[i];
-      if (q && (q.k !== k || (k === 5 && q.key !== it[3]))) { kill(q); q = null; }
-      if (!q) { const o = k === 5 ? this.add.image(0, 0, this.textures.exists(it[3]) ? it[3] : '__DEFAULT') : k === 4 ? this.add.text(0, 0, '', { fontFamily: 'sans-serif' }) : k === 3 ? this.add.graphics() : (k === 0 ? this.add.circle(0, 0, 1, 0xffffff) : k === 1 ? this.add.rectangle(0, 0, 1, 1, 0xffffff) : this.add.ellipse(0, 0, 1, 1, 0xffffff)); q = sp.fx[i] = { k, o, key: k === 5 ? it[3] : null }; }
-      const o = q.o; o.setVisible(true);
-      if (k === 5) { if (!this.textures.exists(it[3])) { this.amidaEnsureArmTex(); o.setVisible(false); return; } if (o.texture.key !== it[3]) o.setTexture(it[3]); o.setPosition(it[1], it[2]).setOrigin(it[7], it[8]).setRotation(it[4]).setScale(it[5], it[6]).setAlpha(it[9]).setDepth(it[10]); return; }
-      if (k === 4) { o.setText(it[3]).setFontSize(it[4]).setColor(it[5]).setOrigin(it[8], it[9]).setPosition(it[1], it[2]).setAlpha(it[6]).setDepth(it[7]); return; }
-      if (k === 3) { o.setPosition(it[1], it[2]).setRotation(it[3]).setAlpha(it[4]).setDepth(it[5]).setBlendMode(it[6]).setScale(it[7] || 1); o.commandBuffer = it[8].slice(); return; }
-      if (k === 0) { o.setPosition(it[1], it[2]).setRadius(it[3]).setFillStyle(it[4], it[5]).setAlpha(it[9]).setDepth(it[10]).setBlendMode(it[11]).setScale(it[12] || 1); if (it[6] > 0) o.setStrokeStyle(it[6], it[7], it[8]); else o.setStrokeStyle(); return; }
-      o.setPosition(it[1], it[2]).setSize(it[3], it[4]).setRotation(it[5]).setFillStyle(it[6], it[7]).setAlpha(it[11]).setDepth(it[12]).setBlendMode(it[13]).setScale(it[14] || 1);
-      if (it[8] > 0) o.setStrokeStyle(it[8], it[9], it[10]); else o.setStrokeStyle();
-    });
-  }
-
-  amidaSpecUpdate(am, now) { // 観戦中：見ていると知らせ続ける／届いた状態に丸を合わせる（なめらかに追いかける）
+  amidaSpecUpdate(am, now) { // 観戦中：見ていると知らせ続ける／部屋の外へ出ない
     const sp = am.spec; if (!sp) return;
     if (am.fight[sp.uid] != null) { this.showBanner('この戦いは終わりました', 1500); this.amidaSpecStop(); return; }
-    if (now - sp.watchAt > 800) { sp.watchAt = now; this.net.sendPvp({ a: 'awatch', t: sp.uid, u: this.net.uid }); }
-    const dtP = Math.min(0.1, Math.max(0, (now - (sp.pjT || now)) / 1000)); sp.pjT = now; this.amidaSpecProjStep(sp, dtP); // 敵の弾は、まっすぐ飛ぶので観戦側で動かす
-    const m = sp.tgt; if (!m) return;
-    const items = (m.e || []).map(q => ({ x: q[0], y: q[1], r: q[2], col: q[3], hp: q[4], al: q[5], boss: q[6], me: 0, lw: q[7], sc: q[8], sa: q[9], sk: q[10], sn: q[11] || null, aid: q[12] }));
-    // 1) 敵ごとの通し番号（aid）で同じ丸を使い続ける（途中で敵が倒れて並びが変わっても、別の敵の位置へ滑らない）。
-    //    位置が届いた丸（頭・通常の敵・振り回し中の胴体）は、協力プレイの敵と同じく、前回からの動きで先読み（最大0.1秒）してから、時間で決まる速さでなめらかに近づける。
-    //    ウロボロスの胴体（位置なし）はあとで並べる
-    const PM = sp.pm || (sp.pm = new Map()), isNew = sp.pkSeen !== m.s; sp.pkSeen = m.s;
-    const wc = {}; for (const it of items) if (it.sn && !it.sn[2]) wc[it.sn[0]] = (wc[it.sn[0]] || 0) + 1; // 位置つきの個体が2体以上いるウロボロス＝振り回し中
-    const kS = expSmooth(dtP, 0.05); // フレームレートに依存しない近づき方（協力プレイの敵・他プレイヤーと同じ）
-    for (const e of sp.pool) e.it = null;
-    items.forEach((it, i) => {
-      const key = it.aid != null ? it.aid : 'i' + i;
-      let e = PM.get(key);
-      if (!e) {
-        const c = this.add.circle(0, 0, 10, 0xffffff).setDepth(4), b = this.add.rectangle(0, 0, 10, 4, 0xff5b5b).setOrigin(0, 0.5).setDepth(4.1); // 左端を基準にして、HPが減ると右から縮む（通常の敵のHPバーと同じ見た目）
-        e = { c, b, x: null, y: null, vx: 0, vy: 0, lx: 0, ly: 0, rx: 0, key }; PM.set(key, e); sp.pool.push(e);
-      }
-      e.it = it; e.fp = true; e.seen = now;
-      if (it.sn && it.sn[2]) { e.fp = false; e.x = null; return; } // 位置なしの胴体：あとで並べる
-      if (e.x == null) { e.x = it.x; e.y = it.y; e.lx = it.x; e.ly = it.y; e.rx = m._rx; e.vx = 0; e.vy = 0; return; }
-      if (isNew) { // 新しい状態が届いた瞬間だけ、速度を見直す
-        const dr = (m._rx - e.rx) / 1000;
-        if (it.x !== e.lx || it.y !== e.ly) {
-          const whirl = it.sn && wc[it.sn[0]] > 1; // 振り回し中は円を描くので先読みしない（外へ行き過ぎる）
-          if (!whirl && dr > 0.02 && dr < 0.3) { e.vx = (it.x - e.lx) / dr; e.vy = (it.y - e.ly) / dr; const sp2 = Math.hypot(e.vx, e.vy); if (sp2 > 700) { e.vx *= 700 / sp2; e.vy *= 700 / sp2; } }
-          else { e.vx = 0; e.vy = 0; }
-          e.lx = it.x; e.ly = it.y; e.rx = m._rx;
-        } else if (dr > 0.12) { e.vx = 0; e.vy = 0; } // 動きがなくなった（止まった）
-      }
-      const el = Math.min(0.1, Math.max(0, (now - e.rx) / 1000)), px = it.x + e.vx * el, py = it.y + e.vy * el;
-      if (Math.hypot(px - e.x, py - e.y) > 150) { e.x = px; e.y = py; } // 瞬間移動：滑らずに移す
-      else { e.x += (px - e.x) * kS; e.y += (py - e.y) * kS; }
-    });
-    for (const e of sp.pool.slice()) { // しばらく出てこなかった丸（倒された敵）は片づける
-      if (e.it || now - (e.seen || 0) < 1500) continue;
-      try { e.c.destroy(); e.b.destroy(); } catch (err) { /* 破棄済み */ }
-      PM.delete(e.key); sp.pool.splice(sp.pool.indexOf(e), 1);
-    }
-    // 2) ウロボロスの胴体：頭の通った道（軌跡）の上に、頭から数えた番号×間隔の位置で並べる（協力プレイの参加側と同じやり方）
-    this.amidaSpecSnake(sp);
-    // 3) 描画
-    sp.pool.forEach(e => {
-      if (e.hold && e.hold._a4Held) return; // 天使に掴まれている間は、演出が位置と見た目を決める
-      if (e.hideUntil && now < e.hideUntil) { e.c.setVisible(false); e.b.setVisible(false); return; } // 握りつぶされた丸
-      const it = e.it, vis = !!it && e.fp && e.x != null; e.c.setVisible(vis); e.b.setVisible(vis); if (!vis) return;
-      e.c.setPosition(e.x, e.y).setRadius(it.r).setFillStyle(it.col, it.al / 100);
-      if (it.lw != null) { if (it.lw > 0) e.c.setStrokeStyle(it.lw, it.sc, it.sa / 100); else e.c.setStrokeStyle(); } else e.c.setStrokeStyle(it.boss ? 3 : 2, it.boss ? 0xffd54c : 0x000000, it.boss ? 0.9 : 0.3); // 縁取りは戦っている側の実際の値
-      e.c.setScale(it.sk != null ? it.sk / 100 : 1);
-      e.b.setPosition(e.x - it.r, e.y - it.r - 8).setSize(Math.max(1, it.r * 2 * it.hp / 100), 4); // 左端＝敵の左端（バーの全長は直径）
-    });
-    // 戦っている本人の丸・HPバー・向きの棒は出さない（本物のアバターがすでに出ている）。ここでは敵と演出だけ再現する
-    this.amidaSpecFx(sp, m.f);
-  }
-
-  amidaSpecSnake(sp) { // 観戦中：ウロボロスの胴体を、頭（先頭）の通った道の上に並べる。振り回し中は、届いた胴体の位置にそのまま従う
-    const S = sp.snk || (sp.snk = {}), groups = {};
-    for (const e of sp.pool) { const sn = e.it && e.it.sn; if (!sn) continue; (groups[sn[0]] || (groups[sn[0]] = [])).push(e); }
-    for (const key in S) if (!groups[key]) delete S[key]; // いなくなったグループの軌跡は捨てる
-    for (const key in groups) {
-      const g = groups[key]; g.sort((a, b) => a.it.sn[1] - b.it.sn[1]);
-      const L = g[0], rest = g.slice(1), L0 = L.it.sn[1];
-      if (L.it.sn[2] || L.x == null) continue; // 先頭の位置が届いていない：並べられない（この回は隠す）
-      let H = S[key];
-      const rebuild = () => { // 今の並び（先頭→胴体の順）がそのまま「通ってきた道」になるように軌跡を作り直す
-        const pts = [L].concat(rest.filter(o => o.fp && o.x != null)).map(o => ({ x: o.x, y: o.y })), tr = [];
-        for (let i = 0; i < pts.length; i++) {
-          tr.push(pts[i]);
-          if (i + 1 < pts.length) {
-            const a = pts[i], b = pts[i + 1], n = Math.floor(Math.hypot(b.x - a.x, b.y - a.y) / 3);
-            for (let j = 1; j <= n; j++) tr.push({ x: a.x + (b.x - a.x) * j / (n + 1), y: a.y + (b.y - a.y) * j / (n + 1) });
-          }
-        }
-        H.trail = tr.slice(0, 400);
-      };
-      if (!H) { H = S[key] = { trail: [], lead: L0, whirl: false, lx: L.x, ly: L.y }; }
-      const whirl = rest.some(o => !o.it.sn[2]); // 位置つきの胴体がいる＝振り回し中（または見始めの合わせ）
-      if (H.lead !== L0) { H.lead = L0; H.whirl = false; rebuild(); } // 先頭が倒されて、後ろの胴体が先頭になった
-      if (whirl) { H.whirl = true; H.lx = L.x; H.ly = L.y; continue; } // 胴体は届いた位置に従う
-      if (H.whirl) { H.whirl = false; rebuild(); } // 振り回しが終わった：今の並びを軌跡にして追従へ戻る
-      if (Math.hypot(L.x - H.lx, L.y - H.ly) > 120) H.trail = []; // 瞬間移動：道が途切れるので、頭の位置から並べ直す
-      H.lx = L.x; H.ly = L.y;
-      const tr = H.trail, last = tr[0];
-      if (!last || Math.hypot(L.x - last.x, L.y - last.y) >= 3) { tr.unshift({ x: L.x, y: L.y }); if (tr.length > 400) tr.pop(); }
-      const gap = (ENEMY_TYPES.find(t => t.key === 'snake') || {}).snakeGap || 17; // 胴体の間隔（ホストと同じ値）
-      let px = L.x, py = L.y, acc = 0, ti = 0;
-      for (const o of rest) { // 番号の小さい順＝頭に近い順に、1回の走査で並べる
-        const need = (o.it.sn[1] - L0) * gap; let placed = false;
-        while (ti < tr.length) {
-          const pt = tr[ti], d = Math.hypot(pt.x - px, pt.y - py);
-          if (d > 0 && acc + d >= need) { const k = (need - acc) / d; o.x = px + (pt.x - px) * k; o.y = py + (pt.y - py) * k; placed = true; break; }
-          acc += d; px = pt.x; py = pt.y; ti++;
-        }
-        if (!placed) { o.x = px; o.y = py; } // 軌跡が足りない間は、道の一番後ろで待つ
-        o.fp = true;
-      }
-    }
+    if (now - sp.watchAt > 800) { sp.watchAt = now; this.net.sendPvpTo({ a: 'awatch', t: sp.uid, u: this.net.uid }, [sp.uid]); } // 見られている人にだけ知らせる
+    const R = am.specRoom; // ゴーストは壁をすり抜けられるので、部屋の外（岩の中）へ出てしまわないようにする
+    if (R) { const mg = TILE * 0.6; this.player.x = Phaser.Math.Clamp(this.player.x, R.tx * TILE + mg, (R.tx + R.w) * TILE - mg); this.player.y = Phaser.Math.Clamp(this.player.y, R.ty * TILE + mg, (R.ty + R.h) * TILE - mg); }
   }
 
   amidaClear() { // 作った物を片づけて、床を壁に戻し、カメラをもとに戻す
@@ -6023,7 +5954,7 @@ class GameScene extends Phaser.Scene {
       return;
     }
     if (pv.mode === 'amida') { // あみだくじ：演出が終わったら、当たりの出口に着いた人を勝者にして終了（参加者が1人以下になったら引き分け）
-      const here = pv.ids.filter(id => present[id]), am = pv.amida;
+      const here = pv.ids.filter(id => this.amidaHere(id, performance.now())), am = pv.amida; // 在席は猶予つきで判定（重くて通信が一瞬止まっただけの人を「いなくなった」扱いにして、全員をリザルトへ飛ばさない）
       if (am && performance.now() >= pv.endAt) { pv.endSent = true; const ws = this.amidaWinners(); this.net.sendPvp({ a: 'end', w: ws[0] || null, ws }); }
       else if (here.length <= (this.pvpTest ? 0 : 1)) { pv.endSent = true; this.net.sendPvp({ a: 'end', w: null, ws: [] }); }
       return;
@@ -6122,8 +6053,8 @@ class GameScene extends Phaser.Scene {
       this.amidaNextRound(m.seed, m.ids);
     } else if (m.a === 'awatch') { // あみだくじ：誰かが自分の戦いを観戦している
       this.amidaOnWatch(m);
-    } else if (m.a === 'astate') { // あみだくじ：観戦している相手の部屋の状態
-      this.amidaOnState(m);
+    } else if (m.a === 'aroom') { // あみだくじ：観戦している相手の部屋の敵の状態（ダンジョンと同じ形のスナップショット）
+      this.amidaOnRoom(m);
     } else if (m.a === 'aev') { // あみだくじ：観戦している相手の部屋の単発の知らせ（演出・敵の弾）
       this.amidaOnEvents(m);
     } else if (m.a === 'vote') {
@@ -7538,7 +7469,7 @@ class GameScene extends Phaser.Scene {
     const d = this.dungeon;
     const startRoom = d.rooms[0];
     const candidateRooms = d.rooms.filter(r => r !== startRoom);
-    const eligible = WEAPON_TYPES.filter(w => w.minFloor <= this.floor && !w.hidden);
+    const eligible = WEAPON_TYPES.filter(w => /* w.minFloor <= this.floor && */ !w.hidden); // 【一時的】武器の階層制限を外している（元に戻す時は、コメントアウトした「w.minFloor <= this.floor &&」を復活させる）
 
     this.chests = [];
     if (candidateRooms.length === 0 || eligible.length === 0) return;
@@ -7635,6 +7566,7 @@ class GameScene extends Phaser.Scene {
     key = key || ''; // ''＝装飾品なし（人狼ゲーム中に外す時に使う）
     if ((key && !accessoryByKey(key)) || (this.accKey || '') === key) return;
     this.accKey = key;
+    if (key) { const u = this._usedAccKeys || (this._usedAccKeys = []); if (!u.includes(key)) u.push(key); } // リザルトに出すため、使った装飾品を記録
     this.skullRevives = key === 'skull' ? SKULL_WISPS : 0; // ドクロ：鬼火 SKULL_WISPS 個（1回のゲームごと）
     this.skullAuraT = 0;
     this.clearBlackholeBeam(); // ブラックホール：ビームの状態を初期化（付けた直後は、クールダウンから数え直す）
@@ -8324,7 +8256,7 @@ class GameScene extends Phaser.Scene {
   amidaA4Rec(a, held) {
     const am = this.pv && this.pv.amida;
     if (!am || !am.fighting || am.fightDone || !am.myRoom || !a || !a.gfx) return;
-    const idOf = e => e._aid || (e._aid = (am.aidN = (am.aidN || 0) + 1)); // 観戦側が同じ敵を見つけるための通し番号（状態の送信と同じもの）
+    const idOf = e => e.id; // 観戦側（ゴースト）が、同じ id の敵（スナップショットで作った実体）を見つけるため
     const list = [];
     for (const h of held) {
       const e = h.e; if (!e) continue;
@@ -8340,19 +8272,71 @@ class GameScene extends Phaser.Scene {
 
   // あみだくじ（観戦側）：届いた天使の演出を、再現用の丸（敵の再現）を掴む形で出す
   amidaSpecA4(ev) {
-    const am = this.pv && this.pv.amida, sp = am && am.spec; if (!sp || !sp.pm) return;
-    const proxyOf = (id) => { // 再現用の丸を、onA4Fx が扱える「敵」の形に包む
-      const pe = sp.pm.get(id);
-      if (!pe || !pe.c || !pe.c.scene || !pe.b || !pe.it || !pe.fp) return null;
-      if (!pe.hold) pe.hold = { id: 'amida_' + id, hp: 1, maxHp: 1, _removed: false, gfx: pe.c, hpBar: pe.b, type: { radius: pe.c.radius || 10, hideHpBar: false }, _coil: [], _poolRef: pe };
-      return pe.hold;
-    };
-    const list = [];
-    for (const d of ev[4] || []) {
-      const px = proxyOf(d.i); if (!px) continue;
-      list.push(Object.assign({}, d, { px, cx: (d.c || []).map(proxyOf).filter(Boolean) }));
+    const am = this.pv && this.pv.amida, sp = am && am.spec; if (!sp) return;
+    this.onA4Fx({ a4Fx: 'summon', list: ev[4] || [], uid: sp.uid, aid: ev[3], ax: ev[1], ay: ev[2] }); // 他のプレイヤーの天使の演出と同じ経路（敵は id で見つける）
+  }
+
+  // ----- あみだくじの観戦：敵の天使（四つ腕）の攻撃 -----
+  // 戦っている人の画面で攻撃が出るたびに、弾・ビーム・壁の腕・光の玉の「出た時の情報」だけが届く。観戦側はそれを見た目だけで動かす（ダメージ・当たり判定は無し）。
+  // 腕の角度と予告の光は、敵の状態（buildEnemyEntry の ao / tl）で届く。
+  a4SpecOn() { const am = this.pv && this.pv.amida; return !!(am && am.spec && this._amidaSpec); }
+  a4SpecUpdate(dt) { this.a4Pl(); this.a4FxUpdate(dt); this.a4UpdateBullets(dt); this.a4FieldArms(dt, this.ARMS4_ATK().wall); }
+  a4SpecCleanup() { // 観戦をやめた時：出ていた弾・ビーム・壁の腕を片付ける
+    if (this._a4Bullets) { this._a4Bullets.forEach(b => b.objs.forEach(o => o && o.scene && o.destroy())); this._a4Bullets = []; }
+    if (this._a4Walls) { this._a4Walls.forEach(k => k.objs.forEach(o => o && o.scene && o.destroy())); this._a4Walls = []; }
+    if (this._a4FxL) { this._a4FxL.forEach(f => f.g && f.g.scene && f.g.destroy()); this._a4FxL = []; }
+    this._a4Orb = {}; this._a4SpecOrbs = {};
+  }
+  amidaSpecA4Shot(ev) {
+    const w = ev[10];
+    this.a4Shot(ev[1], ev[2], ev[3], ev[4], { r: ev[5], col: ev[6], life: ev[7] || undefined, boom: ev[8] ? { r: ev[8], dmg: 0 } : null, bounce: ev[9], wave: Array.isArray(w) ? { amp: w[0], freq: w[1], ph: w[2] } : null, accel: ev[11], fuse: ev[12], cross: ev[13], homing: ev[14], black: !!ev[15], spec: true });
+  }
+  amidaSpecA4Beam(ev) {
+    this.a4Beam({ org: { x: ev[1], y: ev[2] }, ang: ev[3], warn: ev[4], on: ev[5], w: ev[6], col: ev[7] || undefined, dark: !!ev[8], sweep: ev[9] || 0, len: ev[10] || undefined, clip: ev[11] ? false : undefined, noHit: true, warnW: ev[13] || undefined, track: !!ev[14], lock: ev[15], spec: true });
+  }
+  amidaSpecA4Wall(ev) {
+    const o = { tele: ev[6] || undefined, linger: ev[7] || undefined, band: ev[8] || undefined, noArrow: !!ev[9], harmless: !!ev[10], spec: true };
+    if (ev[3]) o.dir = ev[3];
+    if (ev[4]) o.vd = ev[4];
+    if (ev[5] != null) { if (ev[4]) o.x = ev[5]; else o.y = ev[5]; }
+    if (ev[11]) { // 光球の腕：生え終わったら手の先に光球を溜める（溜めきると消えて、腕は引っ込む）。爆発の予告・爆発は a4Bomb の知らせで別に届く
+      const CHARGE = 1.7, COL = 0xffb060, st = { n: 0, g: null, done: false };
+      o.onIdle = (k, dt) => {
+        if (st.done) return;
+        const R = this.a4Room(), t0 = this.a4WallTip(k), tip = this.a4Pt(t0.x, t0.y, R, 30);
+        if (!st.g) { st.g = this.add.graphics().setDepth(7).setBlendMode(Phaser.BlendModes.ADD); k.objs.push(st.g); }
+        st.n += dt; const g = st.g; g.clear();
+        if (st.n >= CHARGE) { g.destroy(); st.done = true; k.t = k.linger; return; }
+        const p = st.n / CHARGE, fl = 1 + 0.25 * Math.sin(st.n * 47) + 0.12 * Math.sin(st.n * 83), r = (8 + 34 * p) * fl;
+        for (let q = 3; q >= 1; q--) g.fillStyle(COL, 0.16).fillCircle(tip.x, tip.y, r * (1 + q * 0.4));
+        g.fillStyle(0xffffff, 0.95).fillCircle(tip.x, tip.y, r * 0.7);
+      };
     }
-    this.onA4Fx({ a4Fx: 'summon', list, uid: sp.uid, aid: ev[3], ax: ev[1], ay: ev[2], _amida: true });
+    this.a4SpawnWallArm(o);
+  }
+  amidaSpecA4BigOrb(ev) {
+    const a4 = this.enemies.find(e => e.type && e.type.key === 'arms4' && !e._removed && e.hp > 0); if (!a4) return;
+    const f = this.a4BigOrb(a4, ev[3], ev[4], ev[5], ev[6], true);
+    (this._a4SpecOrbs || (this._a4SpecOrbs = {}))[ev[7]] = f;
+  }
+  amidaSpecA4BigOrbRel(ev) {
+    const m = this._a4SpecOrbs, f = m && m[ev[3]]; if (!f) return;
+    f.rel = 0; delete m[ev[3]]; // 放つ：膨らみながら消える（放った弾・ビーム・衝撃波は別の知らせで届く）
+  }
+  amidaSpecA4Palm(ev) { // 巨大な手のひら：大きな赤い円が戦っている人を追いかけて、止まって大爆発
+    let t = 0, x = ev[1], y = ev[2]; const r = ev[3] || 170, g = this.add.graphics().setDepth(2.6), R = this.a4Room();
+    this.a4Fx({ g, update: (dt) => {
+      t += dt; const pl = this.a4Pl();
+      if (t < 1.1) { const p = this.a4Pt(pl.x, pl.y, R, 60); x += (p.x - x) * Math.min(1, dt * 3.5); y += (p.y - y) * Math.min(1, dt * 3.5); }
+      const pr = Math.min(1, t / 2.1); g.clear();
+      g.fillStyle(0xff3030, 0.1 + 0.22 * pr).fillCircle(x, y, r); g.fillStyle(0xff6a6a, 0.35).fillCircle(x, y, r * pr); g.lineStyle(4, 0xff7a7a, 0.85).strokeCircle(x, y, r);
+      if (t >= 2.1) { this.spawnTrapBlastVisual(x, y, r); this.cameras.main.shake(260, 0.02); return true; }
+      return false;
+    } });
+  }
+  amidaSpecA4Orb(ev) {
+    const a4 = this.enemies.find(e => e.type && e.type.key === 'arms4' && !e._removed && e.hp > 0); if (!a4) return;
+    this.a4HandOrb(a4, ev[3], ev[4], { r: ev[5] || undefined, col: ev[6] || undefined });
   }
 
   // 他のプレイヤーが出した天使の演出を、自分の画面でも同じタイミングで見せる（見た目だけ）
@@ -9079,6 +9063,17 @@ class GameScene extends Phaser.Scene {
     return this.hasLineOfSight(px, py, ex - (ex - px) * k, ey - (ey - py) * k);
   }
 
+  // ナイフが当たった時の血しぶき：斬った向き(angle)へ細かい血の粒が飛び、床に小さな血だまりが残る（見た目だけ）
+  knifeBlood(x, y, angle) {
+    for (let i = 0; i < 14; i++) {
+      const a = angle + (Math.random() - 0.5) * 1.6, dist = 14 + Math.random() * 38;
+      const p = this.add.circle(x, y, 1.5 + Math.random() * 2.5, Math.random() < 0.5 ? 0xb00010 : 0xe01020).setDepth(9); p._nofx = true;
+      this.tweens.add({ targets: p, x: x + Math.cos(a) * dist, y: y + Math.sin(a) * dist, alpha: 0, scale: 0.4, duration: 250 + Math.random() * 300, ease: 'Cubic.easeOut', onComplete: () => p.destroy() });
+    }
+    const s = this.add.circle(x + Math.cos(angle) * 8, y + Math.sin(angle) * 8, 4 + Math.random() * 5, 0x8a0010, 0.55).setDepth(1); s._nofx = true;
+    this.tweens.add({ targets: s, alpha: 0, duration: 3000, onComplete: () => s.destroy() });
+  }
+
   meleeAttack(w, angle) {
     // 攻撃エフェクト（扇形）
     this.attackFx.clear();
@@ -9101,6 +9096,7 @@ class GameScene extends Phaser.Scene {
       if (Math.abs(diff) > arcRad + angularRadius) continue;
       if (!this.meleeCanReach(enemy.gfx.x, enemy.gfx.y, enemy.type.radius)) continue; // 壁の向こうには届かない
       this.damageEnemy(enemy, w.damage, a, w.knockback);
+      if (w.bloodFx) this.knifeBlood(enemy.gfx.x, enemy.gfx.y, a); // ナイフ：当たった敵から血しぶき
     }
 
     // 宝箱（壊れていないもの）にも同じ扇形判定でダメージを与える
@@ -10293,7 +10289,7 @@ class GameScene extends Phaser.Scene {
   updateSnakeDoom(dt) {
     const guest = this.mp && !this.isHost;
     if (guest && !this.rtLive()) return;
-    const pool = guest ? this.enemies.filter(o => this.rtOwn(o)) : this.enemies; // 参加側は、自分の画面で動かしている儀式部屋のスネークだけ
+    const pool = (guest ? this.enemies.filter(o => this.rtOwn(o)) : this.enemies).filter(o => !o._amidaMir); // 参加側は、自分の画面で動かしている儀式部屋のスネークだけ
     this._snakeDoom = this._snakeDoom || {};
     // ホストが交代した直後：前のホストが配信していた残り秒数（ゲストとして受け取って持っていた値）を引き継ぐ
     for (const o of pool) {
@@ -10325,7 +10321,7 @@ class GameScene extends Phaser.Scene {
   // ゲストは、ホストが配信してくる dm（残り秒数）を見て出す。
   updateSnakeDoomText(e) {
     let sec = e._doomSec;
-    if (this.mp && !this.isHost && this._enemySnapshotSeen && !this.rtOwn(e)) {
+    if (e._amidaMir || (this.mp && !this.isHost && this._enemySnapshotSeen && !this.rtOwn(e))) {
       const sn = this._enemySnapshot && this._enemySnapshot[e.id];
       sec = (sn && typeof sn.dm === 'number') ? sn.dm : null;
       e._doomSec = sec;
@@ -10574,7 +10570,7 @@ class GameScene extends Phaser.Scene {
     return !!(H && !H.whirl && H.leadId !== e.id && this.time.now - H.seen < 300);
   }
   guestSnakeFollow() {
-    if (!(this.mp && !this.isHost && this._enemySnapshotSeen)) return;
+    if (!(this._amidaMirOn || (this.mp && !this.isHost && this._enemySnapshotSeen))) return;
     const groups = {};
     for (const e of this.enemies) {
       const t = e.type; if (!t || !t.snake || e.hp <= 0 || e._removed || !e.gfx || !e.gfx.scene || this.rtOwn(e)) continue; // 儀式部屋のスネークは自分で動かしているので、ホストの結果に合わせない
@@ -11206,7 +11202,7 @@ class GameScene extends Phaser.Scene {
     if (!this.warnGfx || !this.warnGfx.scene) this.warnGfx = this.add.graphics().setDepth(3);
     const g = this.warnGfx;
     g.clear();
-    const guestView = this.mp && !this.isHost && this._enemySnapshotSeen;
+    const guestView = this._amidaMirOn || (this.mp && !this.isHost && this._enemySnapshotSeen);
     const now = this.time.now;
     const parse = str => str.split(';').map(q => { const xy = q.split(','); return { x: +xy[0], y: +xy[1] }; });
     for (const e of this.enemies) {
@@ -11311,7 +11307,7 @@ class GameScene extends Phaser.Scene {
     // 爆弾を撒くのと同時に、自分自身の周囲でも即座に爆発する（自爆風）。
     const selfRadius = t.selfBlastRadius || 90;
     const selfDamage = t.selfBlastDamage != null ? t.selfBlastDamage : (t.bombDamage || 20);
-    this.explodeAt(e.gfx.x, e.gfx.y, selfDamage, selfRadius);
+    this.amidaNoRec(() => this.explodeAt(e.gfx.x, e.gfx.y, selfDamage, selfRadius)); // 観戦者へは下の eshot（isSelfBlast）で届く
     this.applyBlastDamageToTrialFoes(e, e.gfx.x, e.gfx.y, selfDamage, selfRadius); // 調伏の儀：敵対する側の敵にも当てる
     if (this.mp && this.net) {
       this.net.sendEnemyShot({
@@ -11457,7 +11453,8 @@ class GameScene extends Phaser.Scene {
 
   explodeBomb(b) {
     b.exploded = true;
-    this.explodeAt(b.gfx.x, b.gfx.y, b.damage, b.blastRadius, b.ally, b.visualOnly);
+    if (!b.ally && !b.visualOnly) this.amidaNoRec(() => this.explodeAt(b.gfx.x, b.gfx.y, b.damage, b.blastRadius, b.ally, b.visualOnly)); // 敵の爆弾：観戦者の画面にも eshot（isBomb）で同じ爆弾があって自分で爆発する
+    else this.explodeAt(b.gfx.x, b.gfx.y, b.damage, b.blastRadius, b.ally, b.visualOnly);
     if (b.owner && !b.ally && !b.visualOnly) this.applyBlastDamageToTrialFoes(b.owner, b.gfx.x, b.gfx.y, b.damage, b.blastRadius); // 調伏の儀：撒いた敵の敵対側にも当てる
     this.tweens.killTweensOf(b.halo);
     b.halo.destroy();
@@ -11515,8 +11512,7 @@ class GameScene extends Phaser.Scene {
     // ボスラッシュ／10階以降の追加強化(_bossScale)ぶん、攻撃のダメージにも反映する
     const damage = Math.round((cfg.damage != null ? cfg.damage : 42) * (e._bossScale || 1));
 
-    this.spawnSimaharBlastDecor(cx, cy, r);
-    this.explodeAt(cx, cy, damage, r, false, false, EXPLOSION_COLORS.void);
+    this.amidaNoRec(() => { this.spawnSimaharBlastDecor(cx, cy, r); this.explodeAt(cx, cy, damage, r, false, false, EXPLOSION_COLORS.void); }); // 観戦者へは下の eshot（voidBlast）で届く
     this.applyBlastDamageToTrialFoes(e, cx, cy, damage, r); // 調伏の儀：敵対する側の敵にも当てる
 
     if (this.mp && this.net) {
@@ -11629,8 +11625,7 @@ class GameScene extends Phaser.Scene {
     const damage = Math.round((cfg.blastDamage != null ? cfg.blastDamage : 34) * (e._bossScale || 1));
     const radius = cfg.blastRadius != null ? cfg.blastRadius : 90;
     this.destroySimaharChaseStar(e);
-    this.spawnSimaharBlastDecor(cx, cy, radius);
-    this.explodeAt(cx, cy, damage, radius, false, false, EXPLOSION_COLORS.void);
+    this.amidaNoRec(() => { this.spawnSimaharBlastDecor(cx, cy, radius); this.explodeAt(cx, cy, damage, radius, false, false, EXPLOSION_COLORS.void); }); // 観戦者へは下の eshot（voidBlast）で届く
     this.applyBlastDamageToTrialFoes(e, cx, cy, damage, radius); // 調伏の儀：敵対する側の敵にも当てる
     if (this.mp && this.net) {
       this.net.sendEnemyShot({ x: cx, y: cy, damage, radius, floor: this.floor, isSelfBlast: true, voidBlast: true });
@@ -13607,7 +13602,7 @@ class GameScene extends Phaser.Scene {
   // この敵は、自分の画面で計算している儀式部屋の敵（儀式の敵・道連れの敵・その手下）か
   rtOwn(e) { return !!(e && (e._rtLocal || (this.rtLive() && e.gfx && e.gfx.scene && this.rtInRoom(e.gfx.x, e.gfx.y)) || (e.gfx && e.gfx.scene && this.amidaInMyRoom(e.gfx.x, e.gfx.y)))); } // あみだくじ：自分のモンスターの部屋の敵も、自分の画面だけで動かす
   // 協力プレイの参加側で、この敵の計算を自分でやらない（ホストの結果を見るだけ）か。儀式部屋の敵は参加側でも自分で計算する
-  rtNoAuth(e) { return this.mp && !this.isHost && !this.rtOwn(e); }
+  rtNoAuth(e) { return !!(e && e._amidaMir) || (this.mp && !this.isHost && !this.rtOwn(e)); }
   s2Any() { return this.s2Trial || this.rtLive(); }
   // 四つ腕の調伏の儀モード：四つ腕以外の技は最初から解放済み
   s2InitUnlocked() {
@@ -14810,6 +14805,11 @@ class GameScene extends Phaser.Scene {
   // 協力プレイ：四つ腕の攻撃は、ホストが「どの技を・誰に向けて」出すかを全員に配り、各画面が同じ技を自分の画面で動かす（当たり判定は自分のプレイヤーだけ）。
   // 狙う相手（_a4Tgt）が自分なら本物のプレイヤー、他の人なら位置だけを写した身代わり（_a4Prx）を、技の「狙い」に使う。
   a4Pl() {
+    if (this.a4SpecOn()) { // 観戦：狙う相手＝見ている戦っている人
+      const p = this.rtPos(this.pv.amida.spec.uid); if (!p) return this.player;
+      const px = this._a4SpecPx || (this._a4SpecPx = { x: 0, y: 0, radius: 10, setPosition(x, y) { this.x = x; this.y = y; return this; } });
+      px.x = p.x; px.y = p.y; return px;
+    }
     if (!this.mp || !this.rtLive()) return this.player;
     const my = this.net && this.net.uid, tg = this._a4Tgt;
     if (!tg || tg === my) return this.player;
@@ -14838,6 +14838,7 @@ class GameScene extends Phaser.Scene {
 
   a4Amida() { const pv = this.pv, am = pv && pv.mode === 'amida' && pv.amida; return (am && am.fighting && !am.fightDone && am.myRoom) ? am : null; } // あみだくじで自分のモンスターと戦っている間だけ、その状態を返す
   a4Room() {
+    if (this.a4SpecOn() && this.pv.amida.specRoom) { const Q = this.pv.amida.specRoom; return { x0: Q.tx * TILE, x1: (Q.tx + Q.w) * TILE, y0: Q.ty * TILE, y1: (Q.ty + Q.h) * TILE, cx: Q.cx, cy: Q.cy }; } // あみだくじの観戦：見ている部屋
     const am = this.a4Amida(); if (am) { const Q = am.myRoom; return { x0: Q.tx * TILE, x1: (Q.tx + Q.w) * TILE, y0: Q.ty * TILE, y1: (Q.ty + Q.h) * TILE, cx: Q.cx, cy: Q.cy }; } // あみだくじ：部屋＝自分のモンスターの部屋
     const rs = this.dungeon.rooms, r = (this.mp && this.dungeon.ritual) ? this.dungeon.ritual : rs[rs.length - 1]; // ボス部屋は常に最後（演出後は1部屋だけになる）／協力プレイは儀式部屋
     return { x0: r.x * TILE, x1: (r.x + r.w) * TILE, y0: r.y * TILE, y1: (r.y + r.h) * TILE, cx: (r.x + r.w / 2) * TILE, cy: (r.y + r.h / 2) * TILE }; }
@@ -14868,6 +14869,7 @@ class GameScene extends Phaser.Scene {
     o = o || {};
     const Lst = this._a4Orb || (this._a4Orb = {}), ex = Lst[(a4.id) + '_' + slot];
     if (ex && !ex.done && ex.g && ex.g.scene) { ex.life = Math.max(ex.life, ex.t + dur); if (o.r) ex.r = Math.max(ex.r, o.r); if (o.col) ex.col = o.col; return ex; }
+    this.amidaFxRec([15, Math.round(a4.gfx.x), Math.round(a4.gfx.y), slot, dur, o.r || 0, o.col || 0]); // あみだくじの観戦：手の光の玉
     const g = this.add.graphics().setDepth(7).setBlendMode(Phaser.BlendModes.ADD);
     const f = { g, t: 0, life: dur, r: o.r || 15, col: o.col || 0x9bd8ff, done: false, ph: Math.random() * 6, owner: a4, isOrb: true };
     f.update = (dt) => {
@@ -14906,6 +14908,11 @@ class GameScene extends Phaser.Scene {
   // ビーム：o.org（座標 or 座標を返す関数）から ang の向きへ。warn秒の予告（細い赤線）→on秒の発射。
   // clip:false なら長さlenでそのまま／それ以外は壁で止まる。track:true なら予告の途中（発射のlock秒前）までプレイヤーを狙い続ける。sweep：発射中の回転(rad/s)。
   a4Beam(o) {
+    if (!o.spec) { try { // あみだくじの観戦：ビームの根元・向き・予告／発射の秒数を送る（狙い続けるビームは、今の向きで送り、見る側で追う）
+      const org0 = typeof o.org === 'function' ? o.org() : o.org, pl0 = this.a4Pl();
+      const ang0 = o.track ? Math.atan2(pl0.y - org0.y, pl0.x - org0.x) : (o.ang || 0);
+      this.amidaFxRec([13, Math.round(org0.x), Math.round(org0.y), Math.round(ang0 * 1000) / 1000, o.warn != null ? o.warn : 0.8, o.on != null ? o.on : 0.4, o.w || 24, o.col || 0, o.dark ? 1 : 0, Math.round((o.sweep || 0) * 1000) / 1000, o.len || 0, o.clip === false ? 1 : 0, o.noHit ? 1 : 0, o.warnW || 0, o.track ? 1 : 0, o.lock != null ? o.lock : 0.25]);
+    } catch (err) { /* 記録に失敗しても攻撃は続ける */ } }
     const g = this.add.graphics().setDepth(6.5).setBlendMode(o.dark ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.ADD), pl = this.a4Pl(); // dark:true なら黒いビーム（黒は加算合成だと見えないので通常合成）
     const w = o.w || 24, warn = o.warn != null ? o.warn : 0.8, on = o.on != null ? o.on : 0.4, dmg = o.dmg != null ? o.dmg : 20, lock = o.lock != null ? o.lock : 0.25;
     let t = 0, ang = o.ang || 0;
@@ -14939,7 +14946,8 @@ class GameScene extends Phaser.Scene {
   }
 
   // 床の爆発：半径rの赤い円が膨らんで（warn秒）、爆発する
-  a4Bomb(x, y, r, warn, dmg) {
+  a4Bomb(x, y, r, warn, dmg, spec) {
+    if (!spec) this.amidaFxRec([16, Math.round(x), Math.round(y), Math.round(r), warn]); // あみだくじの観戦：爆発の位置・半径・予告の秒数
     const g = this.add.graphics().setDepth(2.6); let t = 0;
     return this.a4Fx({ g, update: (dt) => {
       t += dt; g.clear();
@@ -14947,13 +14955,14 @@ class GameScene extends Phaser.Scene {
       g.fillStyle(0xff3030, 0.10 + 0.22 * p).fillCircle(x, y, r);
       g.fillStyle(0xff6a6a, 0.35).fillCircle(x, y, r * p);
       g.lineStyle(3, 0xff7a7a, 0.85).strokeCircle(x, y, r);
-      if (t >= warn) { this.explodeAt(x, y, dmg, r); this.cameras.main.shake(70, 0.004); return true; }
+      if (t >= warn) { if (spec) this.spawnTrapBlastVisual(x, y, r); else { this.explodeAt(x, y, dmg, r); this.cameras.main.shake(70, 0.004); } return true; }
       return false;
     } });
   }
 
   // 衝撃波：中心から広がる輪。gapAng を中心に gapW(rad) だけ切れ目があり、そこは安全
   a4Wave(x, y, o) {
+    if (!o.spec) this.amidaFxRec([17, Math.round(x), Math.round(y), Math.round(o.speed), Math.round(o.gapAng * 1000) / 1000, o.gapW, o.maxR || 0]); // あみだくじの観戦：衝撃波の中心・速さ・切れ目の向き
     const g = this.add.graphics().setDepth(6.4).setBlendMode(Phaser.BlendModes.ADD); let r = 20;
     return this.a4Fx({ g, update: (dt) => {
       r += o.speed * dt; g.clear();
@@ -14961,7 +14970,7 @@ class GameScene extends Phaser.Scene {
       g.lineStyle(16, 0xffb0ff, 0.45).beginPath().arc(x, y, r, a0, a1, false).strokePath();
       g.lineStyle(6, 0xffffff, 0.95).beginPath().arc(x, y, r, a0, a1, false).strokePath();
       const pl = this.player, d = Math.hypot(pl.x - x, pl.y - y);
-      if (!this.isGhost && Math.abs(d - r) < 9 + pl.radius) {
+      if (!o.spec && !this.isGhost && Math.abs(d - r) < 9 + pl.radius) {
         const diff = Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(pl.y - y, pl.x - x) - o.gapAng));
         if (diff > o.gapW / 2) this.a4HurtPlayer(o.dmg, 0.8);
       }
@@ -14975,11 +14984,13 @@ class GameScene extends Phaser.Scene {
     o = o || {};
     if (this._a4Bullets && this._a4Bullets.length > 500) return null;
     const r = o.r || 9, col = o.col || 0xffb36b;
+    if (!o.spec) this.amidaFxRec([12, Math.round(x), Math.round(y), Math.round(ang * 1000) / 1000, Math.round(speed), r, col, o.life || 0, o.boom ? o.boom.r : 0, o.bounce || 0, o.wave ? [o.wave.amp, o.wave.freq, o.wave.ph || 0] : 0, o.accel || 0, o.fuse || 0, o.cross || 0, o.homing || 0, o.black ? 1 : 0]); // あみだくじの観戦：弾の生まれた時の位置・向き・速さだけ送る
     const halo = this.add.circle(x, y, r * 2, col, 0.25).setDepth(6.9).setBlendMode(Phaser.BlendModes.ADD);
     const core = this.add.circle(x, y, r, 0xffffff, 1).setDepth(7).setStrokeStyle(Math.max(2, r * 0.25), col, 1);
+    if (o.black) { core.setFillStyle(0x000000, 1); halo.setFillStyle(0xffffff, 0.35); } // 黒い弾（白い縁と光）
     const b = { x, y, bx: x, by: y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r, col, dmg: o.dmg || 14, age: 0, life: o.life || 7,
       homing: o.homing || 0, fuse: o.fuse || 0, boom: o.boom || null, bounce: o.bounce || 0, cross: o.cross || null, emit: o.emit || null, emitT: 0,
-      wave: o.wave || null, accel: o.accel || 0, objs: [halo, core], halo, core };
+      wave: o.wave || null, accel: o.accel || 0, spec: !!o.spec, objs: [halo, core], halo, core };
     (this._a4Bullets || (this._a4Bullets = [])).push(b);
     return b;
   }
@@ -15011,14 +15022,18 @@ class GameScene extends Phaser.Scene {
           } else { b.x = nx; b.y = ny; end = 'wall'; break; }
         }
         b.x = nx; b.y = ny;
-        if (!this.isGhost && Math.hypot(b.x - me.x, b.y - me.y) < me.radius + b.r && (b.boom || this.playerInvuln <= 0)) end = 'hit';
+        if (!b.spec && !this.isGhost && Math.hypot(b.x - me.x, b.y - me.y) < me.radius + b.r && (b.boom || this.playerInvuln <= 0)) end = 'hit';
       }
       b.halo.setPosition(b.x, b.y).setScale(1 + 0.12 * Math.sin(b.age * 25)); b.core.setPosition(b.x, b.y);
       let boom = !!end;
       if (!boom && b.fuse && b.age >= b.fuse) boom = true;
-      if (!boom && b.cross && b.age >= b.cross) { this.a4Cross(b.x, b.y); kill(b); continue; } // 十字ビームを放って消える
+      if (!boom && b.cross && b.age >= b.cross) { if (!b.spec) this.a4Cross(b.x, b.y); kill(b); continue; } // 十字ビームを放って消える
       if (!boom && b.emit) { b.emitT += dt; if (b.emitT >= b.emit.every) { b.emitT = 0; b.emit.fn(b); } }
       if (!boom && b.age > b.life) { kill(b); continue; }
+      if (boom && b.spec) { // 観戦の弾：見た目だけ（ダメージ・敵への当たりは無し）
+        if (b.boom) this.spawnTrapBlastVisual(b.x, b.y, b.boom.r); else this.spawnBurst(b.x, b.y, b.col, 3);
+        kill(b); continue;
+      }
       if (boom) {
         if (b.boom) { this.explodeAt(b.x, b.y, b.boom.dmg, b.boom.r); this.cameras.main.shake(110, 0.007); }
         else if (end === 'hit') { this.a4HurtPlayer(b.dmg, 0.6); this.spawnBurst(b.x, b.y, b.col, 5); }
@@ -15059,9 +15074,10 @@ class GameScene extends Phaser.Scene {
       mgObj = { scene: true, destroy: () => { if (freed) return; freed = true; if (--sh.n <= 0 && sh.mg) { sh.mg.destroy(); sh.mg = null; } } };
     } else { mg = this.make.graphics({ x: 0, y: 0, add: false }); this.a4FillMask(mg, R.x0, R.y0, R.x1, R.y1); mgObj = mg; }
     img.setMask(mg.createGeometryMask()); // 壁の下から出てくる
-    const k = { harmless: !!o.harmless, onIdle: o.onIdle, t: 0, ph: 'tele', dir, vd, vert: V, sg, rot0, wallP, x0: R.x0, x1: R.x1, y0: R.y0, y1: R.y1, c, band, arrow, img, mg, full: reach, ext: 0, extTo: 1,
+    const k = { spec: !!o.spec, harmless: !!o.harmless, onIdle: o.onIdle, t: 0, ph: 'tele', dir, vd, vert: V, sg, rot0, wallP, x0: R.x0, x1: R.x1, y0: R.y0, y1: R.y1, c, band, arrow, img, mg, full: reach, ext: 0, extTo: 1,
       objs: [band, arrow, img, mgObj], thrown: false, endT: 0, seed: Math.random() * 20,
       tele: o.tele || W.tele, trackT: c0 != null ? 0 : W.trackT, linger: o.linger || W.missHold };
+    if (!o.spec) this.amidaFxRec([14, Math.round(R.cx || 0), Math.round(R.cy || 0), dir, vd, c0 != null ? Math.round(c0) : null, k.tele, k.linger, o.band || 0, o.noArrow ? 1 : 0, o.harmless ? 1 : 0, o.onIdle ? 1 : 0]); // あみだくじの観戦：壁の腕が出る向き・位置・予告の秒数を送る
     (this._a4Walls || (this._a4Walls = [])).push(k);
     return k;
   }
@@ -15090,7 +15106,7 @@ class GameScene extends Phaser.Scene {
     const handP = () => k.wallP + sg * k.full * k.ext; // 手の先の位置（腕の伸びる向きの座標）
     const plA = () => V ? pl.y : pl.x, plC = () => V ? pl.x : pl.y; // プレイヤーの「腕の向き」「それと直角」の座標
     const touch = () => { // 腕（壁から手の先まで）にプレイヤーが触れているか
-      if (k.harmless) return false; // 光球の腕は掴まない
+      if (k.harmless || k.spec) return false; // 光球の腕・観戦の腕は掴まない
       if (this.isGhost || this._a4Hold || this._a4Fly) return false; // 殴り飛ばしで飛んでいる間は、壁から生えた手に当たらない
       const along = (plA() - k.wallP) * sg, hx = k.full * k.ext;
       return along >= -pl.radius && along <= hx + pl.radius * 0.5 && Math.abs(plC() - k.c) <= W.arm / 2 + pl.radius * 0.6;
@@ -15208,6 +15224,7 @@ class GameScene extends Phaser.Scene {
   }
 
   updateArms4Atk(dt) {
+    if (this.a4SpecOn()) { this.a4SpecUpdate(dt); return; } // あみだくじの観戦：攻撃は動かさず、届いた演出だけを動かす
     const amA = this.a4Amida(), tr = this.s2Any() || (amA ? (amA._a4Tr = amA._a4Tr || { phase: 'fight', amida: true }) : null); // あみだくじ：調伏の儀の代わりに、自分の部屋での戦闘中だけ動かす
     if (this._a4Sp) this.a4SplitUpdate(dt); // 分離中の時間切れ・撃破・統合
     let S = this._a4A;
@@ -16123,10 +16140,16 @@ class GameScene extends Phaser.Scene {
   // ---------- 大技「四つの光球」の部品：手の先に付いてくる、種類ごとに形の違う光球 ----------
   // kind：'dark'（闇）／'light'（光）／'saturn'（土星＝球＋輪）／'star'（シマハルの＋形の星）／'wave'（波動弾の水色の玉）。maxR：いちばん大きい時の半径。
   // 返した f の f.k（0〜1）を外から更新すると、その割合の大きさになる。f.rel = 0 にすると「放つ」演出（膨らみながら消える）。
-  a4BigOrb(a4, slot, kind, maxR) {
+  a4BigOrb(a4, slot, kind, maxR, charge, spec) { // charge：溜める秒数（観戦側が、光球がだんだん大きくなる速さを合わせるために使う）／spec：観戦側の見た目だけの光球
     const g = this.add.graphics().setDepth(7.2);
     if (kind === 'light' || kind === 'saturn' || kind === 'wave') g.setBlendMode(Phaser.BlendModes.ADD);
-    const f = { g, t: 0, k: 0, rel: -1, ph: Math.random() * 6, owner: a4, isOrb: true };
+    const f = { g, t: 0, k: 0, ph: Math.random() * 6, owner: a4, isOrb: true, autoK: spec ? (charge || 1) : 0 };
+    let rel0 = -1; // 放つ（rel を0にする）時に、観戦している人へ知らせる
+    Object.defineProperty(f, 'rel', { enumerable: true, get: () => rel0, set: (v) => {
+      if (!spec && v >= 0 && rel0 < 0 && f.sid) { const hp = this.a4HandPos(a4, slot) || { x: a4.gfx.x, y: a4.gfx.y }; this.amidaFxRec([20, Math.round(hp.x), Math.round(hp.y), f.sid]); }
+      rel0 = v;
+    } });
+    if (!spec) { f.sid = (this._a4OrbSeq = (this._a4OrbSeq || 0) + 1); const hp0 = this.a4HandPos(a4, slot) || { x: a4.gfx.x, y: a4.gfx.y }; this.amidaFxRec([19, Math.round(hp0.x), Math.round(hp0.y), slot, kind, maxR, charge || 1, f.sid]); } // あみだくじの観戦：光球の出現
     const ringHalf = (x, y, rx, ry, tilt, back, w, col, al) => { // 傾いた輪の、奥側(back)か手前側の半分
       g.lineStyle(w, col, al).beginPath();
       for (let i = 0; i <= 20; i++) {
@@ -16138,6 +16161,7 @@ class GameScene extends Phaser.Scene {
     };
     f.update = (dt) => {
       f.t += dt; if (f.rel >= 0) f.rel += dt;
+      if (f.autoK && f.rel < 0) f.k = Math.min(1, f.t / f.autoK); // 観戦側：溜めの間、だんだん大きくなる
       const hp = (a4.hp > 0 && a4.gfx && a4.gfx.scene) ? this.a4HandPos(a4, slot) : null;
       if (!hp || f.rel > 0.3) { f.done = true; return true; }
       const t = f.t, rl = f.rel >= 0 ? f.rel / 0.3 : 0;
@@ -16215,7 +16239,7 @@ class GameScene extends Phaser.Scene {
     if (slot === 0) {
       const nd = 30;
       for (let j = 0; j < nd; j++) {
-        const ang = (j + Math.random()) * 2 * Math.PI / nd, b = this.a4Shot(h.x, h.y, ang, 150 + Math.random() * 170, { r: 10, col: 0xffffff, dmg: 16, life: 6 });
+        const ang = (j + Math.random()) * 2 * Math.PI / nd, b = this.a4Shot(h.x, h.y, ang, 150 + Math.random() * 170, { r: 10, col: 0xffffff, dmg: 16, life: 6, black: true });
         if (b) { b.core.setFillStyle(0x000000, 1); b.halo.setFillStyle(0xffffff, 0.35); } // 黒い弾（白い縁と光）
       }
     } else if (slot === 1) {
@@ -16239,7 +16263,7 @@ class GameScene extends Phaser.Scene {
       const t0 = n * PERIOD;
       ev.push([t0, () => {
         aim.forEach((ang, s) => { if (s < 3) this.a4AimArm(a4, s, ang); }); // 右上(3)は波動弾と同じく、プレイヤーの方へ向け続ける（下の毎フレーム処理）
-        kinds.forEach((kd, s) => list.push({ o: this.a4BigOrb(a4, s, kd[0], kd[1]), t0, s }));
+        kinds.forEach((kd, s) => list.push({ o: this.a4BigOrb(a4, s, kd[0], kd[1], CHARGE), t0, s }));
       }]);
       ev.push([t0 + CHARGE, () => { // 一気に放つ
         list.forEach(e => { if (e.t0 === t0) e.o.rel = 0; });
@@ -16270,7 +16294,7 @@ class GameScene extends Phaser.Scene {
     ev.push([0, () => this.a4AimArm(a4, hand, this.a4OrbAim()[this.a4BaseSlot(hand)])]); // 使う手だけを伸ばす
     for (let n = 0; n < REPS; n++) {
       const t0 = n * period;
-      ev.push([t0, () => list.push({ o: this.a4BigOrb(a4, hand, kd[0], kd[1]), t0 })]);
+      ev.push([t0, () => list.push({ o: this.a4BigOrb(a4, hand, kd[0], kd[1], charge), t0 })]);
       ev.push([t0 + charge, () => {
         const e = list[n]; if (e) e.o.rel = 0;
         this.cameras.main.shake(220, 0.01);
@@ -16286,7 +16310,7 @@ class GameScene extends Phaser.Scene {
   a4Atk_orbsaturn(S) {
     const a4 = S.a4, CHARGE = 1.2, GAP = 0.5, sg = Math.random() < 0.5 ? 1 : -1; // 溜め／撃つ間隔(秒)／ずらす向き
     let orb = null;
-    const ev = [[0, () => { this.a4AimArm(a4, 2, this.a4OrbAim()[2]); orb = this.a4BigOrb(a4, 2, 'saturn', this.a4OrbKinds()[2][1]); }]];
+    const ev = [[0, () => { this.a4AimArm(a4, 2, this.a4OrbAim()[2]); orb = this.a4BigOrb(a4, 2, 'saturn', this.a4OrbKinds()[2][1], CHARGE); }]];
     for (let n = 0; n < 3; n++) ev.push([CHARGE + n * GAP, () => {
       if (n === 2 && orb) orb.rel = 0; // 最後の1発で光球が消える
       this.cameras.main.shake(220, 0.012);
@@ -17088,6 +17112,7 @@ class GameScene extends Phaser.Scene {
     const a4 = S.a4, pl = this.a4Pl(), R = this.a4Room(); let x = pl.x, y = pl.y, on = false;
     this.a4Script(S, 3.3, [[0.2, () => {
       on = true; let t = 0; const g = this.add.graphics().setDepth(2.6), r = 170;
+      this.amidaFxRec([18, Math.round(x), Math.round(y), r]); // あみだくじの観戦：大きな赤い円の出現
       this.a4Fx({ g, update: (dt) => {
         t += dt;
         if (t < 1.1) { const p = this.a4Pt(pl.x, pl.y, R, 60); x += (p.x - x) * Math.min(1, dt * 3.5); y += (p.y - y) * Math.min(1, dt * 3.5); }
@@ -17497,7 +17522,7 @@ class GameScene extends Phaser.Scene {
         // 上側の腕は画像を180°回して上向きに（画像は肩が上端・手が下端なので）。振り上げ／振り下ろしの向きも逆にする
         const dir = up ? -1 : 1;
         const rot = (up ? A.up : A.low) + Math.sin(tm * (up ? 1.6 : 2.1) + i * 0.8) * 0.1 + dir * (o._tv * 0.7 - slam * 0.8); // ゆらゆら揺れる
-        const ov = o._armOv && o._armOv[i]; // 演出で腕の向きを直接指定している時（四つ腕が掴む・振りかぶる・投げる）
+        const ov = (o._armSync && o._armSync[i] != null && !isNaN(o._armSync[i])) ? o._armSync[i] : (o._armOv && o._armOv[i]); // 演出で腕の向きを直接指定している時（四つ腕が掴む・振りかぶる・投げる）
         let tgt = ov != null ? ov : (up ? Math.PI + side * rot : -side * rot);
         // 腕の角度が急に変わると飛んだように見えるので、目標の角度へ「すっと」近づける（向ける時も戻す時も）。導入演出（掴む・投げる）は演出側が動かすので対象外。
         const raw = o._introAnim || (this.s2Trial && this.s2Trial.phase === 'cut');
@@ -18329,7 +18354,9 @@ class GameScene extends Phaser.Scene {
 
   // マルチ：他のプレイヤーの味方を表示する（見た目だけ。当たり判定やAIは持ち主の画面で動いている）
   renderRemoteAllies(now, dt) {
-    const players = this.latestPlayers || {};
+    let players = this.latestPlayers || {};
+    const amSp = this.pv && this.pv.amida && this.pv.amida.spec; // あみだくじの観戦中：戦っている人の味方は、部屋の状態（aroom）で届いたものを使う
+    if (amSp && amSp.uid && amSp.allies) players = Object.assign({}, players, { [amSp.uid]: Object.assign({}, players[amSp.uid] || {}, { floor: this.floor, eliminated: false, allies: amSp.allies }) });
     const seen = new Set();
     const k = expSmooth(dt, 0.06);
     for (const uid in players) {
@@ -19647,7 +19674,7 @@ class GameScene extends Phaser.Scene {
       moveSpeed *= 1 - slowFrac * (1 - minMult);
     }
     if (this._jet && this._jet.on) moveSpeed *= this.jetSpeedMult(); // ロケット：向きが一致している間は、ためた時間に応じて指数関数的に速くなる
-    if (this._a4Hold || this._amidaSpec) moveSpeed = 0; // 四つ腕に掴まれている間は動けない
+    if (this._a4Hold) moveSpeed = 0; // 四つ腕に掴まれている間は動けない
     if (this._a4Fly && !this._a4Fly.ctrl) moveSpeed = 0; // 殴り飛ばされて飛んでいる最中（壁を突き破る間）は操作できない
     if (this._astral) {
       if (IS_TOUCH_DEVICE) { const av = window.aimVector; dx = av && av.active ? av.x : 0; dy = av && av.active ? av.y : 0; } // スマホ：ゴーストは右スティックで動かす（左スティックは無効）
@@ -19736,7 +19763,7 @@ class GameScene extends Phaser.Scene {
       if (e._introAnim) {
         // 増殖直後の「ムニュッと出てくる」演出中は専用tweenが位置・見た目を制御するので、
         // AIによる移動やスナップショット追従はここでは行わない（tween完了で自動的に復帰する）。
-      } else if (this.mp && !this.isHost && this._enemySnapshotSeen && !this.rtOwn(e)) {
+      } else if (e._amidaMir || (this.mp && !this.isHost && this._enemySnapshotSeen && !this.rtOwn(e))) {
         // ゲスト: 自分でAIは動かさず（ただし、自分の画面で動かしている儀式部屋の敵は除く）、ホストから届いたスナップショットへ追従する。
         // 単純追従だけだと、次の更新が届くまでその場で止まって見えてから一気に
         // 追いつく「カクつくラグ」になる。以前デッドレコニング（速度から未来位置を
@@ -19750,6 +19777,7 @@ class GameScene extends Phaser.Scene {
         // すぐ吸収できる範囲に留めている。
         const snap = this._enemySnapshot[e.id];
         if (snap) {
+          if (e.type.arms) { e._armSync = snap.ao ? String(snap.ao).split(',').map(Number) : null; e._tele = !!snap.tl; } // 天使：戦っている人の画面の腕の角度・予告の光
           // テレポートした瞬間は、滑って追いかけずに新しい位置へ即座に移す
           if (snap.tp && snap.tp !== e._tpSeen) {
             if (e._tpSeen !== undefined) this.spawnBurst(e.gfx.x, e.gfx.y, e.type.color, 14);
@@ -19930,7 +19958,7 @@ class GameScene extends Phaser.Scene {
     this.drawTeleportWarnings(); // ゾートロープの予告円
 
     // 十字架の魔法陣に触れた幽霊を消す（敵を動かしている側＝ホスト/ソロだけが判定する）
-    if (!(this.mp && !this.isHost && this._enemySnapshotSeen)) this.banishEnemiesInMagicCircles();
+    if (!(this._amidaMirOn || (this.mp && !this.isHost && this._enemySnapshotSeen))) this.banishEnemiesInMagicCircles();
     if (this._bomberCleanup) { this._bomberCleanup = false; this.cleanupDeadEnemies(); } // ボマーの自爆で倒れた敵（自分自身も含む）を、敵のループが終わってから片付ける
 
     // 幽霊は壁をすり抜けるため、複数体が同じ場所に集まって重なり合ってしまいやすい。
@@ -19940,7 +19968,7 @@ class GameScene extends Phaser.Scene {
     this.updateAllies(dt);
 
     if (this.isHost) {
-      const ghosts = this.enemies.filter(e => e.type.key === 'ghost' && !e._introAnim);
+      const ghosts = this.enemies.filter(e => e.type.key === 'ghost' && !e._introAnim && !e._amidaMir);
       for (let i = 0; i < ghosts.length; i++) {
         for (let j = i + 1; j < ghosts.length; j++) {
           const a = ghosts[i], b = ghosts[j];
@@ -20434,7 +20462,13 @@ class GameScene extends Phaser.Scene {
       const w = WEAPON_TYPES.find(x => x.key === key);
       return '<div class="resultRow"><span>' + escapeHtml(w ? w.name : key) + '</span><b>Lv.' + lv + '</b></div>';
     }).join('');
-    document.getElementById('resultWeapons').innerHTML = '<div class="resultHead">取った武器</div>' + weapons;
+    // ソロのダンジョン（ナイトメア含む）だけ、使った装飾品（最初から付けていたものも含む）を「シリアルキラー、懐中時計」のように1行に並べて出す
+    let accHtml = '';
+    if (!this.frontline && !this.arms4Ritual && !this.bossRush) {
+      const used = (this._usedAccKeys || []).map(k => accessoryByKey(k)).filter(Boolean);
+      accHtml = '<div class="resultHead">使った装飾品</div><div class="resultRow"><span>' + escapeHtml(used.length ? used.map(a => a.name).join('、') : 'なし') + '</span></div>';
+    }
+    document.getElementById('resultWeapons').innerHTML = '<div class="resultHead">取った武器</div>' + weapons + accHtml;
     document.getElementById('resultScreen').style.display = 'flex';
     document.getElementById('resultRetry').onclick = () => {
       document.getElementById('resultScreen').style.display = 'none';
@@ -20684,6 +20718,7 @@ class GameScene extends Phaser.Scene {
       this.interruptBandage();
       this.floor = this.devStartFloor || 1;
       this.weaponLevels = {};
+      this._usedAccKeys = this.accKey ? [this.accKey] : []; // リザルト用の装飾品の記録もやり直す
       const rushBase = this.rushWeaponKey && WEAPON_TYPES.find(w => w.key === this.rushWeaponKey);
       const devBase = !rushBase && this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey);
       const respawnBase = rushBase || devBase || WEAPON_TYPES[0];
@@ -21612,20 +21647,21 @@ class Net {
   _wireChannel(ch) { ch.onmessage = (e) => this._onMessageFromHost(e.data); }
   _wireHostChannel(guestUid, ch) { ch.onmessage = (e) => this._onMessageFromGuest(guestUid, e.data); }
 
-  _sendToHost(channelName, msgObj) {
+  _sendToHost(channelName, msgObj, dropIfBusy) {
     const ch = this._hostChannels && this._hostChannels[channelName];
     if (!ch || ch.readyState !== 'open') return false;
+    if (dropIfBusy && ch.bufferedAmount > NET_FAST_BUSY_BYTES) return false; // 送信待ちが溜まっている：古くなる状態は捨てる
     try { ch.send(JSON.stringify(msgObj)); return true; } catch (e) { return false; }
   }
 
-  _broadcastToGuests(channelName, msgObj, excludeUid, onlyUids) { // onlyUids：あれば、その人たちにだけ送る
+  _broadcastToGuests(channelName, msgObj, excludeUid, onlyUids, dropIfBusy) { // onlyUids：あれば、その人たちにだけ送る／dropIfBusy：送信待ちが溜まっている相手には送らない
     if (!this._guestPeers) return;
     const raw = JSON.stringify(msgObj);
     this._guestPeers.forEach((entry, uid) => {
       if (uid === excludeUid) return;
       if (onlyUids && onlyUids.indexOf(uid) < 0) return;
       const ch = entry.channels && entry.channels[channelName];
-      if (ch && ch.readyState === 'open') { try { ch.send(raw); } catch (e) {} }
+      if (ch && ch.readyState === 'open') { if (dropIfBusy && ch.bufferedAmount > NET_FAST_BUSY_BYTES) return; try { ch.send(raw); } catch (e) {} }
     });
   }
 
@@ -21686,7 +21722,7 @@ class Net {
       // ここでは配信し返さない。ホストの定期送信(updateOwnState内の_broadcastPlayers)にまとめて乗せる。
     } else if (msg.t === 'fast') { // 「いまの状態」：宛先（to）が決まっていれば、その人たちにだけ中継する（ホスト自身が宛先なら自分にも）
       if (!msg.to || msg.to.indexOf(this.uid) >= 0) this._fireLocal(msg.k, msg.p);
-      this._broadcastToGuests('state', msg, guestUid, msg.to);
+      this._broadcastToGuests('state', msg, guestUid, msg.to, true);
     } else if (msg.t === 'event') {
       if (msg.to) { // 宛先つきの event：宛先の人たちにだけ中継する（ホスト自身が宛先なら自分にも）
         if (msg.to.indexOf(this.uid) >= 0) this._fireLocal(msg.k, msg.p);
@@ -21867,8 +21903,8 @@ class Net {
   // 位置・HPなど「いまの状態」：順序保証も再送もしない state チャネル（UDPのような送り方）で送る。古い情報は待たずに捨てる。toUids があれば、その人たちにだけ届ける（自分には折り返さない）
   sendPvpFast(payload, toUids) {
     const msg = { t: 'fast', k: 'pvp', p: payload, to: toUids || null };
-    if (this.isHost) this._broadcastToGuests('state', msg, null, toUids);
-    else this._sendToHost('state', msg);
+    if (this.isHost) this._broadcastToGuests('state', msg, null, toUids, true);
+    else this._sendToHost('state', msg, true);
   }
   // 宛先つきの確実な送り：順序保証ありの events チャンネルで、toUids の人たちにだけ届ける（自分には折り返さない）。単発の知らせ（取りこぼすと困るもの）用
   sendPvpTo(payload, toUids) {
@@ -22170,7 +22206,7 @@ const ARMS4_RITUAL_ALWAYS_OPEN = true;
 function updateArms4RitualBtn() {
   const b = document.getElementById('arms4RitualBtn'); if (!b) return;
   const ok = ARMS4_RITUAL_ALWAYS_OPEN || !!loadSave().arms4RitualPlayed;
-  b.style.background = ok ? '#b26bff' : '#777';
+  b.style.background = ok ? '#ffe58a' : '#777'; // 解放済みの色（天使の輪の金色）
   b.style.color = ok ? '' : '#ccc';
   b.style.opacity = ok ? '' : '0.6';
   b.title = '';
@@ -22231,6 +22267,7 @@ document.getElementById('nightmareBtn').addEventListener('click', () => startGam
 const RUSH_WEAPON_DESC = {
   sword: '広い範囲を素早く斬る近接武器',
   club: '細く長いリーチ・高威力・大きく吹き飛ばす',
+  knife: 'レベルでダメージと攻撃速度が上がる',
   shotgun: '近距離で散弾を撃つ（4発装填）',
   rocket: '爆発する高威力の弾（3発装填）',
   machinegun: '狙っている間 撃ち続ける（40発装填）',
