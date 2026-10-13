@@ -1420,6 +1420,12 @@ const SNAKE_RAGE = {
 const SNAKE_DOOM = {
   seconds: 30,  // 先頭が倒されてから、全員が死ぬまでの時間（秒）
 };
+// ミミック：宝箱（spawnChests）と全く同じ見た目（22×18・同じ色と縁取り）で、攻撃されるまで動かない敵。
+// 攻撃を受けると目を覚まし（makeMimicGfx / mimicWake）、コウモリと同じ速さでプレイヤーを追いかける。
+// 出るのは協力・ソロのダンジョン（ナイトメア含む）だけ。ふつうの抽選（pickWeightedEnemyType）には入れず、
+// spawnEnemies の中で専用に抽選する（chance＝1フロアごとに出る確率。0.25＝約4階層に1体。ボス階には出ない）。
+// multiChance＝ミミックが出るフロアのうち、ごくまれに「数体まとめて」出る確率（そのとき minCount〜maxCount 体。全体では1フロアあたり 0.25×0.15 ≒ 3.8%）
+const MIMIC = { chance: 0.25, multiChance: 0.15, minCount: 2, maxCount: 4, w: 22, h: 18, color: 0xa87844, stroke: 0x4a3620 };
 const ENEMY_TYPES = [
   { key: 'slime',   color: 0x7ee081, radius: 14, hp: 18, speed: 42,  damage: 6,  behavior: 'wander', minFloor: 1 },
   { key: 'bat',     color: 0xb98cff, radius: 10, hp: 10, speed: 120, damage: 5,  behavior: 'erratic', minFloor: 1 },
@@ -1432,6 +1438,8 @@ const ENEMY_TYPES = [
     chaseErratic: true, chaseBias: 0.3 }, // プレイヤー追跡中もコウモリのようにランダムな揺れを混ぜてジグザグに動かす
   { key: 'charger', color: 0xff6b6b, radius: 16, hp: 28, speed: 55,  dashSpeed: 320, damage: 14, behavior: 'charge', minFloor: 2 },
   { key: 'brute',   color: 0xffa552, radius: 20, hp: 55, speed: 55,  damage: 18, behavior: 'chase', minFloor: 3 },
+  // ミミック：HPはブルートと同じ。寝ている間（state='mimicSleep'）は動かず、接触ダメージも無い。起きたら speed（コウモリと同じ）で追いかける。
+  { key: 'mimic',   color: MIMIC.color, radius: 12, hp: 55, speed: 120, damage: 18, behavior: 'mimic', minFloor: 1, mimic: true },
   // ボマー（ナイトメア専用の雑魚）：クリーパー風。プレイヤーに歩いて近づき、fuseRange まで来るとその場で止まって
   // 膨らみ、白く点滅（fuseTime 秒）してから自爆する。一度火が付いたら、離れても止まらない。
   // 爆発（blastRadius）はプレイヤー・味方・ほかの敵を全員巻き込む（ほかの敵へのダメージも damage と同じ値）。
@@ -1966,7 +1974,7 @@ const SUMMON_BALANCE = {
   deathPenalty: 0.49,    // 【通常の敵】がやられた時に受けるダメージ（最大HPの割合。0.49＝49%）。0にするとペナルティなし
   bossDeathPenalty: 0.99,// 【ボス級】がやられた時に受けるダメージ（最大HPの割合。0.99＝99%）。カルテットは射手が全滅した時に1回だけ
   bossHp: 500,           // 元のHPがこれ以上の敵、およびカルテット（とその射手）は「ボス級」として扱う
-  excludeKeys: ['simahar', 'quartet_shooter', 'snake_body', 'bomber'], // 抽選から外す敵。シマハル（ダメージ99999の最終ボス）と、分裂・体節用の内部データ
+  excludeKeys: ['simahar', 'quartet_shooter', 'snake_body', 'bomber', 'mimic'], // 抽選から外す敵。シマハル（ダメージ99999の最終ボス）と、分裂・体節用の内部データ
   // --- 階層・武器レベルによる強化（召喚した時点の階層とレベルで決まり、その味方が消えるまで固定） ---
   hpFloorGrowth: 0.10,   // 階層が1つ深くなるごとに味方HPが増える割合。敵の「ダメージ成長(+0.10/階)」に合わせてあり、受けるダメージとの釣り合いが階層で崩れにくい
   dmgFloorGrowth: 0.16,  // 階層が1つ深くなるごとに味方ダメージが増える割合。敵の「HP成長(+0.16/階)」に合わせてあり、敵を倒すまでの時間が階層で変わりにくい
@@ -2147,7 +2155,7 @@ const ALLY_NAMES = {
 };
 
 // リザルト用：敵の種類 → 日本語名（味方の名前表に、ゾートロープを足したもの）
-const ENEMY_JP_NAMES = Object.assign({}, ALLY_NAMES, { zoetrope: 'ゾートロープ', snake: 'ウロボロス', snake_body: 'ウロボロス' });
+const ENEMY_JP_NAMES = Object.assign({}, ALLY_NAMES, { mimic: 'ミミック', zoetrope: 'ゾートロープ', snake: 'ウロボロス', snake_body: 'ウロボロス' });
 
 // 武器レベルに応じてリーチ・攻撃範囲・攻撃力を強化した「実効ステータス」を返す。
 // 同じ武器を再度拾うと levels[weapon.key] が上がり、このボーナスが積み重なる。
@@ -3588,14 +3596,17 @@ class GameScene extends Phaser.Scene {
       // 呼び寄せゴーストは通常のゴーストと見分けが付くよう紫系の色にする（spawnChargeGhost参照）。
       const isChargeGhost = isChargeGhostId(id);
       const fillColor = snap.state === 'telegraph' ? 0xffffff : (isChargeGhost ? CHARGE_GHOST_FILL_COLOR : type.color);
-      const gfx = this.add.circle(snap.x, snap.y, type.radius, fillColor).setDepth(4);
-      gfx.setStrokeStyle(2, isChargeGhost ? CHARGE_GHOST_STROKE_COLOR : 0x000000, isChargeGhost ? 0.8 : 0.3);
+      const gfx = type.mimic ? this.makeMimicGfx(snap.x, snap.y) : this.add.circle(snap.x, snap.y, type.radius, fillColor).setDepth(4); // ミミックは宝箱と同じ四角
+      if (type.mimic) { if (snap.state !== 'mimicSleep') gfx.setDepth(4); }
+      else gfx.setStrokeStyle(2, isChargeGhost ? CHARGE_GHOST_STROKE_COLOR : 0x000000, isChargeGhost ? 0.8 : 0.3);
       if (isChargeGhost) gfx.setAlpha(CHARGE_GHOST_ALPHA);
       else if (typeof type.alpha === 'number') gfx.setAlpha(type.alpha);
       const hpBar = this.add.rectangle(snap.x, snap.y - type.radius - 8, type.radius * 2, 4, 0xff5b5b).setDepth(4);
       if (type.hideHpBar) hpBar.setVisible(false);
+      if (type.mimic && snap.state === 'mimicSleep') hpBar.setVisible(false); // 寝ているミミックはHPバーを出さない
       const child = {
         id, type, gfx, hpBar,
+        _mimicSleep: !!(type.mimic && snap.state === 'mimicSleep'),
         hp: snap.hp, maxHp: snap.maxHp || type.hp,
         damage: (typeof snap.dmg === 'number') ? snap.dmg : type.damage, state: snap.state || 'idle', timer: 0,
         dirX: 0, dirY: 0, hitCooldown: 0,
@@ -3816,12 +3827,33 @@ class GameScene extends Phaser.Scene {
     return { hp: 1 + D.partyHpPerPlayer * extra, dmg: 1 + D.partyDmgPerPlayer * extra, count: 1 + D.partyCountPerPlayer * extra, n };
   }
 
+  // ミミックの見た目：宝箱（spawnChests）と同じ四角（22×18・同じ色・同じ縁取り・同じ重なり順）
+  makeMimicGfx(x, y) {
+    const g = this.add.rectangle(x, y, MIMIC.w, MIMIC.h, MIMIC.color).setDepth(3);
+    g.setStrokeStyle(2, MIMIC.stroke, 1);
+    g.radius = 12; // 円を前提にした判定（gfx.radius を読む処理）のための値
+    return g;
+  }
+
+  // ミミックが目を覚ます：HPバーを出して、敵らしく前面に出る（ホストはダメージを受けた時、参加側はホストの state が変わった時に呼ぶ）
+  mimicWake(e) {
+    if (!e || !e.type || !e.type.mimic || !e._mimicSleep) return;
+    e._mimicSleep = false;
+    if (e.state === 'mimicSleep') e.state = 'idle';
+    if (e.gfx && e.gfx.scene) {
+      e.gfx.setDepth(4);
+      this.spawnBurst(e.gfx.x, e.gfx.y, MIMIC.color, 10);
+      this.tweens.add({ targets: e.gfx, scaleX: 1.35, scaleY: 1.35, duration: 90, yoyo: true, ease: 'Quad.easeOut' }); // ガバッと開く感じ
+    }
+    if (e.hpBar && e.hpBar.scene) e.hpBar.setVisible(true);
+  }
+
   spawnEnemies() {
     const rand = mulberry32(this.baseSeed + this.floor * 104729);
     const d = this.dungeon;
     // isBoss扱いの敵（オーバーロード等）は通常のランダム抽選には含めない。
     // ボスはこの後の専用ブロックで「各フロアに必ず1体・ラベル付き」で配置する。
-    const eligible = ENEMY_TYPES.filter(t => t.minFloor <= this.floor && !t.isBoss && (!t.nightmareOnly || this.nightmare)); // nightmareOnly（ボマー）はナイトメアでだけ出す
+    const eligible = ENEMY_TYPES.filter(t => t.minFloor <= this.floor && !t.isBoss && !t.mimic && (!t.nightmareOnly || this.nightmare)); // nightmareOnly（ボマー）はナイトメアでだけ出す
     const startRoom = d.rooms[0];
     const candidateRooms = d.rooms.filter(r => r !== startRoom);
     const hpMult = (1 + (this.floor - 1) * DUNGEON_DIFFICULTY.hpPerFloor) * this.dungeonPartyMult().hp * this.nightmareMult();
@@ -3855,6 +3887,36 @@ class GameScene extends Phaser.Scene {
         dirX: 0, dirY: 0,
         hitCooldown: 0,
       });
+    }
+
+    // ミミック：宝箱と同じように、ふつうの敵とは別の乱数で決める（既存の敵の配置・数は変わらない）。階層とシードだけで決まるので、
+    // 協力プレイでも全員の画面で同じ場所に出る。協力・ソロのダンジョン（ナイトメア含む）の通常階だけ。ボス階・ボスラッシュ・最北戦線・PvPには出さない。
+    if (!this.bossFloor && !this.bossRush && !this.frontline && !this.pvp && candidateRooms.length) {
+      const mrand = mulberry32(this.baseSeed + this.floor * 7919 + 303);
+      const mt = ENEMY_TYPES.find(t => t.key === 'mimic');
+      if (mt && mt.minFloor <= this.floor && mrand() < MIMIC.chance) {
+        // ふだんは1体。ごくまれに（multiChance）、数体まとめて出る
+        let mn = 1;
+        if (mrand() < MIMIC.multiChance) mn = MIMIC.minCount + Math.floor(mrand() * (MIMIC.maxCount - MIMIC.minCount + 1));
+        let pool = [];
+        for (let k = 0; k < mn; k++) {
+          if (!pool.length) pool = candidateRooms.slice(); // なるべく別々の部屋に置く（部屋が足りなければ、もう一巡）
+          const mroom = pool.splice(Math.floor(mrand() * pool.length), 1)[0];
+          const mx = (mroom.x + 1 + mrand() * Math.max(1, mroom.w - 2)) * TILE;
+          const my = (mroom.y + 1 + mrand() * Math.max(1, mroom.h - 2)) * TILE;
+          const mgfx = this.makeMimicGfx(mx, my);
+          const mhpBar = this.add.rectangle(mx, my - mt.radius - 8, mt.radius * 2, 4, 0xff5b5b).setDepth(4);
+          mhpBar.setVisible(false); // 寝ている間は宝箱と見分けが付かないよう、HPバーを出さない
+          this.enemies.push({
+            id: this.floor + '_mimic' + (k || ''),
+            type: mt, gfx: mgfx, hpBar: mhpBar,
+            hp: Math.round(mt.hp * hpMult), maxHp: Math.round(mt.hp * hpMult),
+            damage: Math.round(mt.damage * dmgMult),
+            state: 'mimicSleep', _mimicSleep: true,
+            timer: 0, dirX: 0, dirY: 0, hitCooldown: 0,
+          });
+        }
+      }
     }
 
     // 10階以降の通常階：毎回、出口のある部屋にボスが出る（人数・階層が増えるほど複数体になりやすい）。
@@ -18888,6 +18950,14 @@ class GameScene extends Phaser.Scene {
       e.hpBar.width = (e.hp / e.maxHp) * t.radius * 2;
       return;
     }
+    if (t.mimic && e._mimicSleep) { // ミミック：攻撃される（HPが減る）まで、その場から動かない。ノックバックも受けない
+      if (e.hp < e.maxHp) this.mimicWake(e);
+      else {
+        e.kbX = 0; e.kbY = 0; e.state = 'mimicSleep';
+        e.hpBar.x = e.gfx.x; e.hpBar.y = e.gfx.y - t.radius - 8;
+        return;
+      }
+    }
     if (t.snakeLen && !e._snakeSpawned) this.spawnSnakeBody(e); // スネーク先頭：最初の1回だけ後続を出す
     else if (t.snakeLen && e.hp > 0) this.reviveSnakeBody(e, dt); // 先頭が生きている限り、胴体が一定間隔で生き返る
     if (t.snake) {
@@ -18947,6 +19017,8 @@ class GameScene extends Phaser.Scene {
       const bias = 0.5;
       moveX = e.dirX * (1 - bias) + Math.cos(playerAngle) * bias;
       moveY = e.dirY * (1 - bias) + Math.sin(playerAngle) * bias;
+    } else if (t.behavior === 'mimic') {
+      moveX = Math.cos(playerAngle); moveY = Math.sin(playerAngle); // 起きたあとは、プレイヤーをどこまでも追いかける
     } else if (t.behavior === 'chase') {
       const aggro = t.aggroRange || 260;
       if (playerDist < aggro) { moveX = Math.cos(playerAngle); moveY = Math.sin(playerAngle); }
@@ -19892,6 +19964,7 @@ class GameScene extends Phaser.Scene {
           if (e.state !== snap.state) {
             e.state = snap.state;
             e.gfx.setFillStyle(snap.state === 'telegraph' ? 0xffffff : (isChargeGhostId(e.id) ? CHARGE_GHOST_FILL_COLOR : e.type.color));
+            if (e.type.mimic && snap.state !== 'mimicSleep') this.mimicWake(e); // ミミックが目を覚ました
           }
           // シマハル：黒い星・ビーム・クロスビーム・突進前の点滅の見た目を、スナップショットの
           // 位置/タイミング情報から再現する（状態が変わらないフレームでも毎回呼ぶ必要がある：
@@ -19947,7 +20020,7 @@ class GameScene extends Phaser.Scene {
       }
       // 味方への接触ダメージ。自分のHPと同じく、自分の画面で見えている敵の位置を使って
       // 持ち主の画面で判定する（協力プレイでもソロと同じ動き）。
-      if (this.allies.length && !e._introAnim && !e.type.noContactDamage && !this.isEnemyFrozen(e)) {
+      if (this.allies.length && !e._introAnim && !e.type.noContactDamage && e.state !== 'mimicSleep' && !this.isEnemyFrozen(e)) {
         e.allyHitCooldown = Math.max(0, (e.allyHitCooldown || 0) - dt);
         if (e.allyHitCooldown <= 0) {
           for (const a of this.allies) {
@@ -19961,7 +20034,7 @@ class GameScene extends Phaser.Scene {
         }
       }
       const dist2 = Phaser.Math.Distance.Between(this.player.x, this.player.y, e.gfx.x, e.gfx.y);
-      if (!this.isGhost && !this.isDowned && dist2 < r + e.type.radius && !e.type.noContactDamage && e.hitCooldown <= 0 && this.playerInvuln <= 0 && !this.isEnemyFrozen(e) && !this.snakeWhirlBlocked(e)) { // ウロボロスの振り回しは壁越しには当たらない
+      if (!this.isGhost && !this.isDowned && dist2 < r + e.type.radius && !e.type.noContactDamage && e.state !== 'mimicSleep' && e.hitCooldown <= 0 && this.playerInvuln <= 0 && !this.isEnemyFrozen(e) && !this.snakeWhirlBlocked(e)) { // ウロボロスの振り回しは壁越しには当たらない
         const dmgTaken = this.accDmgTaken(Math.round(e.damage * (e._dmgMult || 1))); this.recordDamageTaken(dmgTaken); // 装飾品（盾）の軽減後のダメージ
         this.playerHp -= dmgTaken;
         this.playerInvuln = 0.6;
