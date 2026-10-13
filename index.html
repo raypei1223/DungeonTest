@@ -1754,7 +1754,7 @@ const WEAPON_TYPES = [
   { key: 'sword',   name: '剣',           type: 'melee',  damage: 16, range: 56, arcDeg: 100, rangeGrowth: 9, arcGrowth: 12, arcMax: 360, cooldown: 0.35, knockback: 112, minFloor: 1 },
   { key: 'club',    name: '棍棒',         type: 'melee',  damage: 32, range: 70, arcDeg: 20,  fixedArc: true, rangeGrowth: 10, cooldown: 0.55, knockback: 460, minFloor: 1 },
   // ナイフ：リーチがとても短い代わりに1発が重い近接武器。当たった敵から血しぶきが出る（bloodFx）。
-  { key: 'knife',   name: 'ナイフ',       type: 'melee',  damage: 44, range: 20, arcDeg: 15,  fixedArc: true, rangeGrowth: 0, cooldown: 0.5, cooldownGrowth: 0.04, cooldownMin: 0.15, knockback: 5, bloodFx: true, minFloor: 1 },
+  { key: 'knife',   name: 'ナイフ',       type: 'melee',  damage: 44, range: 30, arcDeg: 15,  fixedArc: true, rangeGrowth: 0, cooldown: 0.5, cooldownGrowth: 0.04, cooldownMin: 0.15, knockback: 5, bloodFx: true, minFloor: 1 },
   // isFreeze: 弾が命中（敵 or 壁）した場所に魔法陣を作る特殊武器。ダメージは無く、
   // circleLifetime秒のあいだ魔法陣として残り、触れている敵の動きと攻撃を止める。
   // circleLifetime/circleRadiusはapplyWeaponLevel()でレベルに応じて伸びる（装填数は据え置き）。
@@ -9063,15 +9063,44 @@ class GameScene extends Phaser.Scene {
     return this.hasLineOfSight(px, py, ex - (ex - px) * k, ey - (ey - py) * k);
   }
 
-  // ナイフが当たった時の血しぶき：斬った向き(angle)へ細かい血の粒が飛び、床に小さな血だまりが残る（見た目だけ）
-  knifeBlood(x, y, angle) {
-    for (let i = 0; i < 14; i++) {
-      const a = angle + (Math.random() - 0.5) * 1.6, dist = 14 + Math.random() * 38;
-      const p = this.add.circle(x, y, 1.5 + Math.random() * 2.5, Math.random() < 0.5 ? 0xb00010 : 0xe01020).setDepth(9); p._nofx = true;
-      this.tweens.add({ targets: p, x: x + Math.cos(a) * dist, y: y + Math.sin(a) * dist, alpha: 0, scale: 0.4, duration: 250 + Math.random() * 300, ease: 'Cubic.easeOut', onComplete: () => p.destroy() });
+  // ナイフが当たった時の血しぶき：斬った向き(angle)へ血の粒が飛び、床に血だまりが残る（見た目だけ）。
+  // radius＝当たった敵の半径。大きい敵ほど、粒の数・飛ぶ距離・粒と血だまりの大きさが大きくなる（ふつうの敵＝約1.8倍、大型の敵・ボス＝最大約7倍）
+  // killed＝その一撃で倒した時。angle は「ナイフの向いていた方向」で、血が細い扇形にスプレーのように勢いよく飛び、飛んだ先の床にも血が点々と残る
+  knifeBlood(x, y, angle, radius, killed) {
+    const k = Math.min(4, Math.max(1, (radius || 12) / 12)) * 1.8;
+    if (killed) {
+      const kd = Math.min(k, 4.5); // 飛ぶ距離の伸びは頭打ち（大きなボスでも画面の外まで飛ばない）
+      const n = Math.min(110, Math.round((14 + 8 * k) * 1.8));
+      for (let i = 0; i < n; i++) {
+        const a = angle + (Math.random() - 0.5) * 0.55, dist = (30 + Math.random() * 70) * kd;
+        const col = Math.random() < 0.5 ? 0xb00010 : 0xe01020;
+        const p = i % 3 === 0
+          ? this.add.ellipse(x, y, (7 + Math.random() * 9) * k * 0.6, (1.5 + Math.random() * 2) * k * 0.7, col).setRotation(a) // 勢いよく飛ぶ、細長い筋
+          : this.add.circle(x, y, (1.5 + Math.random() * 2.5) * k, col);
+        p.setDepth(9); p._nofx = true;
+        this.tweens.add({ targets: p, x: x + Math.cos(a) * dist, y: y + Math.sin(a) * dist, alpha: 0, scale: 0.4, duration: 350 + Math.random() * 450, ease: 'Cubic.easeOut', onComplete: () => p.destroy() });
+      }
+      const m = Math.min(9, Math.round(4 + k)); // 飛んだ先の床に、点々と残る血（遠いほど小さい）
+      for (let i = 0; i < m; i++) {
+        const t = (i + Math.random()) / m, d = (14 + t * 90 * kd), a = angle + (Math.random() - 0.5) * 0.5;
+        const s = this.add.circle(x + Math.cos(a) * d, y + Math.sin(a) * d, (3 + Math.random() * 5) * k * (1 - t * 0.55), 0x8a0010, 0.55).setDepth(1); s._nofx = true;
+        this.tweens.add({ targets: s, alpha: 0, duration: 5000, onComplete: () => s.destroy() });
+      }
+      return;
     }
-    const s = this.add.circle(x + Math.cos(angle) * 8, y + Math.sin(angle) * 8, 4 + Math.random() * 5, 0x8a0010, 0.55).setDepth(1); s._nofx = true;
-    this.tweens.add({ targets: s, alpha: 0, duration: 3000, onComplete: () => s.destroy() });
+    const n = Math.min(70, Math.round(14 + 8 * k));
+    for (let i = 0; i < n; i++) {
+      const a = angle + (Math.random() - 0.5) * 1.8, dist = (14 + Math.random() * 38) * k;
+      const p = this.add.circle(x, y, (1.5 + Math.random() * 2.5) * k, Math.random() < 0.5 ? 0xb00010 : 0xe01020).setDepth(9); p._nofx = true;
+      this.tweens.add({ targets: p, x: x + Math.cos(a) * dist, y: y + Math.sin(a) * dist, alpha: 0, scale: 0.4, duration: 300 + Math.random() * 400, ease: 'Cubic.easeOut', onComplete: () => p.destroy() });
+    }
+    const pools = k > 4 ? 3 : 2; // 床に残る血だまり（大きい敵ほど多く・大きい）
+    for (let i = 0; i < pools; i++) {
+      const off = 8 * k * (i === 0 ? 1 : Math.random() * 1.6);
+      const ang = i === 0 ? angle : angle + (Math.random() - 0.5) * 2.4;
+      const s = this.add.circle(x + Math.cos(ang) * off, y + Math.sin(ang) * off, (4 + Math.random() * 5) * k, 0x8a0010, 0.55).setDepth(1); s._nofx = true;
+      this.tweens.add({ targets: s, alpha: 0, duration: 3000, onComplete: () => s.destroy() });
+    }
   }
 
   meleeAttack(w, angle) {
@@ -9095,8 +9124,9 @@ class GameScene extends Phaser.Scene {
       const angularRadius = d > 0.001 ? Math.asin(Math.min(1, enemy.type.radius / d)) : Math.PI;
       if (Math.abs(diff) > arcRad + angularRadius) continue;
       if (!this.meleeCanReach(enemy.gfx.x, enemy.gfx.y, enemy.type.radius)) continue; // 壁の向こうには届かない
+      const ex = enemy.gfx.x, ey = enemy.gfx.y, er = enemy.type.radius; // 倒れて消える前の位置と大きさを控えておく
       this.damageEnemy(enemy, w.damage, a, w.knockback);
-      if (w.bloodFx) this.knifeBlood(enemy.gfx.x, enemy.gfx.y, a); // ナイフ：当たった敵から血しぶき
+      if (w.bloodFx) this.knifeBlood(ex, ey, enemy.hp <= 0 ? angle : a, er, enemy.hp <= 0); // ナイフ：当たった敵から血しぶき（倒した時は、ナイフの向いていた方向へスプレー）
     }
 
     // 宝箱（壊れていないもの）にも同じ扇形判定でダメージを与える
