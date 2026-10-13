@@ -1425,8 +1425,7 @@ const SNAKE_DOOM = {
 // 出るのは協力・ソロのダンジョン（ナイトメア含む）だけ。ふつうの抽選（pickWeightedEnemyType）には入れず、
 // spawnEnemies の中で専用に抽選する（chance＝1フロアごとに出る確率。0.25＝約4階層に1体。ボス階には出ない）。
 // multiChance＝ミミックが出るフロアのうち、ごくまれに「数体まとめて」出る確率（そのとき minCount〜maxCount 体。全体では1フロアあたり 0.25×0.15 ≒ 3.8%）
-// forceSpawn＝【テスト用・一時的】true の間は、ボス階以外のすべてのフロアで必ず出る（元に戻す時は false にする）
-const MIMIC = { forceSpawn: true, chance: 0.25, multiChance: 0.15, minCount: 2, maxCount: 4, w: 22, h: 18, color: 0xa87844, stroke: 0x4a3620 };
+const MIMIC = { chance: 0.25, multiChance: 0.15, minCount: 2, maxCount: 4, w: 22, h: 18, color: 0xa87844, stroke: 0x4a3620 };
 const ENEMY_TYPES = [
   { key: 'slime',   color: 0x7ee081, radius: 14, hp: 18, speed: 42,  damage: 6,  behavior: 'wander', minFloor: 1 },
   { key: 'bat',     color: 0xb98cff, radius: 10, hp: 10, speed: 120, damage: 5,  behavior: 'erratic', minFloor: 1 },
@@ -1763,7 +1762,7 @@ const WEAPON_TYPES = [
   { key: 'sword',   name: '剣',           type: 'melee',  damage: 16, range: 56, arcDeg: 100, rangeGrowth: 9, arcGrowth: 12, arcMax: 360, cooldown: 0.35, knockback: 112, minFloor: 1 },
   { key: 'club',    name: '棍棒',         type: 'melee',  damage: 32, range: 70, arcDeg: 20,  fixedArc: true, rangeGrowth: 10, cooldown: 0.55, knockback: 460, minFloor: 1 },
   // ナイフ：リーチがとても短い代わりに1発が重い近接武器。当たった敵から血しぶきが出る（bloodFx）。
-  { key: 'knife',   name: 'ナイフ',       type: 'melee',  damage: 44, range: 30, arcDeg: 15,  fixedArc: true, rangeGrowth: 0, cooldown: 0.5, cooldownGrowth: 0.04, cooldownMin: 0.15, knockback: 5, bloodFx: true, minFloor: 1 },
+  { key: 'knife',   name: 'ナイフ',       type: 'melee',  damage: 66, range: 30, arcDeg: 15,  fixedArc: true, rangeGrowth: 0, cooldown: 0.5, cooldownGrowth: 0.04, cooldownMin: 0.15, knockback: 5, bloodFx: true, minFloor: 1 },
   // isFreeze: 弾が命中（敵 or 壁）した場所に魔法陣を作る特殊武器。ダメージは無く、
   // circleLifetime秒のあいだ魔法陣として残り、触れている敵の動きと攻撃を止める。
   // circleLifetime/circleRadiusはapplyWeaponLevel()でレベルに応じて伸びる（装填数は据え置き）。
@@ -3895,7 +3894,7 @@ class GameScene extends Phaser.Scene {
     if (!this.bossFloor && !this.bossRush && !this.frontline && !this.pvp && candidateRooms.length) {
       const mrand = mulberry32(this.baseSeed + this.floor * 7919 + 303);
       const mt = ENEMY_TYPES.find(t => t.key === 'mimic');
-      if (mt && mt.minFloor <= this.floor && (mrand() < MIMIC.chance || MIMIC.forceSpawn)) { // forceSpawn はテスト用（mrand は先に呼ぶので、後ろの抽選の並びは変わらない）
+      if (mt && mt.minFloor <= this.floor && mrand() < MIMIC.chance) {
         // ふだんは1体。ごくまれに（multiChance）、数体まとめて出る
         let mn = 1;
         if (mrand() < MIMIC.multiChance) mn = MIMIC.minCount + Math.floor(mrand() * (MIMIC.maxCount - MIMIC.minCount + 1));
