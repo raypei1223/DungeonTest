@@ -21078,7 +21078,6 @@ class GameScene extends Phaser.Scene {
   // ⬜ 白い扉の先：雪原。ふつうのダンジョンと同じ仕組みで動く、広い雪のマップ（generateSnowfieldMap）。いた時間はクリアタイムに数えない。
   //   入ると同じ階の「雪原マップ」に作り替え、戻るときはダンジョンの同じ階を作り直す（敵や宝箱は、入る前の状態には戻らない）。
   enterSnowfield() {
-    if (this.isDevMode) return; // デベロッパーモードでは雪原に行けない
     if (this.transitioning || this._inLibrary || this.snowfield) return;
     this.interruptChargeBomb();
     this.transitioning = true; this._libT0 = performance.now();
