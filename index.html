@@ -1254,9 +1254,24 @@ function generateFrontlineMap() {
 //   下の端の真ん中にある白い扉に触れると、ダンジョンに戻る。広さを変えるときは w / h を変える（床は画面の近くだけ描くので、広くしても重くなりにくい）。
 const SNOWFIELD = {
   w: 900, h: 900, cell: 25, clearing: 11, border: 2, rockChance: 140,
-  hutDist: 800, hutHeal: 4, // 小屋：スタートから北へ何タイルの所に置くか（炎をつけて寒さ1/4で、HP100でぎりぎり着く遠さ）／小屋の中で1秒に回復するHP
+  spawnW: 600, spawnH: 600, // 敵が出現する範囲（タイル）。横は中央、縦は白い扉（下の端）から北へ。この外の空き地には敵を置かない
+  hutDist: 600, hutHeal: 4, // 小屋：スタートから北へ何タイルの所に置くか（800から600に近づけた。炎をつけて寒さ1/4で、HP100なら余裕をもって着く遠さ）／小屋の中で1秒に回復するHP
   coldDmg: 2, coldInterval: 1, coldFlameMult: 0.25, // 寒さ：coldInterval秒ごとにcoldDmgぶん減る（0にすると無効）。装飾品「炎」をつけている間は coldFlameMult 倍（1/4）
 };
+// 📖 小屋のベッドサイドの机の上にある本。書庫の本と同じく、Firebase Realtime Database から読み込む（HTMLには本文を持たない）。
+//   形式：library/hutBook = { title: '本の題名', text: '本文' }（本文は改行が使える）。小屋に入った時に読み込み、読み込めなかった時は、本を調べるたびにもう一度試す。
+//   セキュリティルールは書庫と同じく library 以下を「読み取りのみ許可」にしておけば、そのまま読める。
+async function fetchHutBook() {
+  if (typeof netInstance === 'undefined' || !netInstance || !netInstance.enabled) throw new Error('Firebase unavailable');
+  const run = (async () => {
+    await netInstance.signIn();
+    const snap = await netInstance.db.ref('library/hutBook').once('value');
+    const v = snap.val();
+    if (!v || typeof v !== 'object') throw new Error('library/hutBook is empty');
+    return { title: String(v.title == null ? '' : v.title), text: String(v.text == null ? '' : v.text) };
+  })();
+  return Promise.race([run, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))]);
+}
 // 吹雪の雪の模様（小さな画像を1回だけ作って、CSSで流す）。雪原に入るとき setBlizzard(true)、出る/新しく始めるとき setBlizzard(false)
 let _bzReady = false;
 function setBlizzard(on) {
@@ -1282,6 +1297,24 @@ function setBlizzard(on) {
   if (!on) el.classList.remove('indoors');
   el.style.display = on ? 'block' : 'none';
 }
+// ✨ 聖域：小屋の右上の扉の先にある、神々しい小部屋。敵も宝箱もない。南の端の真ん中の金色の扉から、雪原（小屋の中）へ戻る。広さを変えるときは w / h を変える
+const SANCTUARY = { w: 37, h: 29, border: 2 };
+function generateSanctuaryMap() {
+  const width = SANCTUARY.w, height = SANCTUARY.h, B = SANCTUARY.border;
+  const grid = Array.from({ length: height }, () => new Array(width).fill(1));
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (x < B || y < B || x >= width - B || y >= height - B) grid[y][x] = 0;
+  const sx = Math.floor(width / 2), startY = height - 6;
+  for (const py of [8, 13, 18]) for (const px of [sx - 9, sx - 5, sx + 5, sx + 9]) grid[py][px] = 0; // 柱（左右に2本ずつ、3列）
+  const altar = { x: sx - 2, y: 4, w: 5, h: 2 }; // 北の真ん中の祭壇
+  for (let y = altar.y; y < altar.y + altar.h; y++) for (let x = altar.x; x < altar.x + altar.w; x++) grid[y][x] = 0;
+  grid[height - 1][sx] = 1; grid[height - 2][sx] = 1; // 外周の壁を1マス幅で掘って、戻る扉を置く
+  return {
+    grid, width, height, rooms: [{ x: sx - 6, y: height - 12, w: 13, h: 10 }], exitPos: null, secretDoor: null, holy: true, altar,
+    holyExit: { x: sx, y: height - 1, inX: sx, inY: startY },
+    playerStart: { x: sx, y: startY },
+    enemyBudget: 0,
+  };
+}
 function generateSnowfieldMap() {
   const S = SNOWFIELD, width = S.w, height = S.h, B = S.border;
   const grid = Array.from({ length: height }, () => new Array(width).fill(1));
@@ -1294,7 +1327,7 @@ function generateSnowfieldMap() {
   mark(sx - 9, height - 22, 19, 22); // 白い扉の前は広く空けておく
   const rooms = [startRoom];
   // 松明：白い扉の前から北へ、ゆるく蛇行しながら点々とつながり、いちばん奥の小屋の入口まで案内する（位置はピクセル）。岩は置かない
-  const hy = Math.max(B + 6, startY - S.hutDist), hutY0 = hy - 3; // 小屋の中心のタイルy／小屋の上端
+  const hy = Math.max(B + 13, startY - S.hutDist), hutY0 = hy - 10; // 入口のあたりのタイルy（入口はhy+3）／小屋の上端（小屋は2倍の18x14。入口の位置は変えずに北へ広げた）
   const torches = []; let lastPx = sx * TILE + TILE / 2;
   for (let k = 0; k < 600; k++) {
     const px = sx * TILE + TILE / 2 + 300 * Math.sin(k * 0.33) + (k % 2 ? -70 : 70), py = (height - 1) * TILE - 200 - k * 210;
@@ -1304,13 +1337,14 @@ function generateSnowfieldMap() {
     lastPx = px;
   }
   // 小屋：まわりは壁、中は木の床。北の壁ぎわに暖炉（石の壁）。入口は南の壁の真ん中。松明の道の終わりに建てる
-  const hx = Math.max(B + 8, Math.min(width - B - 9, Math.floor(lastPx / TILE)));
-  const hut = { x: hx - 4, y: hutY0, w: 9, h: 7, door: { x: hx, y: hy + 3 }, hearth: { x: hx - 1, y: hy - 2, w: 3 } };
+  const hx = Math.max(B + 10, Math.min(width - B - 10, Math.floor(lastPx / TILE)));
+  const hut = { x: hx - 9, y: hutY0, w: 18, h: 14, door: { x: hx, y: hy + 3 }, hearth: { x: hx - 3, y: hutY0 + 1, w: 6 } };
   for (let y = hut.y; y < hut.y + hut.h; y++) for (let x = hut.x; x < hut.x + hut.w; x++) grid[y][x] = (x === hut.x || x === hut.x + hut.w - 1 || y === hut.y || y === hut.y + hut.h - 1) ? 0 : 1;
+  hut.holyDoor = { x: hut.x + hut.w - 2, y: hut.y + 1 }; // ✨ 右上の隅の扉（入ると聖域へ）
   grid[hut.door.y][hut.door.x] = 1; // 入口
   for (let x = hut.hearth.x; x < hut.hearth.x + hut.hearth.w; x++) grid[hut.hearth.y][x] = 0; // 暖炉
   mark(hut.x - 8, hut.y - 8, hut.w + 16, hut.h + 16); // 小屋のまわりには、岩も空き地（敵の出現場所）も置かない
-  for (const dx of [-2, 2]) torches.push({ x: (hx + dx) * TILE + TILE / 2, y: (hy + 4) * TILE + 8, ph: hash(dx + 50, 4) / 100 }); // 入口の両わきの松明
+  for (const dx of [-2, 2]) torches.push({ x: (hx + dx) * TILE + TILE / 2, y: (hut.y + hut.h) * TILE + 8, ph: hash(dx + 50, 4) / 100 }); // 入口の両わきの松明
   for (let cy = 0; cy * S.cell < height; cy++) for (let cx = 0; cx * S.cell < width; cx++) {
     const h = hash(cx * 31 + 7, cy * 17 + 3);
     const rx = Math.max(B + 1, Math.min(width - B - 1 - S.clearing, cx * S.cell + 7 + (h % 7) - 3));
@@ -3068,6 +3102,7 @@ class GameScene extends Phaser.Scene {
     this.pv = null;
     this.frontline = !!app.frontline; // 最北戦線（ソロ／協力プレイ）
     this.snowfield = false; // 雪原（白い扉の先）にいる間だけ true
+    this.sanctuary = false; this._snowSaved = null; this._snowRestore = null; // ✨ 聖域にいる間だけ true／雪原にいる間、預かっているダンジョンの状態
     this._coldT = 0; this._hutIn = false; setBlizzard(false);
     this.tx = null; this.fl = null;
     this.runStats = { time: 0, kills: 0, bosses: 0 }; // リザルト用の集計（kills/bossesはソロのみ使用。timeは協力プレイでも数える）
@@ -3192,6 +3227,10 @@ class GameScene extends Phaser.Scene {
 
     this.rKey = this.input.keyboard.addKey('R');
     this.clockKey = this.input.keyboard.addKey('Q'); // 🕒 時計の発動
+    this.hutBookKey = this.input.keyboard.addKey('E'); // 📖 小屋の本を読む
+    this._hutReading = false; this._hutBook = null; this._hutBookState = 'idle'; // 本は小屋に入るたびにFirebaseから読み直す
+    const _hutBookCleanup = () => { this._hutReading = false; const o = document.getElementById('hutBookOverlay'); if (o) o.remove(); const pb = document.getElementById('hutBookPrompt'); if (pb) pb.style.display = 'none'; };
+    this.events.once('shutdown', _hutBookCleanup); this.events.once('destroy', _hutBookCleanup);
     const _clkCleanup = () => { try { this.endClock(); } catch (e) {} const cb = document.getElementById('clockBtn'); if (cb) cb.style.display = 'none'; };
     this.events.once('shutdown', _clkCleanup); this.events.once('destroy', _clkCleanup);
     if (A4_TEST_FORM_KEYS) { // テスト用：四つ腕の戦闘中、Z＝次の形態へ（演出つき） / X＝第1形態に戻す
@@ -4057,6 +4096,7 @@ class GameScene extends Phaser.Scene {
   // ---------- ここから元のゲームロジック（協力プレイ対応を追加） ----------
 
   buildFloor() {
+    if (this._snowSaved && !this.snowfield && !this.sanctuary && !this._snowRestore) this._snowDiscard(); // 雪原にいる間に新しく始めた：預かっていたダンジョンは捨てる
     // マジックボムの溜めは階層をまたいで持ち越さない（update()は階層移動中に止まるため、
     // ここで明示的に捨てる。弾は消費しない＝新しい階層でまた0から溜められる）。
     this.interruptChargeBomb();
@@ -4118,8 +4158,8 @@ class GameScene extends Phaser.Scene {
     this._floorT0 = (this.runStats && this.runStats.time) || 0;
     this.hideClearTime(); // 前の階のクリア時間表示を消す
     const seed = this.baseSeed + this.floor * 7919;
-    this.bossFloor = !this.snowfield && !this.bossRush && !this.frontline && !this.pvp && this.isBossFloor(this.floor); // ダンジョンの5階ごと（10・15・20…）はボス階
-    const dungeon = this.snowfield ? generateSnowfieldMap() : (this.bossRush || this.bossFloor) ? generateBossArena() : (this.pvp ? generatePvpMap() : (this.frontline ? generateFrontlineMap() : generateDungeon(seed, this.floor, { secretLibrary: !this.mp, whiteDoor: !this.mp && this.baseSeed === 66 && this.floor === 6 })));
+    this.bossFloor = !this.snowfield && !this.sanctuary && !this.bossRush && !this.frontline && !this.pvp && this.isBossFloor(this.floor); // ダンジョンの5階ごと（10・15・20…）はボス階
+    const dungeon = this._snowRestore ? this._snowRestore.dungeon : this.sanctuary ? generateSanctuaryMap() : this.snowfield ? generateSnowfieldMap() : (this.bossRush || this.bossFloor) ? generateBossArena() : (this.pvp ? generatePvpMap() : (this.frontline ? generateFrontlineMap() : generateDungeon(seed, this.floor, { secretLibrary: !this.mp, whiteDoor: !this.mp && this.baseSeed === 66 && this.floor === 6 })));
     if (this.mp && !this.bossRush && !this.pvp && !this.frontline) addRitualRoom(dungeon); // 協力プレイ：調伏の儀の部屋を遠くに足す
     this.rt = null; if (this._rtGfx && this._rtGfx.scene) this._rtGfx.clear(); // 前の階の調伏の儀の進行は持ち越さない
     this.dungeon = dungeon;
@@ -4127,7 +4167,7 @@ class GameScene extends Phaser.Scene {
     if (this.bossRush || this.frontline || this.pvp || this.bossFloor) this.hideBossUi();
     if (this.rushExitLabel) { this.rushExitLabel.destroy(); this.rushExitLabel = null; }
 
-    this.nextIsBoss = !this.snowfield && !this.bossRush && !this.frontline && !this.pvp && this.isBossFloor(this.floor + 1); // 次がボス階（9・14・19…）なら出口を赤くする
+    this.nextIsBoss = !this.snowfield && !this.sanctuary && !this.bossRush && !this.frontline && !this.pvp && this.isBossFloor(this.floor + 1); // 次がボス階（9・14・19…）なら出口を赤くする
     this.graphics = this.add.graphics();
     this.redrawDungeonWalls();
     this.exitGlow = this.add.graphics();
@@ -4189,10 +4229,16 @@ class GameScene extends Phaser.Scene {
       this.chests = [];
       this.potions = [];
       this.setupPvp();
+    } else if (this._snowRestore) { // ❄ 雪原から戻った：預かっていたダンジョンの敵（HP）・宝箱・ポーション・ドロップを、そのまま戻す
+      const rs = this._snowRestore;
+      this.enemies = rs.enemies; this.chests = rs.chests; this.potions = rs.potions;
+      for (const [o, v] of rs.hidden) { if (o && o.scene) o.setVisible(v); }
+    } else if (this.sanctuary) { // ✨ 聖域：敵も宝箱もポーションもない
+      this.enemies = []; this.chests = []; this.potions = [];
     } else {
       this.spawnEnemies();
       if (this.bossFloor) { this.chests = []; this.potions = []; } // ボス階は宝箱・ポーションなし
-      else if (this.snowfield) { this.chests = []; this.spawnPotions(); } // 雪原は宝箱なし（ポーションだけ）
+      else if (this.snowfield) { this.chests = []; this.potions = []; } // 雪原は宝箱もポーションも最初から置かない（敵を倒した時のドロップは通常どおり）
       else { this.spawnChests(); this.spawnPotions(); }
     }
 
@@ -4260,7 +4306,11 @@ class GameScene extends Phaser.Scene {
     // ボスはこの後の専用ブロックで「各フロアに必ず1体・ラベル付き」で配置する。
     const eligible = ENEMY_TYPES.filter(t => t.minFloor <= this.floor && !t.isBoss && !t.mimic && (!t.nightmareOnly || this.nightmare)); // nightmareOnly（ボマー）はナイトメアでだけ出す
     const startRoom = d.rooms[0];
-    const candidateRooms = d.rooms.filter(r => r !== startRoom);
+    let candidateRooms = d.rooms.filter(r => r !== startRoom);
+    if (this.snowfield && d.snow) { // ❄ 雪原：敵が出るのは、白い扉のまわりの spawnW × spawnH タイルの範囲の空き地だけ
+      const x0 = Math.floor((d.width - SNOWFIELD.spawnW) / 2), x1 = x0 + SNOWFIELD.spawnW, y1 = d.height, y0 = y1 - SNOWFIELD.spawnH;
+      candidateRooms = candidateRooms.filter(r => r.x >= x0 && r.x + r.w <= x1 && r.y >= y0 && r.y + r.h <= y1);
+    }
     const hpMult = (1 + (this.floor - 1) * DUNGEON_DIFFICULTY.hpPerFloor) * this.dungeonPartyMult().hp * this.nightmareMult();
     const dmgMult = (1 + (this.floor - 1) * DUNGEON_DIFFICULTY.dmgPerFloor) * this.dungeonPartyMult().dmg * this.nightmareMult();
 
@@ -9088,11 +9138,16 @@ class GameScene extends Phaser.Scene {
           if (t === 3) k = 1;
           const red = this.nextIsBoss; // ボス階への出口は白ではなく赤く染める
           const inHut = dungeon.hut && x >= dungeon.hut.x && x < dungeon.hut.x + dungeon.hut.w && y >= dungeon.hut.y && y < dungeon.hut.y + dungeon.hut.h; // 小屋の中は木の床
-          const base = dungeon.snow ? (inHut ? 0x9a7650 : 0xc9d6e6) : (dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f); // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
+          const base = dungeon.holy ? 0xf6ecc8 : dungeon.snow ? (inHut ? 0x9a7650 : 0xc9d6e6) : (dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f); // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
           g.fillStyle(lerpColor(base, red ? 0xb02a2a : 0x9a9aaa, k), 1);
           g.fillRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
-          g.lineStyle(t === 3 ? 2 : 1, lerpColor(dungeon.snow ? (inHut ? 0x7d5d3b : 0xb6c5d8) : 0x26262e, red ? 0xff6b6b : 0xdcdce8, k), 1);
+          g.lineStyle(t === 3 ? 2 : 1, lerpColor(dungeon.holy ? 0xe3d297 : dungeon.snow ? (inHut ? 0x7d5d3b : 0xb6c5d8) : 0x26262e, red ? 0xff6b6b : 0xdcdce8, k), 1);
           g.strokeRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
+        } else if (dungeon.holy && t === 0) { // ✨ 聖域：柱・祭壇・外周の壁を、金白色のブロックで描く
+          any = true;
+          const edge = x < 2 || y < 2 || x >= dungeon.width - 2 || y >= dungeon.height - 2;
+          g.fillStyle(edge ? 0xe2c978 : 0xfdf3d0, 1); g.fillRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
+          g.lineStyle(1, edge ? 0xb89a3c : 0xd6b95a, 1); g.strokeRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
         } else if (dungeon.snow && t === 0) { // 雪原だけ：岩と外周の壁を、灰色のブロックで描く
           any = true;
           let wc = 0x66758a, ws = 0x4d5a6d; const hh = dungeon.hut; // 岩は灰色。小屋の壁は木、暖炉は石
@@ -9274,6 +9329,7 @@ class GameScene extends Phaser.Scene {
     for (let ty = tMinY; ty <= tMaxY; ty++) {
       for (let tx = tMinX; tx <= tMaxX; tx++) {
         if (dungeon.grid[ty][tx] !== 0) continue; // 壁(=0)だけを破壊対象にする
+        if (dungeon.hut && tx >= dungeon.hut.x && tx < dungeon.hut.x + dungeon.hut.w && ty >= dungeon.hut.y && ty < dungeon.hut.y + dungeon.hut.h) continue; // ❄ 雪原の小屋の壁（暖炉も）は壊れない
         if (dungeon.ritual && !this.ritualDiggable(tx, ty)) continue; // 儀式部屋のあるダンジョン：掘れない範囲
         const centerX = tx * TILE + TILE / 2, centerY = ty * TILE + TILE / 2;
         if (Phaser.Math.Distance.Between(cx, cy, centerX, centerY) <= r) {
@@ -20108,6 +20164,7 @@ class GameScene extends Phaser.Scene {
     if (!this._resultOpen) this.runStats.time += delta / 1000;
     if (this.transitioning) { if (this._clkOn) this.endClock(); if (this._astral) this.astralEnd(true); if (this._jet) this.jetEnd(true); return; } // 階の移動中は幽体離脱・ロケット・時計の時間停止を終える
     // panicMax:0 にした代わりに、極端に重いフレームでもdtが暴れないよう上限を付ける
+    if (this._hutReading) return; // 📖 小屋の本を読んでいる間は、ゲームを止める
     const dt = Math.min(delta, 50) / 1000;
 
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
@@ -20625,7 +20682,10 @@ class GameScene extends Phaser.Scene {
     // 出口の光る演出
     this.exitGlow.clear();
     if (this.snowfield) this._snowCold(delta / 1000);
+    this._updateHutBook(); // 📖 小屋の机の本：近づくと「本を読む」が出る
     if (this.dungeon.hut) this._drawHut(this.exitGlow, time / 1000);
+    else if (this._hutCover && this._hutCover.scene) this._hutCover.clear(); // 小屋のない所では目隠しを消しておく
+    if (this.dungeon.holy) this._drawSanctuary(this.exitGlow, time / 1000); // ✨ 聖域の光
     if (this.dungeon.torches) { // ❄ 雪原の松明：ゆらめく炎と、まわりのほんのり暖かい光（画面の近くのものだけ描く）
       const wv = this.cameras.main.worldView, tt = time / 1000, g = this.exitGlow;
       for (const q of this.dungeon.torches) {
@@ -20674,6 +20734,10 @@ class GameScene extends Phaser.Scene {
     const tx = Math.floor(this.player.x / TILE), ty = Math.floor(this.player.y / TILE);
     if (sdr && !this.mp && !this.isGhost && !this.isDowned && !this._astral && !this._inLibrary && !(this._libLockUntil && this.time.now < this._libLockUntil) && tx === sdr.x && ty === sdr.y) this.enterLibrary();
     if (wdr && !this.mp && !this.isGhost && !this.isDowned && !this._astral && !this._inLibrary && !(this._libLockUntil && this.time.now < this._libLockUntil) && tx === wdr.x && ty === wdr.y) { if (this.snowfield) this.leaveSnowfield(); else this.enterSnowfield(); }
+    const hdr = this.dungeon.hut && this.dungeon.hut.holyDoor; // ✨ 小屋の右上の扉：入ると聖域へ
+    if (hdr && this.snowfield && !this.mp && !this.isGhost && !this.isDowned && !this._astral && !this._inLibrary && !(this._libLockUntil && this.time.now < this._libLockUntil) && tx === hdr.x && ty === hdr.y) this.enterSanctuary();
+    const hxr = this.dungeon.holyExit; // ✨ 聖域の南の扉：雪原（小屋の中）へ戻る
+    if (hxr && this.sanctuary && !this.mp && !this.isGhost && !this.isDowned && !this._astral && !(this._libLockUntil && this.time.now < this._libLockUntil) && tx === hxr.x && ty === hxr.y) this.leaveSanctuary();
     const onExit = !this.isGhost && !this.isDowned && !this._astral && !(this._exitLockUntil && this.time.now < this._exitLockUntil) && !!(this.dungeon.grid[ty] && this.dungeon.grid[ty][tx] === 3);
     if (onExit !== this.atExit) {
       this.atExit = onExit;
@@ -21005,6 +21069,23 @@ class GameScene extends Phaser.Scene {
     const h = this.dungeon.hut, wv = this.cameras.main.worldView;
     const x0 = h.x * TILE, y0 = h.y * TILE, w = h.w * TILE, hh = h.h * TILE;
     if (x0 > wv.right + 120 || x0 + w < wv.x - 120 || y0 > wv.bottom + 120 || y0 + hh < wv.y - 120) return;
+    // 目隠し：小屋の外にいる間は中を、中にいる間は外を、黒く塗りつぶして見えなくする（キャラや弾より手前に描く）
+    if (!this._hutCover || !this._hutCover.scene) this._hutCover = this.add.graphics().setDepth(11);
+    const cv = this._hutCover; cv.clear();
+    const pl = this.player, inside = !!pl && pl.x > x0 + TILE && pl.x < x0 + w - TILE && pl.y > y0 + TILE && pl.y < y0 + hh - TILE; // 小屋の室内にいるか
+    if (inside) {
+      const M = 300, vx0 = wv.x - M, vy0 = wv.y - M, vx1 = wv.right + M, vy1 = wv.bottom + M; // 小屋の外側を4枚の四角で覆う（画面より少し広く）
+      cv.fillStyle(0x0b0f17, 1);
+      if (y0 > vy0) cv.fillRect(vx0, vy0, vx1 - vx0, y0 - vy0);
+      if (y0 + hh < vy1) cv.fillRect(vx0, y0 + hh, vx1 - vx0, vy1 - (y0 + hh));
+      if (x0 > vx0) cv.fillRect(vx0, y0, x0 - vx0, hh);
+      if (x0 + w < vx1) cv.fillRect(x0 + w, y0, vx1 - (x0 + w), hh);
+    } else {
+      cv.fillStyle(0x4a321b, 1); cv.fillRect(x0 + TILE, y0 + TILE, w - 2 * TILE, hh - 2 * TILE); // 外から見た小屋の中は、屋根のような茶色で隠す
+      cv.lineStyle(2, 0x6b4a2b, 1);
+      for (let yy = y0 + TILE + 20; yy < y0 + hh - TILE; yy += 20) { cv.beginPath(); cv.moveTo(x0 + TILE, yy); cv.lineTo(x0 + w - TILE, yy); cv.strokePath(); }
+      return; // 外にいる間は、中の飾りや暖炉の火も描かない
+    }
     const f = 1 + 0.15 * Math.sin(tt * 9) + 0.07 * Math.sin(tt * 21 + 1);
     const ix = x0 + TILE, iy = y0 + TILE; // 室内の左上
     g.fillStyle(0xff8a2a, 0.07 * f); g.fillRect(ix, iy, w - 2 * TILE, hh - 2 * TILE); // 室内の暖かい色
@@ -21017,12 +21098,174 @@ class GameScene extends Phaser.Scene {
     g.lineStyle(1, 0x5e3f1f, 1); g.strokeRect(ix + 6 * TILE + 5, iy + 2 * TILE + 5, TILE - 10, TILE - 10);
     g.fillStyle(0x5a3d22, 1); g.fillRect(ix + 5 * TILE + 3, iy + 3, 2 * TILE - 6, 9); g.fillRect(ix + 5 * TILE + 6, iy + 14, 2 * TILE - 12, 8); // 薪
     g.fillStyle(0xb98a55, 1); g.fillCircle(ix + 5 * TILE + 4, iy + 7, 3.5); g.fillCircle(ix + 5 * TILE + 8, iy + 18, 3.5);
-    const cx = (h.hearth.x + 1) * TILE + TILE / 2, cy = h.hearth.y * TILE + TILE / 2; // 暖炉：まん中のマスに火
+    g.fillStyle(0x9c3a3a, 1); g.fillRect(ix + 5 * TILE, iy + 6 * TILE, 6 * TILE, 4 * TILE); // 広い部屋の飾り：大きな敷物
+    g.lineStyle(2, 0xd8b46a, 1); g.strokeRect(ix + 5 * TILE + 3, iy + 6 * TILE + 3, 6 * TILE - 6, 4 * TILE - 6);
+    g.fillStyle(0x7a5232, 1); g.fillRect(ix + 13 * TILE + 3, iy + TILE + 3, 2 * TILE - 6, 3 * TILE - 6); // 2つめのベッド
+    g.fillStyle(0xa84d4d, 1); g.fillRect(ix + 13 * TILE + 7, iy + TILE + 22, 2 * TILE - 14, 3 * TILE - 32);
+    g.fillStyle(0xf2f2f2, 1); g.fillRect(ix + 13 * TILE + 9, iy + TILE + 7, 2 * TILE - 18, 12);
+    g.fillStyle(0x8a5f33, 1); g.fillRect(ix + 2 * TILE + 5, iy + 8 * TILE + 5, TILE - 10, TILE - 10); g.fillRect(ix + 12 * TILE + 5, iy + 8 * TILE + 5, TILE - 10, TILE - 10); // 机をもう2つ
+    // 📖 ベッドサイドの机（1つめのベッドのすぐ右）と、机の上の本
+    const bx = ix + 2 * TILE, by = iy + TILE; // 机のマスの左上
+    g.fillStyle(0x8a5f33, 1); g.fillRect(bx + 4, by + 4, TILE - 8, TILE - 8);
+    g.lineStyle(1, 0x5e3f1f, 1); g.strokeRect(bx + 4, by + 4, TILE - 8, TILE - 8);
+    g.fillStyle(0xffd980, 0.10 + 0.05 * Math.sin(tt * 3)); g.fillCircle(bx + TILE / 2, by + TILE / 2, TILE * 0.8); // 本のまわりのやわらかい光
+    g.fillStyle(0x8f2f2f, 1); g.fillRect(bx + 8, by + 9, TILE - 16, TILE - 18); // 本（赤い表紙）
+    g.fillStyle(0xf2e6c8, 1); g.fillRect(bx + 10, by + 11, TILE - 20, TILE - 22); // ページ
+    g.lineStyle(1, 0x8f2f2f, 1); g.beginPath(); g.moveTo(bx + TILE / 2, by + 9); g.lineTo(bx + TILE / 2, by + TILE - 9); g.strokePath(); // とじ目
+    const hd = h.holyDoor; // ✨ 右上の隅の、金色にひかる扉
+    if (hd) {
+      const ddx = hd.x * TILE, ddy = hd.y * TILE, pp = 0.5 + 0.5 * Math.sin(tt * 2.4);
+      g.fillStyle(0xfff0b0, 0.10 + 0.10 * pp); g.fillCircle(ddx + TILE / 2, ddy + TILE / 2, TILE * 1.3);
+      g.fillStyle(0xffe9a0, 1); g.fillRect(ddx + 5, ddy + 1, TILE - 10, TILE - 2);
+      g.lineStyle(2, 0xffffff, 1); g.strokeRect(ddx + 5, ddy + 1, TILE - 10, TILE - 2);
+      g.fillStyle(0xc9962a, 1); g.fillCircle(ddx + TILE - 10, ddy + TILE / 2, 1.8);
+    }
+    const cx = (h.hearth.x + Math.floor(h.hearth.w / 2)) * TILE + TILE / 2, cy = h.hearth.y * TILE + TILE / 2; // 暖炉：まん中のマスに火
     g.fillStyle(0x1a120c, 1); g.fillRect(cx - 11, cy - 11, 22, 22);
     g.fillStyle(0xff9a3c, 0.14 * f); g.fillCircle(cx, cy + TILE, 150);
     g.fillStyle(0xff9a3c, 0.16 * f); g.fillCircle(cx, cy + TILE, 90);
     g.fillStyle(0xff8a2a, 1); g.fillEllipse(cx, cy + 3, 15 * f, 20 * f);
     g.fillStyle(0xffe08a, 1); g.fillEllipse(cx, cy + 5, 7 * f, 12 * f);
+  }
+  // 📖 小屋の本：机に近づくと「本を読む」ボタンが出る（キーボードは E、スマホはボタンをタップ）。読む画面は書庫の本と同じ見た目。読んでいる間はゲームが止まる
+  _hutBookSpot() { // 机のマスの中心（px）。小屋がなければ null
+    const h = this.dungeon && this.dungeon.hut; if (!h) return null;
+    return { x: (h.x + 1 + 2 + 0.5) * TILE, y: (h.y + 1 + 1 + 0.5) * TILE };
+  }
+  _updateHutBook() {
+    let pb = document.getElementById('hutBookPrompt');
+    const h = this.dungeon && this.dungeon.hut, sp = this._hutBookSpot();
+    const inside = !!(h && this.player && this.player.x > (h.x + 1) * TILE && this.player.x < (h.x + h.w - 1) * TILE && this.player.y > (h.y + 1) * TILE && this.player.y < (h.y + h.h - 1) * TILE);
+    const near = inside && sp && Phaser.Math.Distance.Between(this.player.x, this.player.y, sp.x, sp.y) <= TILE * 2.2;
+    const ok = near && !this._hutReading && !this.transitioning && !this.isGhost && !this.isDowned && !this._resultOpen;
+    if (inside && this._hutBookState === 'idle') this._loadHutBook(); // 小屋に入ったら、本をFirebaseから読み込んでおく
+    if (!ok) { if (pb) pb.style.display = 'none'; return; }
+    if (!pb) {
+      pb = document.createElement('div'); pb.id = 'hutBookPrompt';
+      pb.style.cssText = 'position:fixed;bottom:14vh;left:50%;transform:translateX(-50%);z-index:25;padding:1.2vh 2.6vh;border-radius:999px;background:rgba(10,10,16,0.82);border:0.3vh solid #f1dfb8;color:#f1dfb8;font:bold 2.6vh sans-serif;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation;';
+      pb.textContent = '📖 本を読む' + (IS_TOUCH_DEVICE ? '' : '  [E]');
+      const go = ev => { ev.preventDefault(); ev.stopPropagation(); if (pb._scene && pb._scene.openHutBook) pb._scene.openHutBook(); };
+      pb.addEventListener('pointerdown', go); pb.addEventListener('touchstart', go, { passive: false });
+      document.body.appendChild(pb);
+    }
+    pb._scene = this; pb.style.display = 'block';
+    if (this.hutBookKey && Phaser.Input.Keyboard.JustDown(this.hutBookKey)) this.openHutBook();
+  }
+  _loadHutBook() {
+    if (this._hutBookState === 'loading') return;
+    this._hutBookState = 'loading';
+    fetchHutBook().then(b => { if (!this.sys || !this.sys.isActive) return; this._hutBook = b; this._hutBookState = 'ok'; })
+      .catch(err => { this._hutBookState = 'error'; console.error('小屋の本をFirebaseから読めませんでした:', err); });
+  }
+  openHutBook() {
+    if (this._hutReading) return;
+    if (this._hutBookState === 'loading' || this._hutBookState === 'idle') { if (this._hutBookState === 'idle') this._loadHutBook(); this.showBanner('📚 本を読み込み中です。少し待ってからもう一度調べてください', 2500); return; }
+    if (this._hutBookState === 'error') { this._loadHutBook(); this.showBanner('⚠ Firebaseに接続できないため、本を開けません（もう一度調べると、再読み込みします）', 3500); return; }
+    const book = this._hutBook;
+    if (!book) { this.showBanner('⚠ この本がFirebaseに見つかりません', 3000); return; }
+    this._hutReading = true;
+    const pb = document.getElementById('hutBookPrompt'); if (pb) pb.style.display = 'none';
+    const ov = document.createElement('div'); ov.id = 'hutBookOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.84);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;box-sizing:border-box;font-family:sans-serif;touch-action:manipulation;';
+    const ti = document.createElement('div'); ti.style.cssText = 'font-size:17px;font-weight:bold;color:#f1dfb8;'; ti.textContent = book.title;
+    const tx = document.createElement('div'); tx.style.cssText = 'width:min(92vw,480px);max-height:52vh;overflow-y:auto;white-space:pre-wrap;line-height:1.7;font-size:14px;color:#e8d9bd;background:#20170f;border:2px solid #5a4330;border-radius:4px;padding:14px;box-sizing:border-box;text-align:left;'; tx.textContent = book.text;
+    const hint = document.createElement('div'); hint.style.cssText = 'font-size:12px;color:#a89677;'; hint.textContent = IS_TOUCH_DEVICE ? 'タップして閉じる' : 'E・Esc・クリックで閉じる';
+    ov.append(ti, tx, hint); document.body.appendChild(ov);
+    const t0 = performance.now(); let closed = false;
+    const close = () => {
+      if (closed) return; closed = true;
+      document.removeEventListener('keydown', onKey, true); ov.remove(); this._hutReading = false;
+    };
+    const onKey = ev => {
+      const k = (ev.key || '').toLowerCase();
+      if (k === 'e' || k === ' ' || k === 'enter' || k === 'escape') { ev.preventDefault(); ev.stopPropagation(); if (!ev.repeat && performance.now() - t0 > 250) close(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    ov.addEventListener('click', () => { if (performance.now() - t0 > 250) close(); });
+  }
+  // ❄ 雪原に入る時：今のダンジョンの敵（HP・位置）・宝箱・ポーション（敵のドロップも含む）・壁の壊れ具合を、消さずに隠して預かる。白い扉から戻ると、そのまま元に戻る
+  _snowStash() {
+    const hidden = [], hide = o => { if (o && o.scene) { hidden.push([o, o.visible]); o.setVisible(false); } };
+    (this.enemies || []).forEach(e => { hide(e.gfx); hide(e.hpBar); hide(e.label); hide(e._doomText); });
+    (this.chests || []).forEach(c => { hide(c.gfx); hide(c.label); });
+    (this.potions || []).forEach(c => { hide(c.gfx); hide(c.label); });
+    this._snowSaved = { dungeon: this.dungeon, enemies: this.enemies || [], chests: this.chests || [], potions: this.potions || [], hidden };
+    this.enemies = []; this.enemyById = {}; this.chests = []; this.potions = []; // buildFloor が片付けてしまわないよう、空にしておく
+  }
+  _snowDiscard() { // 預かっていたダンジョンの見た目を片付ける（雪原にいる間に、新しく始めた時など）
+    const sv = this._snowSaved; this._snowSaved = null; if (!sv) return;
+    sv.enemies.forEach(e => { e?.gfx?.destroy(); e?.hpBar?.destroy(); e?.label?.destroy(); e?._doomText?.destroy(); });
+    sv.chests.forEach(c => { c?.gfx?.destroy(); c?.label?.destroy(); });
+    sv.potions.forEach(c => { c?.gfx?.destroy(); c?.label?.destroy(); });
+  }
+  // ✨ 小屋の右上の扉 → 聖域（雪原を作り直して、聖域のマップに切り替える。預かっているダンジョンはそのまま）
+  enterSanctuary() {
+    if (this.transitioning || this._inLibrary || !this.snowfield) return;
+    this.interruptChargeBomb();
+    this.transitioning = true;
+    this.cameras.main.fadeOut(900, 255, 244, 205);
+    this.cameras.main.once('camerafadeoutcomplete', () => this._switchSanctuary(true));
+  }
+  leaveSanctuary() {
+    if (this.transitioning || !this.sanctuary) return;
+    this.interruptChargeBomb();
+    this.transitioning = true;
+    this.cameras.main.fadeOut(900, 255, 244, 205);
+    this.cameras.main.once('camerafadeoutcomplete', () => this._switchSanctuary(false));
+  }
+  _switchSanctuary(toHoly) {
+    try {
+      this.sanctuary = toHoly; this.snowfield = !toHoly;
+      this.buildFloor();
+      if (toHoly) {
+        this.showBanner('✨ 聖域 ✨', 2800, '#ffe9a8');
+      } else { // 戻ったら、小屋の右上の扉のそばに立つ
+        const hd = this.dungeon && this.dungeon.hut && this.dungeon.hut.holyDoor;
+        if (hd) { this.player.x = (hd.x - 1) * TILE + TILE / 2; this.player.y = hd.y * TILE + TILE / 2; }
+      }
+      this.cameras.main.centerOn(this.player.x, this.player.y);
+      this._coldT = 0; this._coldAcc = 0; this._healAcc = 0; this._hutIn = false; setBlizzard(!toHoly); // 吹雪は雪原にいる間だけ
+    } catch (err) {
+      console.error('聖域の切り替え中にエラーが発生しました:', err);
+      this.sanctuary = false; this.snowfield = true; setBlizzard(true);
+      try { this.buildFloor(); } catch (err2) { console.error(err2); }
+    }
+    this._libLockUntil = this.time.now + 1500; // 切り替えた直後に、また扉に触れてしまわないように
+    this.transitioning = false;
+    this.cameras.main.fadeIn(900, 255, 244, 205);
+  }
+  // ✨ 聖域の光：祭壇から降りそそぐ光の筋、祭壇の光の玉、床の魔法陣、ゆっくり昇る光の粒、戻る扉（画面の近くのものだけ描く）
+  _drawSanctuary(g, tt) {
+    const d = this.dungeon, wv = this.cameras.main.worldView, A = d.altar;
+    const f = 1 + 0.12 * Math.sin(tt * 2.2) + 0.05 * Math.sin(tt * 5.1 + 1);
+    const ox = (A.x + A.w / 2) * TILE, oy = A.y * TILE - 6; // 祭壇の上の光の玉
+    for (let i = -4; i <= 4; i++) { // 光の筋
+      const a = Math.PI / 2 + i * 0.16 + 0.04 * Math.sin(tt * 0.7 + i), len = 760, w = 0.05;
+      g.fillStyle(0xfff2b8, 0.05 + 0.03 * Math.sin(tt * 1.3 + i * 1.7));
+      g.fillTriangle(ox, oy, ox + Math.cos(a - w) * len, oy + Math.sin(a - w) * len, ox + Math.cos(a + w) * len, oy + Math.sin(a + w) * len);
+    }
+    const cx = Math.floor(d.width / 2) * TILE + TILE / 2, cy = (d.height / 2 + 3) * TILE; // 床の魔法陣
+    g.lineStyle(2, 0xd9a93a, 0.45 + 0.15 * Math.sin(tt * 1.6)); g.strokeCircle(cx, cy, TILE * 3.2); g.strokeCircle(cx, cy, TILE * 4.6);
+    for (const off of [-Math.PI / 2, Math.PI / 2]) {
+      const R = TILE * 3.2, a0 = off + tt * 0.35, a1 = a0 + Math.PI * 2 / 3, a2 = a0 + Math.PI * 4 / 3;
+      g.strokeTriangle(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R, cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, cx + Math.cos(a2) * R, cy + Math.sin(a2) * R);
+    }
+    g.fillStyle(0xffe9a0, 0.10 * f); g.fillCircle(ox, oy, 160); // 光の玉
+    g.fillStyle(0xffe9a0, 0.18 * f); g.fillCircle(ox, oy, 80);
+    g.fillStyle(0xfff6d0, 0.9); g.fillCircle(ox, oy, 15 * f);
+    g.fillStyle(0xffffff, 1); g.fillCircle(ox, oy, 7 * f);
+    const H = d.height * TILE; // 光の粒：ゆっくり上へ昇る
+    for (let k = 0; k < 48; k++) {
+      const h1 = ((k * 2654435761) >>> 0) % 1000 / 1000, h2 = ((k * 40503 + 7) >>> 0) % 1000 / 1000;
+      const x = (2 + h1 * (d.width - 4)) * TILE + Math.sin(tt * 0.8 + k) * 14;
+      const y = H - TILE * 2 - ((tt * (18 + h2 * 22) + h2 * H) % (H - TILE * 4));
+      if (x < wv.x - 20 || x > wv.right + 20 || y < wv.y - 20 || y > wv.bottom + 20) continue;
+      g.fillStyle(0xfff4c0, 0.35 + 0.5 * (0.5 + 0.5 * Math.sin(tt * 3 + k * 1.9))); g.fillCircle(x, y, 1.2 + 1.6 * h2);
+    }
+    const hx = d.holyExit, ddx = hx.x * TILE, ddy = hx.y * TILE; // 戻る扉
+    g.fillStyle(0xfff0b0, 0.12 + 0.10 * (0.5 + 0.5 * Math.sin(tt * 2.4))); g.fillCircle(ddx + TILE / 2, ddy + TILE / 2, TILE * 1.3);
+    g.fillStyle(0xffe9a0, 1); g.fillRect(ddx + 5, ddy + 1, TILE - 10, TILE - 2);
+    g.lineStyle(2, 0xffffff, 1); g.strokeRect(ddx + 5, ddy + 1, TILE - 10, TILE - 2);
   }
   leaveSnowfield() {
     if (this.transitioning || !this.snowfield) return;
@@ -21037,8 +21280,11 @@ class GameScene extends Phaser.Scene {
         if (this.runStats && this._libT0) this.runStats.time = Math.max(0, this.runStats.time - (performance.now() - this._libT0) / 1000); // 雪原にいた時間は、クリアタイムに数えない
         this._libT0 = 0;
       }
+      if (toSnow) this._snowStash(); else this._snowRestore = this._snowSaved; // 入る時：今のダンジョンの敵・宝箱・ポーションなどを預かる／戻る時：預かっていたものを戻す
       this.snowfield = toSnow;
+      this.sanctuary = false;
       this.buildFloor();
+      if (!toSnow) this._snowSaved = null;
       if (!toSnow) { // 戻ったら、白い扉の少し手前に立つ
         const wd = this.dungeon && this.dungeon.whiteDoor;
         if (wd) { this.player.x = wd.inX * TILE + TILE / 2; this.player.y = wd.inY * TILE + TILE / 2; }
@@ -21048,8 +21294,9 @@ class GameScene extends Phaser.Scene {
     } catch (err) {
       console.error('雪原の切り替え中にエラーが発生しました:', err);
       setBlizzard(false);
-      if (toSnow) { this.snowfield = false; try { this.buildFloor(); } catch (err2) { console.error(err2); } }
+      if (toSnow) { this.snowfield = false; this._snowRestore = this._snowSaved; try { this.buildFloor(); this._snowSaved = null; } catch (err2) { console.error(err2); } }
     }
+    this._snowRestore = null;
     this._libLockUntil = this.time.now + 1500; // 切り替えた直後に、また扉に触れてしまわないように
     this.transitioning = false;
     this.cameras.main.fadeIn(500, 255, 255, 255);
