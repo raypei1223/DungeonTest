@@ -140,6 +140,38 @@
     pointer-events: none; opacity: 0; transition: opacity 0.6s ease;
   }
   #bossHpFill { height: 100%; width: 100%; background: #d8322f; transition: width 0.12s linear; }
+  /* 😈 25階の悪魔の問答：上に悪魔のセリフ、下に制限時間バーと震える選択肢 */
+  #demonTalk { position: fixed; inset: 0; z-index: 22; pointer-events: none; display: none; }
+  #demonSpeech {
+    position: absolute; top: 9vh; left: 50%; transform: translateX(-50%);
+    width: 70vw; max-width: 130vh; box-sizing: border-box; padding: 1.8vh 3vh;
+    background: rgba(20,4,32,0.88); border: 0.35vh solid #b070e0; border-radius: 1.6vh;
+    color: #f0dcff; font-size: 3.6vh; line-height: 1.5; text-align: center; white-space: pre-line;
+    min-height: 11vh; text-shadow: 0 0.3vh 0.3vh rgba(0,0,0,0.9); box-shadow: 0 0 2vh rgba(160,60,220,0.6);
+  }
+  #demonSpeech::before { content: '😈 DEMON'; display: block; font-size: 2.3vh; color: #c58cf0; letter-spacing: 0.15em; margin-bottom: 0.4vh; }
+  #demonAnswer {
+    position: absolute; left: 50%; bottom: 11vh; transform: translateX(-50%);
+    width: 56vw; display: none; flex-direction: column; gap: 1.4vh; pointer-events: auto;
+  }
+  #demonBar { height: 1.8vh; box-sizing: border-box; background: rgba(0,0,0,0.65); border: 0.25vh solid rgba(255,255,255,0.85); }
+  #demonBarFill { height: 100%; width: 100%; background: #b070e0; }
+  #demonChoices { display: flex; flex-direction: column; gap: 1.2vh; }
+  .demonChoice {
+    -webkit-appearance: none; appearance: none; font-family: inherit; font-size: 3.4vh; font-weight: bold;
+    padding: 1.3vh 2vh; color: #fff; background: rgba(40,10,60,0.92); border: 0.3vh solid #c58cf0; border-radius: 1.2vh;
+    text-align: center; cursor: pointer; touch-action: manipulation;
+    animation: demonShake 0.14s infinite linear; /* ブルブル震える（ボタンごとに速さ・位相をずらす） */
+  }
+  .demonChoice.picked { animation: none; background: #8a3fc8; }
+  @keyframes demonShake {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    20%  { transform: translate(0.3vh, -0.2vh) rotate(0.4deg); }
+    40%  { transform: translate(-0.3vh, 0.2vh) rotate(-0.5deg); }
+    60%  { transform: translate(0.2vh, 0.3vh) rotate(0.3deg); }
+    80%  { transform: translate(-0.25vh, -0.3vh) rotate(-0.3deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
   /* ボスラッシュ中は、ボス名とHPバーの下にお知らせを出す */
   body.rush #banner { top: 13vh; }
   /* ボスラッシュ中は、左上のHP・武器などの表示を左下に置く */
@@ -598,6 +630,7 @@
 <div id="banner"></div>
 <div id="bossNameBanner"></div>
 <div id="bossHpBar"><div id="bossHpFill"></div></div>
+<div id="demonTalk"><div id="demonSpeech"></div><div id="demonAnswer"><div id="demonBar"><div id="demonBarFill"></div></div><div id="demonChoices"></div></div></div>
 <div id="txHud"><div id="txHudLabel">📡 発信機</div><div id="txHpBar"><div id="txHpFill"></div></div></div>
 <div id="libraryOverlay">
   <div id="libraryRoom">
@@ -923,6 +956,70 @@ const DUNGEON_EXIT_IN_ROOM_CHANCE = 0.5;
 const SECRET_LIBRARY_CHANCE = 0.01; // 階ごとに1％
 // 😈 悪魔の出現フラグ：false の間は、条件を満たしても25階に悪魔は出ない（いつも通りシマハルが出る）。出したくなったら true にする。
 const DEMON_ENABLED = false;
+// 🔧 確認用のURLパラメータ（URLの末尾に付ける。例: index.html?library=1&demon=1）
+//   ?library=1 … 隠し書庫の扉が、確率に関係なく毎階（扉を置ける階なら）出る
+//   ?demon=1   … 25階（ソロ）に着いたら、全滅の記録やDEMON_ENABLEDに関係なく悪魔が出る
+const DEBUG_URL = (function () {
+  const q = new URLSearchParams(location.search);
+  return { library: q.get('library') === '1', demon: q.get('demon') === '1' };
+})();
+// 😈 25階の悪魔の問答は、Firebase Realtime Database の library/demonTalk から、25階に着いた時に読み込む（HTMLにはセリフも選択肢も持たない）。
+//   形式：library/demonTalk = {
+//     intro: '最初のセリフ', outro: '最後の質問が終わった後のセリフ（省略可）', timeoutReply: '時間切れの時のセリフ（全質問共通。質問ごとに決めたい時は、下の timeout）',
+//       ↑ intro・outro・timeoutReply・questions の text・選択肢の reply は、セリフを1つ書く（文字列）か、複数のセリフをリスト（{0:'1つ目', 1:'2つ目'}）で書くと順番に話す
+//     questions: { 0: { text: '質問', time: 8,
+//         choices: { 0: { text: '選択肢A', reply: 'Aを選んだ時の返事', item: 'crown', goto: 2, result: 'clear' }, 1: { text: '選択肢B', … }, … },
+//         timeout: { reply: '時間切れの時の返事', item: 'shield' } }, 1: …, 2: … },
+//       ・選択肢は最大4つ。選択肢は文字列だけでもよい（その時は、返事を question の replies: {0:'Aの返事', 1:'Bの返事'} に書く。以下の「選んだ時に起こること」は無し）
+//       ・選んだ時に起こること（全部省略可。省略した選択肢は、返事のあと次の質問へ進むだけ）：
+//           item …装飾品を与える。装飾品の key（sprout・shield・crown・skull・clock・armor・cloak・flame・blackhole・swords・snow・trophy・angelhalo・serialkiller。ACCESSORIES の key）を書く。
+//                  選ぶと、その装飾品が入手済みになり（ロビーの一覧・選択欄に出る）、このゲームの間は、今付けているものと入れ替わって付く。存在しない key は何も起きない
+//           goto …次に聞く質問の番号（0から数える）。-1なら、残りの質問をやめて問答を終える。省略は「次の質問」
+//           result …返事のあと、残りの質問をやめて、すぐにこの結果になる。'fight'＝悪魔との戦い / 'clear'＝戦わずにオールクリア（ソロのみ）
+//       ・time …その質問だけの制限時間（省略可）
+//       ・timeout …その質問の時間切れの時に起こること（省略可）。選択肢と同じ項目（reply・item・goto・result）が書ける（text は不要）。文字列だけなら返事のみ。省略すると、全体の timeoutReply になる
+//       ・質問の番号は、questions の並び順（0から連続して書くこと。選択肢が1つも無い質問は無いものとして詰められる）
+//     delay: 8, answerTime: 8, charsPerSec: 22, hold: 0.9   ← この4つの数字は省略可（省略すると下の既定値）
+//   }
+//   最後の質問まで答えて、result を持つ選択肢が無かった時は、outro のあと、普通に悪魔との戦いになる。
+//   文章は改行が使える（コンソールでは \n・¥n・￥n と打つ）。入れる元データは demon_talk.json。
+//   Firebaseが使えない・読み込めない時は、問答なしで、そのまま悪魔との戦いになる（代わりのセリフは持たない）。
+//   セキュリティルールは書庫と同じく library 以下を「読み取りのみ許可」にしておけば、そのまま読める。
+const DEMON_TALK_DEFAULTS = {
+  delay: 8,          // 25階に着いてから、悪魔が現れるまでの秒数
+  answerTime: 8,     // 各質問の制限時間（秒）
+  charsPerSec: 22,   // セリフが出る速さ（1秒あたりの文字数）
+  hold: 0.9,         // セリフが出きってから次へ進むまでの間（秒）
+};
+async function fetchDemonTalk() {
+  if (typeof netInstance === 'undefined' || !netInstance || !netInstance.enabled) throw new Error('Firebase unavailable');
+  const run = (async () => {
+    await netInstance.signIn();
+    const snap = await netInstance.db.ref('library/demonTalk').once('value');
+    const v = snap.val();
+    if (!v || typeof v !== 'object') throw new Error('library/demonTalk is empty');
+    const nl = x => String(x == null ? '' : x).replace(/[\\¥￥]n/g, '\n'); // 「\n」「¥n」「￥n」と打った文字を改行にする
+    const list = x => Array.isArray(x) ? x : (x && typeof x === 'object') ? Object.keys(x).sort((a, b) => a - b).map(k => x[k]) : []; // Firebaseは配列を {0:…,1:…} で返すことがある
+    const lines = x => typeof x === 'string' ? (nl(x) ? [nl(x)] : []) : list(x).map(nl).filter(Boolean); // セリフ：文字列1つでも、リスト（順番に話す）でもOK。→ セリフのリストにそろえる
+    const num = (x, d) => (typeof x === 'number' && isFinite(x) && x > 0) ? x : d; // 正の数だけ
+    const numAny = (x, d) => (typeof x === 'number' && isFinite(x)) ? x : d;       // マイナスや0もOKな数
+    const D = DEMON_TALK_DEFAULTS;
+    const mkChoice = (c, rep) => (c && typeof c === 'object') // 選択肢（と時間切れ）1つ分：返事・与える装飾品・次の質問・結果
+      ? { text: nl(c.text), reply: lines(c.reply != null ? c.reply : rep), item: (typeof c.item === 'string' && c.item) ? c.item : null, goto: numAny(c.goto, null),
+          result: (c.result === 'fight' || c.result === 'clear') ? c.result : null }
+      : { text: nl(c), reply: lines(rep), item: null, goto: null, result: null };
+    const questions = list(v.questions).filter(q => q && typeof q === 'object').map(q => {
+      const replies = (q.replies && typeof q.replies === 'object') ? q.replies : {}; // 番号が飛んでいても（{1:'…'}だけでも）ずれないよう、list() にせず番号で引く
+      const choices = list(q.choices).slice(0, 4).map((c, i) => mkChoice(c, replies[i])); // 選択肢は、文字列だけでも書ける
+      const tc = q.timeout; // この質問の時間切れ（選択肢と同じ項目が書ける。文字列だけなら返事のみ）。無ければ、全体の時間切れ（下の defaultTimeout）
+      return { text: lines(q.text), choices, time: num(q.time, 0), timeout: (tc && typeof tc === 'object') ? mkChoice(tc) : (typeof tc === 'string' || Array.isArray(tc)) ? mkChoice({ reply: tc }) : null };
+    }).filter(q => q.choices.length > 0);
+    if (!questions.length) throw new Error('library/demonTalk has no questions');
+    return { delay: num(v.delay, D.delay), answerTime: num(v.answerTime, D.answerTime), charsPerSec: num(v.charsPerSec, D.charsPerSec), hold: num(v.hold, D.hold),
+      intro: lines(v.intro), outro: lines(v.outro), defaultTimeout: mkChoice({ reply: v.timeoutReply }), questions };
+  })();
+  return Promise.race([run, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))]);
+}
 // 📚 書庫の本は、Firebase Realtime Database の library/books から、書庫に入るたびに読み込む（HTMLには本文を持たない）。
 //   形式：library/books/0 = { title: '本の題名', text: '本文' }, library/books/1 = …（N冊目は、書庫に来たN回目から読める。来た回数は save.libraryVisits）。本文は改行が使える（コンソールでは \n・¥n・￥n と打つと改行になる）。
 //   Firebaseが使えない・読み込めない時は本を開けず、警告を出す（代わりの本文は持たない）。入れる元データは library_books.json。
@@ -1718,7 +1815,8 @@ function generateDungeon(seed, floor, opts) {
   let secretDoor = null;
   if (opts && opts.secretLibrary && others.length > 1) {
     const srand = mulberry32(seed * 31 + 424243);
-    if (srand() < SECRET_LIBRARY_CHANCE) {
+    const libRoll = srand(); // 乱数の順序は変えない（?library=1 でも1回引く）
+    if (DEBUG_URL.library || libRoll < SECRET_LIBRARY_CHANCE) {
       const cand = others.filter(r => r !== exitRoom);
       const sroom = cand[Math.floor(srand() * cand.length)];
       if (sroom) {
@@ -4135,6 +4233,7 @@ class GameScene extends Phaser.Scene {
     // マジックボムの溜めは階層をまたいで持ち越さない（update()は階層移動中に止まるため、
     // ここで明示的に捨てる。弾は消費しない＝新しい階層でまた0から溜められる）。
     this.interruptChargeBomb();
+    this._demonTalkEnd(); // 😈 悪魔の問答の途中で階が変わった／やり直した時は、問答を片付ける
     this._chargeGhostTimers = {};
     this._chargeGhostIds = {};
     this._lastPublishedSnapshot = null; // フロアが変わったら差分比較をリセット（別フロアの古いidと比較しないように）
@@ -4337,7 +4436,7 @@ class GameScene extends Phaser.Scene {
     const d = this.dungeon;
     // isBoss扱いの敵（オーバーロード等）は通常のランダム抽選には含めない。
     // ボスはこの後の専用ブロックで「各フロアに必ず1体・ラベル付き」で配置する。
-    const eligible = ENEMY_TYPES.filter(t => t.minFloor <= this.floor && !t.isBoss && !t.mimic && (!t.nightmareOnly || this.nightmare)); // nightmareOnly（ボマー）はナイトメアでだけ出す
+    const eligible = ENEMY_TYPES.filter(t => t.minFloor <= this.floor && !t.isBoss && !t.mimic && (!t.nightmareOnly || this.nightmare) && !(this.snowfield && t.key === 'ghost')); // nightmareOnly（ボマー）はナイトメアでだけ出す／雪原ではゴーストを出さない
     const startRoom = d.rooms[0];
     let candidateRooms = d.rooms.filter(r => r !== startRoom);
     if (this.snowfield && d.snow) { // ❄ 雪原：敵が出るのは、白い扉のまわりの spawnW × spawnH タイルの範囲の空き地だけ
@@ -4444,6 +4543,7 @@ class GameScene extends Phaser.Scene {
         if (!remainingPool.length) remainingPool.push(...bossPool);
         const picked = remainingPool.splice(Math.floor(brand() * remainingPool.length), 1)[0]; // 抽選は常に行う（乱数の順序を保つ）
         const bossType = (this.bossFloor && this.floor >= 25) ? (demonType || ENEMY_TYPES.find(t => t.key === 'simahar') || picked) : picked; // 25階はシマハル確定（条件を満たした時だけ、シマハルの代わりに悪魔）
+        if (demonType) { this._demonTalkStart(startRoom); continue; } // 😈 悪魔はここでは出さない。一定時間後にプレイヤーの上に現れて問答をし、そのあと戦いになる（_demonTalkUpdate）
         let bx, by;
         if (this.bossFloor) {
           const room = startRoom;
@@ -4503,7 +4603,6 @@ class GameScene extends Phaser.Scene {
         bossUiTypes.push(bossType); if (firstBossId == null) firstBossId = bossId;
         } // for (bossCount)
         if (this.bossFloor && bossUiTypes.length) this.showBossUiMulti(bossUiTypes, firstBossId); // ボス階だけ、画面上部にボス名とHPバー
-        if (demonType) this.time.delayedCall(700, () => this.showBanner('😈 全ての魔物を討ち取った者の前に、悪魔が現れた…', 3600, '#d9a0ff')); // 暗転が明けてから出す
       }
     }
   }
@@ -4584,7 +4683,143 @@ class GameScene extends Phaser.Scene {
   // 😈 25階の悪魔を出すか：ソロのダンジョンで、1〜24階のゴースト以外のモンスターを全て倒してここに来た時だけ（協力プレイでは出ない）
   demonShouldAppear() {
     if (this.mp || !this.bossFloor || this.floor < 25) return false;
+    if (DEBUG_URL.demon) return true; // ?demon=1：全滅の記録やDEMON_ENABLEDに関係なく悪魔が出る（階指定で25階から始めても確認できる）。デベロッパーモードでは確定にならない
     return DEMON_ENABLED && !!this._demonRun;
+  }
+  // 😈 25階の悪魔の問答：着いて delay 秒後にプレイヤーの上へ悪魔が現れ（動かない）、セリフ→選択肢（制限時間バー付き）を繰り返し、終わると悪魔との戦いになる。
+  _demonTalkStart(room) {
+    this._demonTalkEnd();
+    const d = { state: 'wait', t: 0, room, x: 0, y: 0, objs: [], qi: 0, text: '', shown: 0, hold: 0, left: 0, next: null, load: 'loading', cfg: null };
+    this._demonTalk = d;
+    fetchDemonTalk().then(cfg => { if (this._demonTalk === d) { d.cfg = cfg; d.load = 'ok'; } })
+      .catch(err => { if (this._demonTalk === d) d.load = 'error'; console.error('悪魔のセリフをFirebaseから読めませんでした:', err); });
+  }
+  _demonTalkEnd() {
+    const d = this._demonTalk;
+    this._demonTalk = null;
+    const root = document.getElementById('demonTalk'); if (root) root.style.display = 'none';
+    const ans = document.getElementById('demonAnswer'); if (ans) ans.style.display = 'none';
+    const ch = document.getElementById('demonChoices'); if (ch) ch.innerHTML = '';
+    if (d) d.objs.forEach(o => { try { o.destroy(); } catch (e) {} });
+    return d;
+  }
+  _demonAppear() {
+    const d = this._demonTalk;
+    let x = this.player.x, y = this.player.y - TILE * 3.5; // プレイヤーの上側
+    if (d.room) y = Math.max(y, (d.room.y + 1.5) * TILE);  // 壁の中には出ない
+    d.x = x; d.y = y;
+    if (d.load !== 'ok') { // セリフが読めなかった：問答なしで、そのまま悪魔との戦いにする
+      this.showBanner('⚠ Firebaseに接続できないため、悪魔は問答なしで襲いかかる', 3500, '#ffb0b0');
+      this._demonTalkFinish(); return;
+    }
+    const glow = this.add.circle(x, y, 34, 0x5a0a8a, 0.85).setDepth(4).setStrokeStyle(3, 0xd9a0ff, 0.9);
+    const face = this.add.text(x, y, '😈', { fontSize: '44px', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(4);
+    d.objs.push(glow, face);
+    [glow, face].forEach(o => { o.setAlpha(0).setScale(0.4); this.tweens.add({ targets: o, alpha: 1, scale: 1, duration: 700, ease: 'Sine.easeOut' }); });
+    this.showBanner('😈 悪魔が現れた…', 2400, '#d9a0ff');
+    document.getElementById('demonTalk').style.display = 'block';
+    document.getElementById('demonSpeech').textContent = '';
+    this._demonSay(d.cfg.intro, () => this._demonAsk(0));
+  }
+  _demonSay(text, next) { // セリフ（文字列、またはセリフのリスト）を1つずつ、1文字ずつ出し、全部出きって少し待ったら next() を呼ぶ（セリフが空なら、何も出さずにすぐ next()）
+    const d = this._demonTalk; if (!d) return;
+    const arr = (Array.isArray(text) ? text : [text]).filter(Boolean);
+    if (!arr.length) { next(); return; }
+    d.state = 'say'; d.lines = arr; d.li = 0; d.text = arr[0]; d.shown = 0; d.hold = 0; d.next = next;
+  }
+  _demonAsk(i) {
+    const d = this._demonTalk; if (!d) return;
+    this._demonSay(d.cfg.questions[i].text, () => this._demonShowChoices(i));
+  }
+  _demonShowChoices(i) {
+    const d = this._demonTalk; if (!d) return;
+    const q = d.cfg.questions[i];
+    d.state = 'ask'; d.qi = i; d.left = d.total = q.time || d.cfg.answerTime;
+    const box = document.getElementById('demonChoices'); box.innerHTML = '';
+    q.choices.forEach((c, idx) => {
+      const b = document.createElement('button');
+      b.className = 'demonChoice'; b.textContent = c.text;
+      b.style.animationDuration = (0.11 + Math.random() * 0.07).toFixed(3) + 's'; // ボタンごとに震え方をずらす
+      b.style.animationDelay = '-' + (Math.random() * 0.15).toFixed(3) + 's';
+      b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); b.classList.add('picked'); this._demonPick(idx); });
+      box.appendChild(b);
+    });
+    document.getElementById('demonBarFill').style.width = '100%';
+    document.getElementById('demonBarFill').style.background = '#b070e0';
+    document.getElementById('demonAnswer').style.display = 'flex';
+  }
+  _demonPick(idx) { // idx＝選んだ選択肢の番号（-1＝時間切れ）。選んだ選択肢のデータ（返事・HP・次の質問・結果など）で、その後に起こることが決まる
+    const d = this._demonTalk; if (!d || d.state !== 'ask') return;
+    const i = d.qi, q = d.cfg.questions[i], ch = idx >= 0 ? q.choices[idx] : (q.timeout || d.cfg.defaultTimeout); // 時間切れ（-1）も、選択肢と同じように扱う
+    d.state = 'picked';
+    setTimeout(() => { const a = document.getElementById('demonAnswer'); if (a && this._demonTalk === d) a.style.display = 'none'; }, idx >= 0 ? 250 : 0); // 選んだボタンを一瞬だけ見せる
+    if (ch.item) this._demonGiveItem(ch.item);
+    d.asked = (d.asked || 0) + 1;
+    const nxt = ch.goto != null ? ch.goto : i + 1; // goto が無ければ次の質問。範囲の外（-1など）なら、問答を終える
+    this._demonSay(ch.reply, () => {
+      if (ch.result) this._demonTalkFinish(ch.result); // 結果が決まっている選択肢：残りの質問はせず、すぐその結果へ
+      else if (nxt >= 0 && nxt < d.cfg.questions.length && d.asked < 30) this._demonAsk(Math.floor(nxt)); // 30問を超えたら打ち切る（goto がループしても止まる）
+      else this._demonEnding();
+    });
+  }
+  _demonGiveItem(key) { // 選択肢（時間切れ）の item：装飾品を入手済みにして（ロビーの一覧・選択欄に出る）、このゲームの間、今付けているものと入れ替えて付ける
+    const a = accessoryByKey(key);
+    if (!a) { console.warn('悪魔の問答：item の装飾品が見つかりません:', key); return; }
+    if (!this.isDevMode) { // デベロッパーモードは、記録（入手済み）には残さない
+      const sv = loadSave();
+      if (!sv.accUnlocked[key]) { sv.accUnlocked[key] = true; writeSave(sv); this._ritualNewAcc = (this._ritualNewAcc || []).concat([a]); } // リザルトにも「新しく入手した装飾品」として出す
+    }
+    this.equipAmidaAcc(key); // 付ける（鎧なら最大HPも合わせる）
+    this.showBanner('🎁 ' + a.icon + a.name + 'を手に入れた！', 2800, '#ffd54c');
+  }
+  _demonEnding() { // 質問が終わった（result を持つ選択肢が無かった）：outro のあと、普通に悪魔と戦う
+    const d = this._demonTalk; if (!d) return;
+    this._demonSay(d.cfg.outro, () => this._demonTalkFinish('fight'));
+  }
+  _demonTalkFinish(result) { // 問答が終わった：'clear'＝戦わずにオールクリア、それ以外＝同じ場所に本物の悪魔（ボス）を出して戦う
+    const d = this._demonTalkEnd(); if (!d) return;
+    if (result === 'clear' && !this.mp) { this.showClearTime(); this.triggerAllClear(); return; }
+    const bossType = ENEMY_TYPES.find(t => t.key === 'demon'); if (!bossType) return;
+    const bx = d.x, by = d.y;
+    const bossScale = (1 + Math.max(0, this.floor - 10) * 0.12);
+    const gfx = this.add.circle(bx, by, bossType.radius, bossType.color).setDepth(4);
+    gfx.setStrokeStyle(3, 0xffd54c, 0.9);
+    const hpBar = this.add.rectangle(bx, by - bossType.radius - 10, bossType.radius * 2, 6, 0xff5b5b).setDepth(4);
+    const label = this.add.text(bx, by - bossType.radius - 22, bossType.bossLabel || 'ボス', { fontSize: '12px', color: '#ffd54c', fontStyle: 'bold', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(4);
+    const bossId = this.floor + '_boss';
+    this.bossGroupCounts = this.bossGroupCounts || {}; this.bossGroupCounts[bossId] = 1;
+    const hp = Math.max(1, Math.round(bossType.hp * bossScale));
+    this.enemies.push({ id: bossId, type: bossType, gfx, hpBar, label, hp, maxHp: hp,
+      damage: Math.round(bossType.damage * bossScale), state: 'idle', timer: 0, dirX: 0, dirY: 0, hitCooldown: 0, bossGroupId: bossId, _bossScale: bossScale });
+    this.showBossUiMulti([bossType], bossId);
+    this.showBanner('😈 悪魔との戦いが始まる！', 2600, '#d9a0ff');
+  }
+  _demonTalkUpdate(dt) {
+    const d = this._demonTalk; if (!d) return;
+    if (this._resultOpen || this.isGhost || this.isDowned || this.transitioning) { this._demonTalkEnd(); return; }
+    const T = d.cfg || DEMON_TALK_DEFAULTS;
+    if (d.state === 'wait') { d.t += dt; if (d.t >= T.delay && d.load !== 'loading') this._demonAppear(); return; } // 読み込み中なら、読み終わるまで待つ
+    if (d.state === 'say') {
+      d.shown += dt * T.charsPerSec;
+      const n = Math.min(d.text.length, Math.floor(d.shown));
+      document.getElementById('demonSpeech').textContent = d.text.slice(0, n);
+      if (n >= d.text.length) {
+        d.hold += dt;
+        if (d.hold >= T.hold) {
+          if (d.li + 1 < d.lines.length) { d.li++; d.text = d.lines[d.li]; d.shown = 0; d.hold = 0; } // 次のセリフへ
+          else if (d.next) { const f = d.next; d.next = null; f(); }
+        }
+      }
+      return;
+    }
+    if (d.state === 'ask') {
+      d.left -= dt;
+      const r = Math.max(0, d.left / d.total);
+      const fill = document.getElementById('demonBarFill');
+      fill.style.width = (r * 100).toFixed(1) + '%';
+      fill.style.background = r < 0.3 ? '#ff4a4a' : '#b070e0';
+      if (d.left <= 0) this._demonPick(-1);
+    }
   }
   // 😈 今いる階に、生きているゴースト以外のモンスターが残っているか（敵は倒されると this.enemies から消える。「敵残り」の数字からゴーストを除いたもの）
   hasLivingNonGhostEnemy() {
@@ -20214,6 +20449,7 @@ class GameScene extends Phaser.Scene {
     // panicMax:0 にした代わりに、極端に重いフレームでもdtが暴れないよう上限を付ける
     if (this._hutReading) return; // 📖 小屋の本を読んでいる間は、ゲームを止める
     const dt = Math.min(delta, 50) / 1000;
+    if (this._demonTalk) this._demonTalkUpdate(dt); // 😈 25階の悪魔の問答
 
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.playerInvuln = Math.max(0, this.playerInvuln - dt);
@@ -23380,7 +23616,22 @@ function randomName() {
   return pick(NAME_MODIFIERS) + pick(NAME_ANIMALS); // 同じ言葉が重なる（ゾミカスゾミカス等）のもOK
 }
 
-const COLORS = [0x5bd1ff, 0xff8a8a, 0x8aff9c, 0xffe28a, 0xd28aff, 0xff8ac2];
+// 🎨 プレイヤーの体の色（協力プレイ・PvP・人狼などで、部屋の中の全員が違う色になるように、参加した順に空いている色が割り当てられる）。
+// 色相（赤・黄・緑・青・紫…）だけでなく明るさも変えて、近い色が無いようにしている。並び順は「先に使われる色ほど、お互いに離れた色」にしてある。
+// 先頭（水色）はソロの初期色でもあるので変えない。
+const COLORS = [
+  0x5bd1ff, // 水色
+  0xff3b3b, // 赤
+  0xffe033, // 黄
+  0xb04dff, // 紫
+  0x3dff6a, // 緑
+  0xff8a1f, // オレンジ
+  0xffffff, // 白
+  0xff6ec7, // ピンク
+  0x2f5bff, // 濃い青
+  0xa8672d, // 茶
+  0x00b894, // 青緑
+];
 let selectedColor = COLORS[0];
 
 const nameInput = document.getElementById('nameInput');
