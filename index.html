@@ -520,6 +520,7 @@
         <input type="text" id="soloSeedInput" inputmode="numeric" maxlength="12" placeholder="番号を指定" autocomplete="off">
       </label>
       <button id="soloBtn">ダンジョン</button>
+      <button id="hutWarpBtn" style="background:#6b8fa8; margin-top:0.8vh;">🛠 テスト：小屋の入り口へワープ</button> <!-- テスト用：雪原の小屋の入り口から始める -->
     </div>
     <div class="lobbyBox lobbySide lobbyRight">
       <div id="arms4RitualCount" style="display:none; text-align:center; font-size:1.7vh; font-weight:bold; color:#ffe58a; margin-bottom:-0.8vh;"></div>
@@ -1299,6 +1300,10 @@ function setBlizzard(on) {
 }
 // ✨ 聖域：小屋の右上の扉の先にある、神々しい小部屋。敵も宝箱もない。南の端の真ん中の金色の扉から、雪原（小屋の中）へ戻る。広さを変えるときは w / h を変える
 const SANCTUARY = { w: 37, h: 29, border: 2 };
+// ✨ 聖域の「神」：目に見える実体はなく、位置データ（祭壇の中心）だけがある。その近く（nearRadius px 以内）のランダムな点を通る、
+// ランダムな向きの黒い線が、interval 秒ごとに1本ずつ生まれる。線は growTime 秒かけて太くなり、生まれてから holdTime 秒たつと
+// 細くなっていき（fadeTime 秒）、消える。length は線の中心から片側の長さ（部屋をまたぐ長さ）。orbR＝中心の水色の玉の大きさ（px）。
+const SANCTUARY_GOD = { nearRadius: 60, interval: 0.5, growTime: 0.35, holdTime: 2, fadeTime: 0.6, maxWidth: 28, length: 1400, color: 0x000000, orbR: 7 };
 function generateSanctuaryMap() {
   const width = SANCTUARY.w, height = SANCTUARY.h, B = SANCTUARY.border;
   const grid = Array.from({ length: height }, () => new Array(width).fill(1));
@@ -3104,6 +3109,11 @@ class GameScene extends Phaser.Scene {
     this.snowfield = false; // 雪原（白い扉の先）にいる間だけ true
     this.sanctuary = false; this._snowSaved = null; this._snowRestore = null; // ✨ 聖域にいる間だけ true／雪原にいる間、預かっているダンジョンの状態
     this._coldT = 0; this._hutIn = false; setBlizzard(false);
+    this._warpHut = false;
+    if (app.warpHut) { // 🛠 テスト用：最初から雪原で始めて、小屋の入り口に立つ（やり直しなどで何度も飛ばないよう、一度使ったら外す）
+      app.warpHut = false;
+      if (!this.mp && !this.pvp && !this.frontline) { this._warpHut = true; this.snowfield = true; this._libT0 = performance.now(); setBlizzard(true); }
+    }
     this.tx = null; this.fl = null;
     this.runStats = { time: 0, kills: 0, bosses: 0 }; // リザルト用の集計（kills/bossesはソロのみ使用。timeは協力プレイでも数える）
     // 協力プレイのリザルト用に、自分の成績を集計する（各自が自分の分だけ数えて、他の人へは stats として配信する）。
@@ -4182,8 +4192,10 @@ class GameScene extends Phaser.Scene {
       console.log('[白い扉]', dungeon.whiteDoor ? ('作った x=' + dungeon.whiteDoor.x + ' y=' + dungeon.whiteDoor.y) : '作れなかった');
     }
 
-    const px = dungeon.playerStart.x * TILE + TILE / 2;
-    const py = dungeon.playerStart.y * TILE + TILE / 2;
+    const warpDoor = (this._warpHut && dungeon.hut) ? dungeon.hut.door : null; // 🛠 テスト用：小屋の入り口に立って始める
+    this._warpHut = false;
+    const px = (warpDoor ? warpDoor.x : dungeon.playerStart.x) * TILE + TILE / 2;
+    const py = (warpDoor ? warpDoor.y : dungeon.playerStart.y) * TILE + TILE / 2;
     this.player = this.add.circle(px, py, TILE * 0.32, this.playerColor);
     this.player.setStrokeStyle(2, 0xffffff, 0.6);
     this.player.setDepth(5);
@@ -19689,11 +19701,10 @@ class GameScene extends Phaser.Scene {
         moveX = ax - e.gfx.x; moveY = ay - e.gfx.y; spd = C.coilSpeed;
         if (c.thSum >= Math.PI * 2 * C.coilLaps || c.t >= C.coilMaxTime) endCoil(); // 1周したら終わり
       } else if (e.whirl) {
-        // 振り回し中：丸まっている間と減速中は動かず、回している間だけプレイヤーへゆっくり寄っていく
+        // 振り回し中：丸まっている間も、回している間も、減速中も、頭はその場から動かない
         // （胴体の位置は、移動が終わった後の snakeWhirlUpdate がまとめて決める）
-        // ボスラッシュだけは頭を軸としてその場に固定する（寄っていかず、殴られても押されない）
-        if (this.bossRush) { e.kbX = 0; e.kbY = 0; }
-        else if (e.whirl.phase === 'spin' && target) { moveX = Math.cos(playerAngle); moveY = Math.sin(playerAngle); spd = Wh.headSpeed; }
+        // 頭を軸としてその場に固定する（寄っていかず、殴られても押されない）。以前はボスラッシュだけだった（headSpeed は今は使わない）
+        e.kbX = 0; e.kbY = 0;
       } else
       if (playerDist < (t.aggroRange || 700)) {
         if (target && target.radius != null) {
@@ -21216,9 +21227,10 @@ class GameScene extends Phaser.Scene {
   _switchSanctuary(toHoly) {
     try {
       this.sanctuary = toHoly; this.snowfield = !toHoly;
+      this._god = null; // ✨ 神は、入るたびに最初から（線もなし）
       this.buildFloor();
       if (toHoly) {
-        this.showBanner('✨ 聖域 ✨', 2800, '#ffe9a8');
+        // （入った時の「✨ 聖域 ✨」のバナーは出さない）
       } else { // 戻ったら、小屋の右上の扉のそばに立つ
         const hd = this.dungeon && this.dungeon.hut && this.dungeon.hut.holyDoor;
         if (hd) { this.player.x = (hd.x - 1) * TILE + TILE / 2; this.player.y = hd.y * TILE + TILE / 2; }
@@ -21266,6 +21278,34 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(0xfff0b0, 0.12 + 0.10 * (0.5 + 0.5 * Math.sin(tt * 2.4))); g.fillCircle(ddx + TILE / 2, ddy + TILE / 2, TILE * 1.3);
     g.fillStyle(0xffe9a0, 1); g.fillRect(ddx + 5, ddy + 1, TILE - 10, TILE - 2);
     g.lineStyle(2, 0xffffff, 1); g.strokeRect(ddx + 5, ddy + 1, TILE - 10, TILE - 2);
+    this._drawGod(g, tt); // ✨ 神の黒い線（他の光より手前に描く）
+  }
+  // ✨ 神：位置データ（this._god）だけを持ち、その近くのランダムな点を通る黒い線を、一定間隔で生んでは消していく（見た目だけ）
+  _drawGod(g, tt) {
+    const G = SANCTUARY_GOD, A = this.dungeon.altar;
+    if (!this._god) this._god = { x: (A.x + A.w / 2) * TILE, y: (A.y + A.h / 2) * TILE, lines: [], nextT: tt };
+    const god = this._god;
+    if (god.nextT < tt - 1) god.nextT = tt; // 長く描かれていなかった時に、線をまとめて出さない
+    while (tt >= god.nextT) {
+      const ra = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * G.nearRadius;
+      god.lines.push({ x: god.x + Math.cos(ra) * rr, y: god.y + Math.sin(ra) * rr, a: Math.random() * Math.PI, t0: god.nextT });
+      god.nextT += G.interval;
+    }
+    god.lines = god.lines.filter(l => tt - l.t0 < G.holdTime + G.fadeTime);
+    for (const l of god.lines) {
+      const age = tt - l.t0;
+      const k = age < G.growTime ? age / G.growTime : age <= G.holdTime ? 1 : 1 - (age - G.holdTime) / G.fadeTime;
+      if (k <= 0) continue;
+      const cx = Math.cos(l.a) * G.length, cy = Math.sin(l.a) * G.length;
+      g.lineStyle(G.maxWidth * k, G.color, 1);
+      g.lineBetween(l.x - cx, l.y - cy, l.x + cx, l.y + cy);
+    }
+    // 神の中心：水色に輝く小さな玉（黒い線より上＝あとから描く）
+    const pu = 1 + 0.15 * Math.sin(tt * 3.1) + 0.06 * Math.sin(tt * 7.3 + 1);
+    g.fillStyle(0x6fd8ff, 0.12 * pu); g.fillCircle(god.x, god.y, G.orbR * 4.5);
+    g.fillStyle(0x6fd8ff, 0.25 * pu); g.fillCircle(god.x, god.y, G.orbR * 2.6);
+    g.fillStyle(0x9eeaff, 0.9); g.fillCircle(god.x, god.y, G.orbR * 1.4 * pu);
+    g.fillStyle(0xeaffff, 1); g.fillCircle(god.x, god.y, G.orbR * 0.7 * pu);
   }
   leaveSnowfield() {
     if (this.transitioning || !this.snowfield) return;
@@ -23152,7 +23192,7 @@ function setLobbyStatus(msg) { document.getElementById('lobbyStatus').textConten
 
 // ルーム作成・参加の通信中は他のロビー操作を一切できないようにする。
 // （連打での二重作成や、入力途中でのボタン誤操作を防ぐため）
-const LOBBY_CONTROL_IDS = ['soloBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'nightmareBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput', 'soloSeedInput'];
+const LOBBY_CONTROL_IDS = ['soloBtn', 'hutWarpBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'nightmareBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput', 'soloSeedInput'];
 // ロビーの上に出る短いバナー（ゲーム画面のバナーとは別）
 function showLobbyBanner(text, ms) {
   let el = document.getElementById('lobbyBanner');
@@ -23226,6 +23266,7 @@ function startGame(mode, extra) {
     pvp: !!(extra && extra.pvp), // PvPモード
     frontline: !!(extra && extra.frontline), // 最北戦線（ソロ／協力プレイ）
     nightmare: !!(extra && extra.nightmare), // ナイトメア：ダンジョン（ソロ）で、壁の裏が見えない
+    warpHut: !!(extra && extra.warpHut), // 🛠 テスト用：始まったらすぐ、雪原の小屋の入り口に立っている（ダンジョン（ソロ）のみ）
     rushWeaponKey: (extra && extra.weaponKey) || null,
     fixedWeapon: (extra && extra.fixedWeapon) || null, // PvPの武器固定ルームなら、そのときの固定武器のkey
     joinAsGhost: !!(extra && extra.joinAsGhost), // 2階層以降のルームに途中参加：ゴーストとして入る
@@ -23245,6 +23286,8 @@ function readSoloSeed() {
   return (h >>> 0) % 2147483647;
 }
 document.getElementById('soloBtn').addEventListener('click', () => startGame('solo', { soloSeed: readSoloSeed() }));
+// 🛠 テスト用：雪原の小屋の入り口へワープして始める（ダンジョン（ソロ）と同じ設定で、最初から雪原にいる。白い扉から戻るとダンジョンの1階）
+document.getElementById('hutWarpBtn').addEventListener('click', () => startGame('solo', { soloSeed: readSoloSeed(), warpHut: true }));
 // ナイトメア：ダンジョン（ソロ）と同じだが、壁の裏が見えない
 document.getElementById('nightmareBtn').addEventListener('click', () => startGame('solo', { soloSeed: readSoloSeed(), nightmare: true }));
 // ボスラッシュ：まず武器選択画面を出し、選んだ武器のLv.5でスタートする。
