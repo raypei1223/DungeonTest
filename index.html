@@ -147,6 +147,7 @@
     width: 70vw; max-width: 130vh; box-sizing: border-box; padding: 1.8vh 3vh;
     background: rgba(20,4,32,0.88); border: 0.35vh solid #b070e0; border-radius: 1.6vh;
     color: #f0dcff; font-size: 3.6vh; line-height: 1.5; text-align: center; white-space: pre-line;
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", "MS PMincho", "Times New Roman", serif; letter-spacing: 0.08em; /* 古そうな明朝体 */
     min-height: 11vh; text-shadow: 0 0.3vh 0.3vh rgba(0,0,0,0.9); box-shadow: 0 0 2vh rgba(160,60,220,0.6);
   }
   #demonSpeech::before { content: '😈 DEMON'; display: block; font-size: 2.3vh; color: #c58cf0; letter-spacing: 0.15em; margin-bottom: 0.4vh; }
@@ -979,7 +980,7 @@ const DEBUG_URL = (function () {
 //       ・time …その質問だけの制限時間（省略可）
 //       ・timeout …その質問の時間切れの時に起こること（省略可）。選択肢と同じ項目（reply・item・goto・result）が書ける（text は不要）。文字列だけなら返事のみ。省略すると、全体の timeoutReply になる
 //       ・質問の番号は、questions の並び順（0から連続して書くこと。選択肢が1つも無い質問は無いものとして詰められる）
-//     delay: 8, answerTime: 8, charsPerSec: 22, hold: 0.9   ← この4つの数字は省略可（省略すると下の既定値）
+//     delay: 8, answerTime: 8, charsPerSec: 22, hold: 3   ← この4つの数字は省略可（省略すると下の既定値）
 //   }
 //   最後の質問まで答えて、result を持つ選択肢が無かった時は、outro のあと、普通に悪魔との戦いになる。
 //   文章は改行が使える（コンソールでは \n・¥n・￥n と打つ）。入れる元データは demon_talk.json。
@@ -989,7 +990,7 @@ const DEMON_TALK_DEFAULTS = {
   delay: 8,          // 25階に着いてから、悪魔が現れるまでの秒数
   answerTime: 8,     // 各質問の制限時間（秒）
   charsPerSec: 22,   // セリフが出る速さ（1秒あたりの文字数）
-  hold: 0.9,         // セリフが出きってから次へ進むまでの間（秒）
+  hold: 3,           // セリフが出きってから次のセリフ（または質問）へ進むまでの間（秒）
 };
 async function fetchDemonTalk() {
   if (typeof netInstance === 'undefined' || !netInstance || !netInstance.enabled) throw new Error('Firebase unavailable');
@@ -2844,8 +2845,8 @@ const ACCESSORIES = [
   { key: 'clock', icon: '⏱', name: '懐中時計', stat: 'soloClears', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）をクリア', effect: '10秒間時を止める能力を獲得' }, // 入手条件：ダンジョン（ソロ）を25階まで全クリアする（soloClears）。効果：画面下の時計ボタン（またはQキー）で発動。敵・敵の弾・自分の弾が10秒止まる。リロード60秒（ACC_CLOCK）
   { key: 'armor', icon: '🪖', name: '鎧', stat: 'armorFloor10Fast', goal: 1, unit: '回', desc: 'ダンジョン（ソロ）で10階層を4分以内にクリア', effect: '最大HPが2倍' }, // 入手条件：ダンジョン（ソロ）を始めてから、10階層のボスを倒すまでが4分以内（armorFloor10Fast。ARMOR_UNLOCK）
   { key: 'cloak', icon: '🧥', name: '透明マント', stat: 'nightmareClears', goal: 1, unit: '回', desc: 'ナイトメアをクリア', effect: '雑魚敵に認識されない（攻撃しない限り）' }, // 入手条件：ナイトメアを10階のボスまで倒してクリアする（nightmareClears）。効果：ボス以外の敵は、付けている人を狙わなくなる（getNearestPlayerTarget の cloakEnemy）。こちらから攻撃した敵は、その人を認識する（cloakReveal）
-  { key: 'flame',  icon: '🔥', name: '炎',         stat: 'bossRushBestBosses', goal: 15,  unit: '体',  desc: 'ボスラッシュで15体目のボスを倒す', effect: '攻撃した敵が燃える（合計21ダメージ）' },
-  { key: 'blackhole', icon: '🕳️', name: 'ブラックホール', stat: 'bossRushBestBosses', goal: 20, unit: '体', desc: 'ボスラッシュで20体目のボスを倒す', effect: '10秒に一度simaharのビームを撃つ' },
+  { key: 'flame',  icon: '🔥', name: '炎',         stat: 'bossRushBestBosses', goal: 6,  unit: '体',  desc: 'ボスラッシュで6体目のボスを倒す', effect: '攻撃した敵が燃える（合計21ダメージ）' },
+  { key: 'blackhole', icon: '🕳️', name: 'ブラックホール', stat: 'bossRushBestBosses', goal: 12, unit: '体', desc: 'ボスラッシュで12体目のボスを倒す', effect: '10秒に一度simaharのビームを撃つ' },
   { key: 'swords', icon: '⚔️', name: '双剣', stat: 'soloTotalKills',   goal: 500, unit: '体',  desc: 'ダンジョン（ソロ）で雑魚敵を累計500体倒す', effect: 'ノックバックが2倍になる' },
   { key: 'snow',   icon: '❄️', name: '雪',   stat: 'frontlineBestSec', goal: 300, unit: '秒',  desc: '最北戦線（ソロ）で5分間生き残る', effect: '移動速度+10%' },
   { key: 'trophy', icon: '🏆', name: 'トロフィー', stat: 'pvpWins', goal: 10, unit: '勝', desc: 'PvPで10回勝つ', effect: '開始時の武器レベル+1' }, // 入手条件：PvPで累計10回勝つ（pvpWins。recordPvpWin で加算）。効果：始まる時／やり直す時の武器レベルに ACC_TROPHY.levelBonus を足す（宝箱のエフェクトで途中から付けた場合は、開始時ではないので変わらない）
@@ -4713,9 +4714,8 @@ class GameScene extends Phaser.Scene {
       this._demonTalkFinish(); return;
     }
     const glow = this.add.circle(x, y, 34, 0x5a0a8a, 0.85).setDepth(4).setStrokeStyle(3, 0xd9a0ff, 0.9);
-    const face = this.add.text(x, y, '😈', { fontSize: '44px', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(4);
-    d.objs.push(glow, face);
-    [glow, face].forEach(o => { o.setAlpha(0).setScale(0.4); this.tweens.add({ targets: o, alpha: 1, scale: 1, duration: 700, ease: 'Sine.easeOut' }); });
+    d.objs.push(glow); // 見た目は紫の光の円だけ（😈のアイコンは出さない）
+    [glow].forEach(o => { o.setAlpha(0).setScale(0.4); this.tweens.add({ targets: o, alpha: 1, scale: 1, duration: 700, ease: 'Sine.easeOut' }); });
     this.showBanner('😈 悪魔が現れた…', 2400, '#d9a0ff');
     document.getElementById('demonTalk').style.display = 'block';
     document.getElementById('demonSpeech').textContent = '';
@@ -8404,6 +8404,11 @@ class GameScene extends Phaser.Scene {
     key = key || ''; // ''＝装飾品なし（人狼ゲーム中に外す時に使う）
     if ((key && !accessoryByKey(key)) || (this.accKey || '') === key) return;
     this.accKey = key;
+    { // 🪖 鎧：外した時は最大HPを元（100）に戻し、HPが超える分は切る。付けた時（付け直し含む）は最大HPを2倍に戻す（HPの+100は equipAmidaAcc 側）
+      this.playerMaxHp = Math.round(100 * (key === 'armor' ? ACC_ARMOR.maxHpMult : 1));
+      if (this.playerHp > this.playerMaxHp) this.playerHp = this.playerMaxHp;
+      if (this.player) this.updateHud();
+    }
     if (key) { const u = this._usedAccKeys || (this._usedAccKeys = []); if (!u.includes(key)) u.push(key); } // リザルトに出すため、使った装飾品を記録
     this.skullRevives = key === 'skull' ? SKULL_WISPS : 0; // ドクロ：鬼火 SKULL_WISPS 個（1回のゲームごと）
     this.skullAuraT = 0;
