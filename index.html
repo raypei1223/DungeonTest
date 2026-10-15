@@ -2909,15 +2909,15 @@ function accessoryByKey(key) { return ACCESSORIES.find(a => a.key === key) || nu
 // 受け取ったkeyが正しい装飾品なら絵文字を返す（他のプレイヤーから届いた値は、必ずこの表を通して描く）
 function accessoryIcon(key) { const a = accessoryByKey(key); return a ? a.icon : null; }
 // 🔒 特別な装飾品（SPECIAL_ACCS）：装飾品の一覧（ACCESSORIES）には出ず、ダンジョンにもドロップしない。台本（悪魔の問答）の選択肢の item にこの key を書いた時だけもらえる。
-//   持っていれば、ホーム画面の、今付けている装飾品の隣に、いつもアイコンが出る（押すと付け外し。もらった時は付いた状態）。効果は、付けている間だけ。weapon＝武器がその限定武器で固定される（外すと、ふつうの武器（剣）に戻る。付けている間は、他の武器の宝箱は取れない）／goldsilvernecklace＝1分ごとに周りに回復と宝箱が合わせて3つ出る（ACC_GOLDSILVER）／undeadcrest＝受けたダメージを0.2秒後に全回復する（ACC_UNDEAD）
+//   持っていれば、ホーム画面の、今付けている装飾品の隣に、いつもアイコンが出る（押すと付け外し。もらった時は付いた状態）。効果は、付けている間だけ。weapon＝武器がその限定武器で固定される（外すと、ふつうの武器（剣）に戻る。付けている間は、他の武器の宝箱は取れない）／goldsilvernecklace＝階層を移動した時に周りに回復と宝箱が合わせて6つ円形に出る（ACC_GOLDSILVER）／undeadcrest＝受けたダメージを0.2秒後に全回復する（ACC_UNDEAD）
 const SPECIAL_ACCS = [
   { key: 'demoncollar',        icon: '⛓️', name: '悪魔の腕輪',                            effect: '背中から悪魔の翼が生え、近づく敵を刺してぶら下げ、HPを削り続ける' },
-  { key: 'goldsilvernecklace', icon: '📿', name: '金銀のネックレス',                      effect: '1分ごとに、周りに回復と宝箱が合わせて3つ出る' },
+  { key: 'goldsilvernecklace', icon: '📿', name: '金銀のネックレス',                      effect: '階層を移動した時に、周りに回復と宝箱が合わせて6つ円形に出る' },
   { key: 'undeadcrest',        icon: '♾️', name: '不死の紋章',     effect: 'ダメージを受けても、0.2秒後に全回復する' },
 ];
 const ACC_DEMONWINGS = { count: 9, range: 300, dmg: 7, tick: 0.2, stabSpeed: 1100, pullTime: 1.5, holdDist: 110, spread: 1.5, retake: 0.35, ghostVanish: 10, calm: 1 }; // 悪魔の腕輪：付けている間、背中に悪魔の翼（根）が出る。count＝本数／range＝刺しにいける距離(px)／dmg＝1回のダメージ／tick＝何秒ごとにダメージ／stabSpeed＝刺しにいく速さ(px/秒)／pullTime＝刺してから背中側へ戻る秒数／holdDist＝刺した敵をぶら下げる、背中からの距離(px)／spread＝背中側の根が左右に開く角度(ラジアン。1.57＝真横まで＝身体の後ろ半分全体)／retake＝放した根が次を刺せるまでの秒数／ghostVanish＝ゴーストを掴んでから、何秒でパッと消えるか／calm＝刺しにいく時以外の、ゆらゆらの速さ（1＝ふつう、小さいほどゆっくり）
 const ACC_UNDEAD = { delay: 0.2 }; // 不死の紋章：ダメージを受けてから、何秒後に受けたぶんを回復するか（1回ごとに数える）
-const ACC_GOLDSILVER = { interval: 60, count: 3, radius: 60 }; // 金銀のネックレス：何秒ごとに／回復と宝箱を合わせて何個／自分からの距離（px）
+const ACC_GOLDSILVER = { count: 6, radius: 70 }; // 金銀のネックレス：階層を移動した時に、回復と宝箱を合わせて何個／自分からの距離（px。円形に並ぶ）
 function specialAccByKey(key) { return SPECIAL_ACCS.find(a => a.key === key) || null; }
 // 付けている限定武器の装飾品のkey（無ければ''）と、その武器。付けている間は、武器がその限定武器で固定される
 function limitedEquippedKey() { const sv = loadSave(); const a = SPECIAL_ACCS.find(o => o.weapon && sv.specialAccs[o.key] && sv.specialOn[o.key]); return a ? a.key : ''; }
@@ -3283,7 +3283,7 @@ class GameScene extends Phaser.Scene {
     this._clkOn = false; this._clkMine = false; this._clkCd = 0; this._clkLeft = 0; // 🕒 時計：発動中か／次に使えるまでの秒数（最初は使える）
     try { if (this.time) this.time.timeScale = 1; if (this.tweens) this.tweens.timeScale = 1; } catch (e) { /* 初回起動前 */ }
     { const o = document.getElementById('clockOverlay'); if (o) o.style.display = 'none'; const cb = document.getElementById('clockBtn'); if (cb) cb.style.display = 'none'; }
-    this._spUndead = undefined; this._spWings = false; this._spT = 0; // 特別な装飾品を付けているかの記録（1回の挑戦ごとに取り直す）
+    this._spUndead = undefined; this._spWings = false; this._neckFloor = null; this._spT = 0; // 特別な装飾品を付けているかの記録（1回の挑戦ごとに取り直す）
     this.limitedKey = limitedEquippedKey(); // 限定武器の装飾品を付けていれば、その装飾品のkey（付けている間、武器はその限定武器で固定される）
     this.skullRevives = this.accKey === 'skull' ? SKULL_WISPS : 0; // ドクロ：残りの鬼火の数＝あと何回生き返れるか（1回の挑戦ごとに SKULL_WISPS 個）
 
@@ -10162,7 +10162,7 @@ class GameScene extends Phaser.Scene {
     if (!on) { if (W && W.roots.length) this._wingsClear(); return; }
     const C = ACC_DEMONWINGS, px = this.player.x, py = this.player.y;
     if (!W) W = this._wings = { roots: [], gfx: null, face: Math.PI / 2, px, py, t: 0 };
-    if (!W.gfx || !W.gfx.scene) W.gfx = this.add.graphics().setDepth(5);
+    if (!W.gfx || !W.gfx.scene) W.gfx = this.add.graphics().setDepth(4.8); // 敵（4）より上、プレイヤー（5）より下
     if (W.roots.length !== C.count) { // 本数が変わった・初回：作り直す
       for (const r of W.roots) if (r.tgt) r.tgt._wingBy = null;
       W.roots = [];
@@ -10259,20 +10259,27 @@ class GameScene extends Phaser.Scene {
       const fast = r.st === 'stab';
       const bend = fast ? dist * 0.05 : (dist * 0.22 + 10) * r.bend * (1 + 0.35 * Math.sin(W.s * 3 + r.ph)); // 刺しにいく時はまっすぐ、普段はくねる
       const cx = (sx + tx) / 2 + nx * bend, cy = (sy + ty) / 2 + ny * bend;
-      const N = 16, pts = [];
+      const N = 20, pts = [];
       for (let k = 0; k <= N; k++) {
         const u = k / N, a0 = (1 - u) * (1 - u), a1 = 2 * (1 - u) * u, a2 = u * u;
         const wob = Math.sin(W.s * 7 + r.ph + u * 6) * 2.6 * Math.sin(u * Math.PI) * (fast ? 0.2 : 1);
-        pts.push({ x: a0 * sx + a1 * cx + a2 * tx + nx * wob, y: a0 * sy + a1 * cy + a2 * ty + ny * wob, th: 15 * (1 - u) + 5 }); // 太く（根元15px→先端5px）
+        pts.push({ x: a0 * sx + a1 * cx + a2 * tx + nx * wob, y: a0 * sy + a1 * cy + a2 * ty + ny * wob, th: 12 * Math.pow(1 - u, 0.75) }); // 太さ：根元12px→先端0px（先が尖る）
       }
-      // 悪魔の根と同じ色：ふちの暗い紫（太め）の上に、真っ黒な体を重ねる。先端は丸く（とげは無し）
+      // 悪魔の根と同じ色：ふちの暗い紫（太め）の上に、真っ黒な体を重ねる。先端は尖らせる（丸みなし）
       for (const pass of [{ col: 0x2a1038, al: 0.7, ex: 7 }, { col: 0x000000, al: 1, ex: 0 }]) {
-        g.fillStyle(pass.col, pass.al); g.lineStyle(1, pass.col, pass.al);
+        g.fillStyle(pass.col, pass.al);
+        const Lp = [], Rp = [];
         for (let k = 0; k <= N; k++) {
-          const p = pts[k], q = pts[Math.min(N, k + 1)], th = p.th + pass.ex;
-          if (k < N) { g.lineStyle(Math.max(th, q.th + pass.ex), pass.col, pass.al); g.lineBetween(p.x, p.y, q.x, q.y); }
-          g.fillCircle(p.x, p.y, th / 2);
+          const p0 = pts[Math.max(0, k - 1)], p1 = pts[Math.min(N, k + 1)];
+          let ddx = p1.x - p0.x, ddy = p1.y - p0.y; const dl = Math.hypot(ddx, ddy) || 1; ddx /= dl; ddy /= dl;
+          const hw = (pts[k].th + pass.ex * Math.min(1, pts[k].th / 6)) / 2; // ふちも、先端では細くなって消える
+          Lp.push({ x: pts[k].x - ddy * hw, y: pts[k].y + ddx * hw }); Rp.push({ x: pts[k].x + ddy * hw, y: pts[k].y - ddx * hw });
         }
+        for (let k = 0; k < N; k++) {
+          g.fillTriangle(Lp[k].x, Lp[k].y, Rp[k].x, Rp[k].y, Lp[k + 1].x, Lp[k + 1].y);
+          g.fillTriangle(Rp[k].x, Rp[k].y, Rp[k + 1].x, Rp[k + 1].y, Lp[k + 1].x, Lp[k + 1].y);
+        }
+        g.fillCircle(pts[0].x, pts[0].y, (pts[0].th + pass.ex) / 2); // 根元だけ丸く（背中になじませる）
       }
     }
   }
@@ -21216,10 +21223,10 @@ class GameScene extends Phaser.Scene {
       }
       this._crestLast = this.playerHp;
     }
-    if (this._spNeck && this.player && this.player.scene) { // 📿 金銀のネックレス：一定時間ごとに、周りに回復と宝箱を出す
-      this._neckT = (this._neckT == null ? ACC_GOLDSILVER.interval : this._neckT) - dt;
-      if (this._neckT <= 0) {
-        this._neckT = ACC_GOLDSILVER.interval;
+    // 📿 金銀のネックレス：階層を移動した時に（暗転が明けた最初のフレームで）、周りに回復と宝箱を円形に出す。階の記録は、付けていない間も取り続ける（付けた瞬間に出ないように）
+    const _nf = this.floor, _moved = this._neckFloor != null && _nf !== this._neckFloor; this._neckFloor = _nf;
+    if (this._spNeck && _moved && this.player && this.player.scene) {
+      {
         const kinds = ['potion', 'chest']; // 回復と宝箱は最低1つずつ、残りは半々
         while (kinds.length < ACC_GOLDSILVER.count) kinds.push(Math.random() < 0.5 ? 'potion' : 'chest');
         const off = Math.random() * Math.PI * 2;
