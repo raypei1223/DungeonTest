@@ -150,7 +150,7 @@
     font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", "MS PMincho", "Times New Roman", serif; letter-spacing: 0.08em; /* 古そうな明朝体 */
     min-height: 11vh; text-shadow: 0 0.3vh 0.3vh rgba(0,0,0,0.9); box-shadow: 0 0 2vh rgba(160,60,220,0.6);
   }
-  #demonSpeech::before { content: '😈 DEMON'; display: block; font-size: 2.3vh; color: #c58cf0; letter-spacing: 0.15em; margin-bottom: 0.4vh; }
+  #demonSpeech::before { content: 'DEMON'; display: block; font-size: 2.3vh; color: #c58cf0; letter-spacing: 0.15em; margin-bottom: 0.4vh; }
   #demonAnswer {
     position: absolute; left: 50%; bottom: 11vh; transform: translateX(-50%);
     width: 56vw; display: none; flex-direction: column; gap: 1.4vh; pointer-events: auto;
@@ -398,6 +398,13 @@
   .accRow.sel .accState { color: #fff; font-weight: bold; }
   .accRow.locked .accName { color: #8a8a99; }
   .accRow.locked .accState { color: #8a8a99; }
+  .accRow.special { border: 2px solid #b26bff; border-radius: 8px; margin: 6px 0; padding: 7px 8px; box-shadow: 0 0 8px rgba(178,107,255,0.35); }
+  .accRow .accBadge { display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 10px; line-height: 16px; border-radius: 8px; background: #b26bff; color: #fff; vertical-align: middle; }
+  .accRow .accNote { font-size: 11px; color: #8a8a99; }
+  .spSwitch { flex: none; position: relative; width: 54px; height: 24px; border-radius: 12px; background: #3a3a48; color: #aaa; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; box-sizing: border-box; transition: background 0.15s; }
+  .spSwitch i { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left 0.15s; }
+  .spSwitch.on { background: #8a4dff; color: #fff; justify-content: flex-start; }
+  .spSwitch.on i { left: 32px; }
   /* 人狼ゲーム：最初の昼の案内ウィンドウ（背面は操作できる。ボックスだけ押せる） */
   #wwGuide { display: none; position: fixed; inset: 0; z-index: 140; pointer-events: none; }
   #wwGuideBox {
@@ -553,7 +560,8 @@
         <input type="text" id="soloSeedInput" inputmode="numeric" maxlength="12" placeholder="番号を指定" autocomplete="off">
       </label>
       <button id="soloBtn">ダンジョン</button>
-      <button id="hutWarpBtn" style="background:#6b8fa8; margin-top:0.8vh;">🛠 テスト：小屋の入り口へワープ</button> <!-- テスト用：雪原の小屋の入り口から始める（表示中。デベロッパーモードでも使える） -->
+      <button id="hutWarpBtn" style="background:#6b8fa8; margin-top:0.8vh;">🛠 テスト：小屋の入り口へワープ</button>
+      <button id="demonTestBtn" style="background:#3a2450; color:#fff; margin-top:0.8vh;">🛠 テスト：悪魔（25階）</button> <!-- テスト用：ソロで25階から始めて、悪魔の問答を必ず出す --> <!-- テスト用：雪原の小屋の入り口から始める（表示中。デベロッパーモードでも使える） -->
     </div>
     <div class="lobbyBox lobbySide lobbyRight">
       <div id="arms4RitualCount" style="display:none; text-align:center; font-size:1.7vh; font-weight:bold; color:#ffe58a; margin-bottom:-0.8vh;"></div>
@@ -957,6 +965,8 @@ const DUNGEON_EXIT_IN_ROOM_CHANCE = 0.5;
 const SECRET_LIBRARY_CHANCE = 0.01; // 階ごとに1％
 // 😈 悪魔の出現フラグ：false の間は、条件を満たしても25階に悪魔は出ない（いつも通りシマハルが出る）。出したくなったら true にする。
 const DEMON_ENABLED = false;
+// 😈 プレイヤーがスタート部屋の悪魔にこのマス数まで近づくと、悪魔が影の中から現れる（大きいほど遠くから出る）
+const DEMON_APPEAR_TILES = 8;
 // 🔧 確認用のURLパラメータ（URLの末尾に付ける。例: index.html?library=1&demon=1）
 //   ?library=1 … 隠し書庫の扉が、確率に関係なく毎階（扉を置ける階なら）出る
 //   ?demon=1   … 25階（ソロ）に着いたら、全滅の記録やDEMON_ENABLEDに関係なく悪魔が出る
@@ -976,7 +986,7 @@ const DEBUG_URL = (function () {
 //           item …装飾品を与える。装飾品の key（sprout・shield・crown・skull・clock・armor・cloak・flame・blackhole・swords・snow・trophy・angelhalo・serialkiller。ACCESSORIES の key）を書く。
 //                  選ぶと、その装飾品が入手済みになり（ロビーの一覧・選択欄に出る）、このゲームの間は、今付けているものと入れ替わって付く。存在しない key は何も起きない
 //           goto …次に聞く質問の番号（0から数える）。-1なら、残りの質問をやめて問答を終える。省略は「次の質問」
-//           result …返事のあと、残りの質問をやめて、すぐにこの結果になる。'fight'＝悪魔との戦い / 'clear'＝戦わずにオールクリア（ソロのみ）
+//           result …返事のあと、残りの質問をやめて、すぐにこの結果になる。'fight'＝悪魔との戦い / 'clear'＝戦わずにダンジョンがオールクリア
 //       ・time …その質問だけの制限時間（省略可）
 //       ・timeout …その質問の時間切れの時に起こること（省略可）。選択肢と同じ項目（reply・item・goto・result）が書ける（text は不要）。文字列だけなら返事のみ。省略すると、全体の timeoutReply になる
 //       ・質問の番号は、questions の並び順（0から連続して書くこと。選択肢が1つも無い質問は無いものとして詰められる）
@@ -987,7 +997,7 @@ const DEBUG_URL = (function () {
 //   Firebaseが使えない・読み込めない時は、問答なしで、そのまま悪魔との戦いになる（代わりのセリフは持たない）。
 //   セキュリティルールは書庫と同じく library 以下を「読み取りのみ許可」にしておけば、そのまま読める。
 const DEMON_TALK_DEFAULTS = {
-  delay: 8,          // 25階に着いてから、悪魔が現れるまでの秒数
+  delay: 8,          // （今は使わない）悪魔は部屋の中央より少し上に固定で、プレイヤーが近づいたら影から現れる
   answerTime: 8,     // 各質問の制限時間（秒）
   charsPerSec: 22,   // セリフが出る速さ（1秒あたりの文字数）
   hold: 3,           // セリフが出きってから次のセリフ（または質問）へ進むまでの間（秒）
@@ -2031,12 +2041,47 @@ const ENEMY_TYPES = [
   // 😈 悪魔：ソロのダンジョンで「1〜24階のゴースト以外のモンスターを全て倒して」25階に着いた時だけ、25階のボスとして、シマハルの代わりに1体だけ現れる。
   // minFloor 9999・bossSpawn なし＝通常の抽選には出ない（出現は buildFloor の25階の処理だけ）。倒さないと25階のオールクリアにならない。
   // 動きはオーバーロードと同じ連続突進（強さの数値だけ違う）。HP・ダメージは他のボスと同じく、10階を超えた分だけ階層で強化される（25階で×2.8）。
-  // ⏸ 今は攻撃パターンなし・その場から動かない（一旦の状態）。元の連続突進に戻す時の設定：behavior: 'charge', speed: 78, dashSpeed: 640,
+  // 😈 今の攻撃は「根」だけ（その場から動かない）。昔の連続突進に戻す時の設定：behavior: 'charge', speed: 78, dashSpeed: 640,
   //   chargeRange: 460, wallBreakRadius: 90, enrageHpRatio: 0.5, enrageComboRest: 2.5, chargeAngleJitterDeg: 20, chargeDirLeadTime: 0,
   //   chargeEarlyAim: { count: 4, leadTime: 0.4, jitterDeg: 20 }, chargeTelegraphSeq: [0.8, 0.6, 0.4, 0.2],
   //   chargeCombo: 4, comboTelegraph: 0.15, comboGap: 0.15, comboRest: 7, chaseWhileIdle: true, initialChargeDelay: 3
-  { key: 'demon', displayName: 'DEMON', bossLabel: '😈 悪魔', color: 0x5a0a8a, radius: 34, hp: 1600, speed: 0, damage: 30, behavior: 'wander', aggroRange: 0, minFloor: 9999,
-    knockbackScale: 0.3, superArmor: true,
+  { key: 'demon', displayName: 'DEMON', bossLabel: '😈 悪魔', color: 0x000000, radius: 56, hp: 1600, speed: 0, damage: 30, behavior: 'boss_demon', aggroRange: 0, minFloor: 9999,
+    knockbackScale: 0, noGrab: true, superArmor: true, // noGrab＝天使（降魔術・エンジェルヘイロー）に掴まれない／悪魔は殴られても吹き飛ばない（その場から動かない：updateEnemy でも位置を固定している）
+    // 😈 （今は使っていない）攻撃「影」：その場から動かず、黒くて長い影をプレイヤーへ打ち出す（動きは updateDemonShadows）。壁は通り抜ける。
+    //   firstDelay＝最初の1本までの秒／cooldown＝次の1本までの秒／range＝撃ち始める距離／speed＝頭の速さ(px/秒)／turnRate＝頭がプレイヤーへ曲がる速さ(rad/秒・小さいほどゆるい)／
+    //   homeArc＝プレイヤーがこの角度(rad)より後ろにいる時は曲がらない／life＝頭が飛び続ける秒／width＝頭の太さ(px)／tailMax＝体の長さの上限(px・Infinity＝撃った所までずっと伸びる)／
+    //   retractSpeed＝頭が止まったあと、体の後ろ端が頭の道を追いかけて縮む速さ(px/秒)／pointGap＝道の記録間隔(px)／damage＝当たった時のダメージ（1本につき1回・階層での強化なし）
+    // shadow: { firstDelay: 1.5, cooldown: 2.8, range: 900, speed: 760, turnRate: 0.6, homeArc: 1.75, life: 4.5, width: 26, tailMax: Infinity, retractSpeed: 1800, pointGap: 14, damage: 25 },
+    // 😈 攻撃「根」：悪魔の体のふちから、黒い根が、ランダムな向きに、ゆっくりくねくね生えていく（影と同じ仕組み・プレイヤーは狙わない・壁は通り抜ける）。根もとが太く、先が細い。
+    //   firstDelay＝最初の1本までの秒／intervalMin・intervalMax＝次の1本までの秒（この間でランダム）／max＝同時に生えている最大数／range＝この距離内にプレイヤーがいる間だけ生える／speed＝伸びる速さ(px/秒)／
+    //   wobble＝向きのゆらぎの強さ(rad/秒・大きいほどくねくね)／life＝伸び続ける秒／width＝根もとの太さ(px)／fadeDelay＝伸びる時間が終わってから細くなり始めるまでの猶予(秒)／fadeTime＝細くなり始めてから消えるまでの秒（その間も、根は消えるまでずっと伸び続ける。守りの根と天使を刺す根は stopGrow: true で、伸びる時間が終わったらそこで止まる）／damage・rehit＝触れた時のダメージと、触れ続けた時の間隔(秒)
+    roots: { firstDelay: 3, intervalMin: 0.9, intervalMax: 2.4, max: 8, range: 1000, speed: 110, wobble: 1.2, life: 8, width: 20, tailMax: Infinity, fadeDelay: 1, fadeTime: 1.2, pointGap: 12, damage: 12, rehit: 1 },
+    // 😈 攻撃「速い根」（rootsChase）：根と同じ仕組みだが、速めで、生える向きはプレイヤーの方（少しずらす）、伸びながらプレイヤーの方へ曲がる。
+    //   turnRate＝プレイヤーへ曲がる速さ(rad/秒)／homeArc＝プレイヤーがこの角度(rad)より後ろにいる時は曲がらない／wobble＝くねくね。そのほかは根と同じ。
+    rootsChase: { firstDelay: 4, intervalMin: 2.2, intervalMax: 3.6, max: 3, range: 1000, speed: 330, wobble: 0.8, turnRate: 1.0, homeArc: 1.75, life: 3.2, width: 22, tailMax: Infinity, fadeDelay: 1, fadeTime: 0.8, pointGap: 12, damage: 15, rehit: 1, plantSeed: true },
+    // 😈 攻撃「守りの根」（rootsGuard）：プレイヤーの遠距離攻撃（弾）が悪魔に迫ってくると、悪魔の横から1本だけ、弾の来る方向をふさぐように曲がって素早く生えて、弾を受け止める（根に当たった弾は消える）。ダメージはない（damage 0）。
+    //   range＝この距離まで弾が来たら反応(px)／margin＝弾の進路が悪魔の体からこれ以内にずれていても守る(px)／maxTime＝弾が悪魔の一番近くに来るまでの残りがこの秒以内なら反応／
+    //   startOffset＝弾の来る方向から、どれだけ横（rad）で生え始めるか／startTurn＝生え始めの向きを、弾の方へどれだけ振るか(rad)／curve＝伸びながら弾の方へ曲がる速さ(rad/秒・大きいほど急なカーブ)／
+    //   cooldown＝次に守るまでの間隔(秒)／max＝同時に生えている上限／speed・life＝伸びる速さ(px/秒)と伸びる秒（長さ＝速さ×秒）／fadeDelay・fadeTime＝そのあと、そのまま残る秒と、細くなって消える秒
+    rootsGuard: { stopGrow: true, range: 520, margin: 45, maxTime: 1.1, startOffset: 1.1, startTurn: 0.5, curve: 8, cooldown: 0.9, max: 4, speed: 700, life: 0.4, width: 40, tailMax: Infinity, fadeDelay: 1.3, fadeTime: 0.5, pointGap: 12, damage: 0, rehit: 1, noSeed: true },
+    // 😈 攻撃「種」（seedBurst）：根が壁の中に入った所（壁のマス）に、黒い影だけの「種」が植えられる（壁と同化して見える・見た目だけで壁の判定は変わらない）。
+    //   triggerSeeds＝壁の種がこの個数まで埋まったら強攻撃／telegraph＝溜め時間(秒)。強攻撃になったら、まず新しい根を出すのをやめて、今ある根が全部消えるまで待ち、そのあと溜め（種が大きく光る）→ 全部の種を一気に解放する。
+    //   maxSeeds＝同時に植えられる種の上限／plantChance＝速い根が壁に入るたびに、種が植わる確率（1＝必ず）。種を植えるのは、速い根（rootsChase の plantSeed: true）だけ。解放された種からは、速い根（rootsSeed）が1本ずつ、プレイヤーの方へ生える（種は根になって消える）。
+    seedBurst: { triggerSeeds: 13, telegraph: 1.6, maxSeeds: 40, plantChance: 1 },
+    //   速い根（rootsSeed）：rootsChase と同じ動き。生える場所が悪魔ではなく種の位置で、本数の上限はない。種を植えない（noSeed）。
+    rootsSeed: { speed: 330, wobble: 0.8, turnRate: 1.0, homeArc: 3.2, life: 3.2, width: 22, tailMax: Infinity, fadeDelay: 1, fadeTime: 0.8, pointGap: 12, damage: 15, rehit: 1, noSeed: true },
+    // 😈 強攻撃「根の乱れ撃ち」（rootsStorm）：悪魔のまわりのランダムな向きから、速い根（rootsStormRoot）が次々と生え、伸びながらプレイヤーの方へ曲がってくる。
+    //   hpBelow＝悪魔のHPがこの割合（0.5＝半分）を切るまでは出さない／firstDelay・interval＝HPが切ってから最初の／次の強攻撃までの秒（プレイヤーが range 内にいる間だけ数える）／telegraph＝予告の秒（その間は新しい根を出さない）／duration＝根を出し続ける秒／gap＝次の根までの秒／range＝この距離内にプレイヤーがいる時だけ出す
+    //   rootsStormRoot：根の設定（rootsSeed と同じ速い根。homeArc が π より大きいので、どの向きに生えても、必ずプレイヤーの方へ曲がる。本数の上限はない・種は植えない）
+    rootsStorm: { hpBelow: 0.5, firstDelay: 2, interval: 20, telegraph: 1.2, duration: 3.5, gap: 0.14, range: 1000 },
+    rootsStormRoot: { speed: 330, wobble: 0.8, turnRate: 1.6, homeArc: 3.2, life: 3.2, width: 22, tailMax: Infinity, fadeDelay: 1, fadeTime: 0.8, pointGap: 12, damage: 15, rehit: 1, noSeed: true },
+    // 😈 攻撃「天使への串刺し」（rootsStab）：降魔術の天使／エンジェルヘイローの天使が現れたら、悪魔はその天使に、いくつもの根を勢いよく突き刺す（天使は掴まれないので、代わりにこちらから仕掛ける）。
+    //   startAt＝天使が出てから、根を刺し始めるまでの秒／pushSpeed＝刺さったあと、根が伸び続けて天使を押していく速さ(px/秒)／pushMax＝押し続ける最長の秒（壁に着いたらそこで止まる）／vanishAfter＝根を刺してから天使がチカチカして消え始めるまでの秒（押している間も含めた合計）／rootFade＝そのとき根がゆっくり細くなって消えるまでの秒／count＝根の本数（天使の別々の場所をねらうので、あまり重ならない）／spread＝悪魔のまわりの、根が生え始める範囲(rad)／overshoot＝天使を突き抜けて、はみ出す長さ(px)／
+    //   width＝太さ（ふつうの根と同じくらい）／look＝特別に強力そうな見た目：赤く光る縁と、とげ付き／detour・detourChance＝迂回の大きさ（天使までの距離に対する、カーブの膨らみの割合）と、迂回する根の割合／speed＝根が伸びる速さ(px/秒・速いほど勢いよく刺さる)／damage 0＝プレイヤーには当たらない。根は爆破と同時に細くなって消える。
+    rootsStab: { startAt: 2, pushSpeed: 380, pushMax: 2.5, vanishAfter: 4, rootFade: 2.5, count: 2, spread: 2.0, overshoot: 110, speed: 1500, wobble: 0, life: 0.5, width: 22, look: 'stab', stopGrow: true, detour: 0, detourChance: 0, tailMax: Infinity, fadeDelay: 1.1, fadeTime: 0.3, pointGap: 12, damage: 0, rehit: 1, noSeed: true },
+    // 😈 攻撃「最初の根」（rootsBurst）：戦いが始まった最初の1回だけ、悪魔のまわり全方位へ、根が一斉に生える。
+    //   count＝本数（360°を等間隔に並べ、jitter(rad)だけランダムにずらす）。そのほかは根と同じ（max は使わない＝ふだんの根の本数には数えない）。
+    rootsBurst: { count: 12, jitter: 0.12, speed: 130, wobble: 0.8, life: 6, width: 22, tailMax: Infinity, fadeDelay: 1, fadeTime: 1.2, pointGap: 12, damage: 12, rehit: 1 },
     isBoss: true },
   // カルテット：出現時は単体。一度でも攻撃を受けると（HPに関わらず）その場で
   // 一度だけ4体に分裂する（本体自身は分裂後に消え、以後は分裂しない）。
@@ -2314,6 +2359,7 @@ function pickChestWeaponChoices(eligible, count, rand) {
 // splashFalloff / splashMin: 爆風の距離減衰（省略時は 1 / 0.35）。ダメージ＝基本×max(splashMin, 1 − splashFalloff×距離/半径)。ロケランは 0.5 / 0.6（端でも6割）
 const WEAPON_TYPES = [
   { key: 'sword',   name: '剣',           type: 'melee',  damage: 16, range: 56, arcDeg: 100, rangeGrowth: 9, arcGrowth: 12, arcMax: 360, cooldown: 0.35, knockback: 112, minFloor: 1 },
+  // 🔒 限定武器（limited＝必要な特別な装飾品のkey。hidden なので宝箱・ふつうの武器選択には出ず、持っている人の武器選択にだけ足される）。性能は仮
   { key: 'club',    name: '棍棒',         type: 'melee',  damage: 32, range: 70, arcDeg: 20,  fixedArc: true, rangeGrowth: 10, cooldown: 0.55, knockback: 460, minFloor: 1 },
   // ナイフ：リーチがとても短い代わりに1発が重い近接武器。当たった敵から血しぶきが出る（bloodFx）。
   { key: 'knife',   name: 'ナイフ',       type: 'melee',  damage: 66, range: 30, arcDeg: 15,  fixedArc: true, rangeGrowth: 0, cooldown: 0.5, cooldownGrowth: 0.04, cooldownMin: 0.15, knockback: 5, bloodFx: true, minFloor: 1 },
@@ -2809,7 +2855,10 @@ const DEFAULT_SAVE = {
   bossRushBestBosses: 0, // ボスラッシュ（ソロ）で1回の挑戦中に倒したボス数の最高記録
   accUnlocked: {},       // 入手済みの装飾品 { key: true }
   accEquipped: '',       // 付けている装飾品のkey（''なら何も付けない）
+  specialAccs: {},       // 入手済みの特別な装飾品 { key: true }（SPECIAL_ACCS。一覧には出ない。台本の item でだけ入手できる）
+  specialOn: {},         // 特別な装飾品のうち、いま付けているもの { key: true }（ホーム画面のアイコンを押すと付け外し。限定武器の装飾品は、同時に1つだけ）
   armorFloor10Fast: 0,   // ダンジョン（ソロ）を始めてから ARMOR_UNLOCK.sec 秒以内に10階層のボスを倒したか（0/1）。1で装飾品「鎧」を入手（デベロッパーモード・協力プレイを除く）
+  soulSold: false,       // 悪魔に魂を売ったか（永久。悪魔に会うと true になり、同じ回に悪魔を倒して勝った時だけ取り消される）
   arms4RitualPlayed: false, // 四つ腕の調伏の儀を一度でも始めたか（デベロッパーモードを除く）。trueで、ロビーの「四つ腕の調伏の儀」ボタンが解放される
   arms4RitualClears: 0, // ダンジョン（ソロ）またはロビーの【期間限定】天使・調伏の儀で天使の調伏の儀に成功した回数（デベロッパーモード・協力プレイを除く）。1回で装飾品「エンジェルヘイロー」を入手
   libraryVisits: 0,     // 隠し書庫に来た回数（シード＝扉の出たフロアが別々のものだけ数える。同じシードの扉に入り直しても増えない）。N回目のとき、N冊目までの本が読める
@@ -2825,7 +2874,10 @@ function loadSave() {
 function normalizeSave(s) {
   s.accUnlocked = (s.accUnlocked && typeof s.accUnlocked === 'object') ? Object.assign({}, s.accUnlocked) : {};
   if (typeof s.accEquipped !== 'string') s.accEquipped = '';
+  s.specialAccs = (s.specialAccs && typeof s.specialAccs === 'object') ? Object.assign({}, s.specialAccs) : {};
+  s.specialOn = (s.specialOn && typeof s.specialOn === 'object') ? Object.assign({}, s.specialOn) : {};
   s.arms4RitualPlayed = !!s.arms4RitualPlayed;
+  s.soulSold = !!s.soulSold;
   s.libraryVisits = Math.max(0, Math.floor(Number(s.libraryVisits) || 0));
   s.libraryReported = !!s.libraryReported;
   return s;
@@ -2856,6 +2908,22 @@ const ACCESSORIES = [
 function accessoryByKey(key) { return ACCESSORIES.find(a => a.key === key) || null; }
 // 受け取ったkeyが正しい装飾品なら絵文字を返す（他のプレイヤーから届いた値は、必ずこの表を通して描く）
 function accessoryIcon(key) { const a = accessoryByKey(key); return a ? a.icon : null; }
+// 🔒 特別な装飾品（SPECIAL_ACCS）：装飾品の一覧（ACCESSORIES）には出ず、ダンジョンにもドロップしない。台本（悪魔の問答）の選択肢の item にこの key を書いた時だけもらえる。
+//   持っていれば、ホーム画面の、今付けている装飾品の隣に、いつもアイコンが出る（押すと付け外し。もらった時は付いた状態）。効果は、付けている間だけ。weapon＝武器がその限定武器で固定される（外すと、ふつうの武器（剣）に戻る。付けている間は、他の武器の宝箱は取れない）／goldsilvernecklace＝1分ごとに周りに回復と宝箱が合わせて3つ出る（ACC_GOLDSILVER）／undeadcrest＝受けたダメージを0.2秒後に全回復する（ACC_UNDEAD）
+const SPECIAL_ACCS = [
+  { key: 'demoncollar',        icon: '⛓️', name: '悪魔の腕輪',                            effect: '背中から悪魔の翼が生え、近づく敵を刺してぶら下げ、HPを削り続ける' },
+  { key: 'goldsilvernecklace', icon: '📿', name: '金銀のネックレス',                      effect: '1分ごとに、周りに回復と宝箱が合わせて3つ出る' },
+  { key: 'undeadcrest',        icon: '♾️', name: '不死の紋章',     effect: 'ダメージを受けても、0.2秒後に全回復する' },
+];
+const ACC_DEMONWINGS = { count: 9, range: 300, dmg: 7, tick: 0.2, stabSpeed: 1100, pullTime: 1.5, holdDist: 110, spread: 1.5, retake: 0.35, ghostVanish: 10, calm: 1 }; // 悪魔の腕輪：付けている間、背中に悪魔の翼（根）が出る。count＝本数／range＝刺しにいける距離(px)／dmg＝1回のダメージ／tick＝何秒ごとにダメージ／stabSpeed＝刺しにいく速さ(px/秒)／pullTime＝刺してから背中側へ戻る秒数／holdDist＝刺した敵をぶら下げる、背中からの距離(px)／spread＝背中側の根が左右に開く角度(ラジアン。1.57＝真横まで＝身体の後ろ半分全体)／retake＝放した根が次を刺せるまでの秒数／ghostVanish＝ゴーストを掴んでから、何秒でパッと消えるか／calm＝刺しにいく時以外の、ゆらゆらの速さ（1＝ふつう、小さいほどゆっくり）
+const ACC_UNDEAD = { delay: 0.2 }; // 不死の紋章：ダメージを受けてから、何秒後に受けたぶんを回復するか（1回ごとに数える）
+const ACC_GOLDSILVER = { interval: 60, count: 3, radius: 60 }; // 金銀のネックレス：何秒ごとに／回復と宝箱を合わせて何個／自分からの距離（px）
+function specialAccByKey(key) { return SPECIAL_ACCS.find(a => a.key === key) || null; }
+// 付けている限定武器の装飾品のkey（無ければ''）と、その武器。付けている間は、武器がその限定武器で固定される
+function limitedEquippedKey() { const sv = loadSave(); const a = SPECIAL_ACCS.find(o => o.weapon && sv.specialAccs[o.key] && sv.specialOn[o.key]); return a ? a.key : ''; }
+function limitedWeaponBase(key) { const sp = specialAccByKey(key); return (sp && sp.weapon && WEAPON_TYPES.find(w => w.key === sp.weapon)) || null; }
+// 持っている限定武器（武器選択画面に足す）。WEAPON_TYPES の limited＝その武器を使うのに必要な特別な装飾品のkey
+function limitedWeaponsOwned() { const sv = loadSave(); return WEAPON_TYPES.filter(w => w.limited && sv.specialAccs[w.limited]); }
 // 頭上にアイコンを出す装飾品は新芽と王冠だけ（他はエフェクトのみ）。
 function accHeadIcon(key) { return (key === 'sprout' || key === 'crown') ? accessoryIcon(key) : null; }
 
@@ -3215,6 +3283,8 @@ class GameScene extends Phaser.Scene {
     this._clkOn = false; this._clkMine = false; this._clkCd = 0; this._clkLeft = 0; // 🕒 時計：発動中か／次に使えるまでの秒数（最初は使える）
     try { if (this.time) this.time.timeScale = 1; if (this.tweens) this.tweens.timeScale = 1; } catch (e) { /* 初回起動前 */ }
     { const o = document.getElementById('clockOverlay'); if (o) o.style.display = 'none'; const cb = document.getElementById('clockBtn'); if (cb) cb.style.display = 'none'; }
+    this._spUndead = undefined; this._spWings = false; this._spT = 0; // 特別な装飾品を付けているかの記録（1回の挑戦ごとに取り直す）
+    this.limitedKey = limitedEquippedKey(); // 限定武器の装飾品を付けていれば、その装飾品のkey（付けている間、武器はその限定武器で固定される）
     this.skullRevives = this.accKey === 'skull' ? SKULL_WISPS : 0; // ドクロ：残りの鬼火の数＝あと何回生き返れるか（1回の挑戦ごとに SKULL_WISPS 個）
 
     this.fixedSeed = (!this.mp && app.soloSeed != null) ? app.soloSeed : null; // ロビーで指定したシード値（ソロのダンジョンのみ。nullならランダム）
@@ -3257,6 +3327,7 @@ class GameScene extends Phaser.Scene {
     // 😈 25階の悪魔：1階から全階を全滅させて進んでいる間だけ true。ソロのダンジョン本編だけが対象（ボスラッシュ・最北戦線・PvP・四つ腕の儀式・開発者モードの階指定では対象外）
     this._demonEligible = !this.mp && !this.bossRush && !this.frontline && !this.pvp && !app.arms4Ritual;
     this._demonRun = this._demonEligible && this.floor === 1;
+    this._demonTest = !this.mp && !!app.demonTest; // 🛠 ロビーの悪魔テストボタン：25階から始めて、悪魔を必ず出す
     this.rushWeaponKey = ((!this.mp && (app.bossRush || app.arms4Ritual)) || app.frontline || app.pvp) ? (app.rushWeaponKey || null) : null;
     // ボスラッシュでは選んだ武器のLv.5でスタートする（デベロッパーモードの開始武器と同じ仕組みを流用）
     this.devWeaponKey = this.rushWeaponKey || app.devWeaponKey || null;
@@ -3304,7 +3375,7 @@ class GameScene extends Phaser.Scene {
     this.attackCooldown = 0;
     this.playerInvuln = 0;
     this.weaponLevels = {}; // 武器key -> 所持レベル（同じ武器を再度拾うと強化される）
-    const startWeaponType = (this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey)) || WEAPON_TYPES[0];
+    const startWeaponType = (this.limitedKey && limitedWeaponBase(this.limitedKey)) || (this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey)) || WEAPON_TYPES[0]; // 限定武器の装飾品を付けていれば、最初からその限定武器（外していれば、ふつうの剣）
     // デベロッパーモード（とボスラッシュ）では、選んだ武器がいきなり高いレベルからスタートする（通常プレイは常にレベル1から）。
     // 開始時のレベルはデベロッパーモードの「武器レベル」で決める（ボスラッシュや、レベル未指定の場合は5）。
     const startWeaponLevel = (this.devWeaponKey ? Math.max(1, Math.floor(this.devWeaponLevel) || 5) : 1) + (this.accKey === 'trophy' ? ACC_TROPHY.levelBonus : 0); // 🏆 トロフィー：開始時の武器レベル+1
@@ -4270,6 +4341,7 @@ class GameScene extends Phaser.Scene {
     if (this.projectiles) this.projectiles.forEach(p => p?.gfx?.destroy());
     if (this.remoteProjectiles) this.remoteProjectiles.forEach(p => p?.gfx?.destroy());
     if (this.enemyProjectiles) this.enemyProjectiles.forEach(p => p?.gfx?.destroy());
+    this.clearDemonShadows();
     if (this.bombs) this.bombs.forEach(b => { if (b?.halo) this.tweens.killTweensOf(b.halo); b?.halo?.destroy(); b?.gfx?.destroy(); });
     if (this.traps) this.traps.forEach(t => { if (t?.halo) this.tweens.killTweensOf(t.halo); t?.halo?.destroy(); t?.gfx?.destroy(); });
     if (this.magicCircles) this.magicCircles.forEach(c => c?.gfx?.destroy());
@@ -4684,14 +4756,25 @@ class GameScene extends Phaser.Scene {
   // 😈 25階の悪魔を出すか：ソロのダンジョンで、1〜24階のゴースト以外のモンスターを全て倒してここに来た時だけ（協力プレイでは出ない）
   demonShouldAppear() {
     if (this.mp || !this.bossFloor || this.floor < 25) return false;
+    if (this._demonTest) return true; // 🛠 ロビーの悪魔テストボタンから始めた時は確定で出る
     if (DEBUG_URL.demon) return true; // ?demon=1：全滅の記録やDEMON_ENABLEDに関係なく悪魔が出る（階指定で25階から始めても確認できる）。デベロッパーモードでは確定にならない
     return DEMON_ENABLED && !!this._demonRun;
   }
-  // 😈 25階の悪魔の問答：着いて delay 秒後にプレイヤーの上へ悪魔が現れ（動かない）、セリフ→選択肢（制限時間バー付き）を繰り返し、終わると悪魔との戦いになる。
+  // 😈 25階の悪魔の問答：スタート部屋の中央より少し上に悪魔が隠れていて（動かない）、プレイヤーが近づくと影の中から現れ、セリフ→選択肢（制限時間バー付き）を繰り返し、終わると悪魔との戦いになる。
   _demonTalkStart(room) {
     this._demonTalkEnd();
-    const d = { state: 'wait', t: 0, room, x: 0, y: 0, objs: [], qi: 0, text: '', shown: 0, hold: 0, left: 0, next: null, load: 'loading', cfg: null };
+    this._soulMet = false; this._soulWasSold = false; // この回の「魂」の判定をリセット
+    const d = { state: 'wait', t: 0, room, x: 0, y: 0, trigger: TILE * DEMON_APPEAR_TILES, objs: [], qi: 0, text: '', shown: 0, hold: 0, left: 0, next: null, load: 'loading', cfg: null };
+    // 悪魔の位置：スタート部屋のど真ん中から少し上に固定する（動かない）。プレイヤーがこの距離（trigger）まで近づいたら、影の中から現れる
+    if (room) {
+      const cx = (room.x + room.w / 2) * TILE, cy = (room.y + room.h / 2) * TILE;
+      const up = Math.min(5, Math.max(2.5, room.h * 0.3)) * TILE; // 部屋が広いほど少し上へ（2.5〜5マス）
+      d.x = cx; d.y = Math.max(cy - up, (room.y + 1.5) * TILE); // 壁の中には出ない
+      const spawnY = (Math.floor(room.y + room.h / 2) + 0.5) * TILE; // プレイヤーの開始位置（部屋の中央）
+      d.trigger = Math.min(TILE * 3.5, Math.max(TILE * 1.2, (spawnY - d.y) * 0.7)); // 開始位置では出ない距離にする
+    } else { d.x = this.player.x; d.y = this.player.y - TILE * 3.5; }
     this._demonTalk = d;
+    if (this._demonTest) return; // 🛠 ロビーのテストボタンから入った時は、問答を飛ばす（セリフも読み込まない。_demonTalkUpdate がすぐ戦いにする）
     fetchDemonTalk().then(cfg => { if (this._demonTalk === d) { d.cfg = cfg; d.load = 'ok'; } })
       .catch(err => { if (this._demonTalk === d) d.load = 'error'; console.error('悪魔のセリフをFirebaseから読めませんでした:', err); });
   }
@@ -4701,25 +4784,108 @@ class GameScene extends Phaser.Scene {
     const root = document.getElementById('demonTalk'); if (root) root.style.display = 'none';
     const ans = document.getElementById('demonAnswer'); if (ans) ans.style.display = 'none';
     const ch = document.getElementById('demonChoices'); if (ch) ch.innerHTML = '';
-    if (d) d.objs.forEach(o => { try { o.destroy(); } catch (e) {} });
+    if (d) d.objs.forEach(o => { try { if (this.tweens) this.tweens.killTweensOf(o); o.destroy(); } catch (e) {} });
     return d;
   }
+  // 🖤 悪魔の見た目（問答中も戦闘中も共通）：真っ黒な体の下半分のふち（左端〜下〜右端）から黒い筋が垂れ下がり、先端に雫がたまっては落ちる。
+  // 筋の長さは中心（真下）に近いほど長く、左右の端ほど短い（筋ごとのランダムな差・位置のずれ付き）。
+  // 雫の動き：先端に雫がだんだんたまる（先端がふくらみ、首が細くなり、筋が少し伸びる）→ たまりきると切れて落ちる（筋はびよんと縮む）→
+  //          落ちる雫は重力で加速し、速くなるほど縦に細長く伸び、最後は縮みながら消える。
+  // gfx（悪魔の本体の円）に付いて動き、gfx が壊れる・シーンが終わると自分で止まる。gfx を隠している間（調伏の儀など）は筋も雫も隠す。tweenは使わず、毎フレーム自分で計算する。
+  demonDripFx(gfx, radius) {
+    const scene = this, streaks = [], drops = [], R = radius, f = Math.sqrt(R / 34); // f＝雫の大きさ・距離の倍率
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const G = 900 * f; // 重力（px/秒²）
+    for (let a = 0; a <= 180; a += 11.25) { // 0°＝右端、90°＝真下、180°＝左端。等間隔にちょっとずらして並べる
+      const ang = Math.min(180, Math.max(0, a + rnd(-4, 4))), rad = ang * Math.PI / 180, cx = Math.cos(rad), sy = Math.sin(rad);
+      const base = R * (0.2 + 0.9 * (1 - Math.abs(cx))) * rnd(0.7, 1.3); // 真下ほど長い。そこに筋ごとの差（±3割）
+      const w = Math.max(4, R * rnd(0.08, 0.16));
+      const st = scene.add.rectangle(0, 0, w, base, 0x000000, 1).setOrigin(0.5, 0).setDepth(4);
+      st._cap = scene.add.circle(0, 0, w / 2, 0x000000, 1).setDepth(4); // 筋の先端（雫がたまるふくらみ）
+      st._cx = cx; st._sy = sy; st._w = w;
+      st._amp = rnd(0.06, 0.14);                          // ゆらゆらの大きさ（控えめ）
+      st._w1 = rnd(0.8, 1.8); st._ph1 = rnd(0, 6.283);    // ゆっくりした揺れ
+      st._w2 = rnd(2, 3.5); st._ph2 = rnd(0, 6.283);      // 細かい揺れ
+      st._charge = Math.random();                         // 先端にたまった量（0〜1）。最初はばらばらにして、いっせいに落ちないようにする
+      st._rate = rnd(0.2, 0.55);                          // たまる速さ（1秒あたり）
+      st._snap = 0;                                       // 雫が切れた直後の縮み（1→0）
+      streaks.push(st);
+    }
+    let t = 0;
+    const stop = () => {
+      scene.events.off('update', upd); scene.events.off('shutdown', stop);
+      streaks.forEach(st => { try { st._cap.destroy(); st.destroy(); } catch (e) {} });
+      drops.forEach(d => { try { d.destroy(); } catch (e) {} }); drops.length = 0;
+    };
+    const upd = (time, delta) => {
+      if (!gfx.active) { stop(); return; }
+      const dt = Math.min(delta, 50) / 1000; t += dt;
+      const sc = gfx.scaleX, vis = gfx.visible, al = gfx.alpha;
+      streaks.forEach(st => {
+        if (vis) st._charge += st._rate * dt;
+        st._snap = Math.max(0, st._snap - dt * 2.5);
+        const c = Math.min(1, st._charge), c2 = c * c; // 終わりに近いほど急にふくらむ
+        const wob = 1 + st._amp * (0.65 * Math.sin(t * st._w1 + st._ph1) + 0.35 * Math.sin(t * st._w2 + st._ph2));
+        const k = Math.max(0.4, wob * (1 + 0.25 * c) * (1 - 0.22 * st._snap)); // たまるほど重みで伸び、切れた直後は縮む
+        const bulb = 1 + 0.75 * c2;                                              // 先端のふくらみ
+        st.setPosition(gfx.x + (R - st._w / 2) * st._cx * sc, gfx.y + (R * st._sy - 3) * sc).setScale(sc * (1 - 0.3 * c2), k * sc).setVisible(vis).setAlpha(al); // ふくらむほど首が細くなる
+        const tipY = st.y + st.displayHeight, capR = st._w / 2 * sc;
+        st._cap.setPosition(st.x, tipY + (bulb - 1) * capR * 0.6).setScale(sc * bulb).setVisible(vis).setAlpha(al);
+        if (st._charge >= 1 && vis) { // たまりきった：雫が切れて落ちる
+          const dia = st._w * sc * bulb;
+          const d = scene.add.ellipse(st._cap.x, st._cap.y, dia, dia * 1.2, 0x000000, al).setDepth(4);
+          d._vy = 40 * f; d._y0 = d.y; d._max = rnd(70, 140) * f; d._a = al;
+          drops.push(d);
+          st._charge = rnd(0, 0.08); st._rate = rnd(0.2, 0.55); st._snap = 1; // 筋はびよんと縮み、また最初からたまり始める
+        }
+      });
+      for (let n = drops.length - 1; n >= 0; n--) { // 落ちている雫：重力で加速、速いほど縦に伸びる、終わりは縮んで消える
+        const d = drops[n];
+        d._vy += G * dt; d.y += d._vy * dt;
+        const stretch = 1 + Math.min(d._vy / (500 * f), 1.3);
+        const fall = d.y - d._y0, fadeAt = d._max * 0.6;
+        let shrink = 1, alpha = d._a;
+        if (fall > fadeAt) { const q = Math.min(1, (fall - fadeAt) / (d._max - fadeAt)); shrink = 1 - 0.5 * q; alpha = d._a * (1 - q); }
+        d.setScale(shrink / Math.sqrt(stretch), shrink * stretch).setAlpha(alpha);
+        if (fall >= d._max) { try { d.destroy(); } catch (e) {} drops.splice(n, 1); }
+      }
+    };
+    scene.events.on('update', upd);
+    scene.events.once('shutdown', stop);
+  }
+  _soulMeetDemon() { // 悪魔に会った：魂を売ったことにして、セーブに記録する（永久）。悪魔と戦って勝った時だけ、creditKill で取り消す（元から売っていた場合は取り消さない）
+    if (this._soulMet) return; this._soulMet = true;
+    const sv = loadSave(); this._soulWasSold = !!sv.soulSold;
+    if (!sv.soulSold) { sv.soulSold = true; writeSave(sv); }
+  }
   _demonAppear() {
+    this._soulMeetDemon();
     const d = this._demonTalk;
-    let x = this.player.x, y = this.player.y - TILE * 3.5; // プレイヤーの上側
-    if (d.room) y = Math.max(y, (d.room.y + 1.5) * TILE);  // 壁の中には出ない
-    d.x = x; d.y = y;
+    const x = d.x, y = d.y; // 位置は _demonTalkStart で決めた固定の場所
     if (d.load !== 'ok') { // セリフが読めなかった：問答なしで、そのまま悪魔との戦いにする
       this.showBanner('⚠ Firebaseに接続できないため、悪魔は問答なしで襲いかかる', 3500, '#ffb0b0');
       this._demonTalkFinish(); return;
     }
-    const glow = this.add.circle(x, y, 34, 0x5a0a8a, 0.85).setDepth(4).setStrokeStyle(3, 0xd9a0ff, 0.9);
-    d.objs.push(glow); // 見た目は紫の光の円だけ（😈のアイコンは出さない）
-    [glow].forEach(o => { o.setAlpha(0).setScale(0.4); this.tweens.add({ targets: o, alpha: 1, scale: 1, duration: 700, ease: 'Sine.easeOut' }); });
-    this.showBanner('😈 悪魔が現れた…', 2400, '#d9a0ff');
-    document.getElementById('demonTalk').style.display = 'block';
-    document.getElementById('demonSpeech').textContent = '';
-    this._demonSay(d.cfg.intro, () => this._demonAsk(0));
+    d.state = 'rise'; // 影から浮かび上がっている間（近づき直しで二重に出ないようにする）
+    const demonR = (ENEMY_TYPES.find(t => t.key === 'demon') || { radius: 56 }).radius; // 戦闘中の悪魔と同じ大きさ
+    // 影：足もとの床に黒い影が広がり、その中から悪魔が浮かび上がってくる
+    const shadow = this.add.ellipse(x, y + demonR * 0.55, demonR * 3.2, demonR * 1.2, 0x000000, 0.6).setDepth(3);
+    d.objs.push(shadow);
+    shadow.setAlpha(0).setScale(0.2);
+    this.tweens.add({ targets: shadow, alpha: 1, scale: 1, duration: 900, ease: 'Sine.easeOut' });
+    this.tweens.add({ targets: shadow, alpha: 0, scale: 0.15, duration: 450, delay: 1900, ease: 'Sine.easeIn' }); // 悪魔が浮かび上がりきったら、すぐ小さくなって消える
+    const glow = this.add.circle(x, y + demonR * 0.7, demonR, 0x000000, 1).setDepth(4).setStrokeStyle(3, 0x2a1038, 1); // 真っ黒な体（アイコンは出さない）
+    d.objs.push(glow);
+    glow.setAlpha(0).setScale(0.3);
+    this.tweens.add({ targets: glow, alpha: 1, scale: 1, y: y, duration: 1500, delay: 400, ease: 'Cubic.easeOut' }); // 影の中から上へ浮かび上がる
+    this.demonDripFx(glow, demonR); // 黒い筋と雫（悪魔の本体が壊れるまで、問答中も戦闘中もずっと滴り続ける。体の動き・大きさ・透明度に付いてくる）
+    this.showBanner('地獄への扉が開いている…', 2400, '#d9a0ff');
+    this.time.delayedCall(1900, () => { // 浮かび上がりきってから、セリフを始める
+      if (this._demonTalk !== d) return;
+      document.getElementById('demonTalk').style.display = 'block';
+      document.getElementById('demonSpeech').textContent = '';
+      this._demonSay(d.cfg.intro, () => this._demonAsk(0));
+    });
   }
   _demonSay(text, next) { // セリフ（文字列、またはセリフのリスト）を1つずつ、1文字ずつ出し、全部出きって少し待ったら next() を呼ぶ（セリフが空なら、何も出さずにすぐ next()）
     const d = this._demonTalk; if (!d) return;
@@ -4762,7 +4928,20 @@ class GameScene extends Phaser.Scene {
       else this._demonEnding();
     });
   }
-  _demonGiveItem(key) { // 選択肢（時間切れ）の item：装飾品を入手済みにして（ロビーの一覧・選択欄に出る）、このゲームの間、今付けているものと入れ替えて付ける
+  hasSpecial(key) { const sv = loadSave(); return !!((sv.specialAccs[key] && sv.specialOn[key]) || (this._tmpSpecial || {})[key]); } // その特別な装飾品を、いま付けているか（デベロッパーモードでもらった分は、このゲームの間だけ）
+  _giveSpecialAcc(sp) { // 台本の item が特別な装飾品の key だった時：入手済みにして、付けた状態にする（ホーム画面に出る）。限定武器なら、その武器に持ち替えて固定する
+    { // デベロッパーモードでも、通常と同じように記録に残す（ホーム画面にも出る）
+      const sv = loadSave(); sv.specialAccs[sp.key] = true; sv.specialOn[sp.key] = true;
+      if (sp.weapon) SPECIAL_ACCS.forEach(o => { if (o !== sp && o.weapon) delete sv.specialOn[o.key]; }); // 限定武器の装飾品は、同時に1つだけ
+      writeSave(sv);
+    }
+    this.showBanner('🎁 ' + sp.icon + sp.name + 'を手に入れた！', 2800, '#ffd54c');
+    if (sp.key === 'demoncollar') this._spWings = true;
+    const base = limitedWeaponBase(sp.key);
+    if (base) { this.limitedKey = sp.key; this.weaponLevels = this.weaponLevels || {}; const lv = this.weaponLevels[base.key] || 1; this.weaponLevels[base.key] = lv; this.weapon = applyWeaponLevel(base, lv); this.reloading = false; this.reloadTimer = 0; this.resetAmmoForWeapon(this.weapon); this.updateHud(); } // それまでの武器のレベルは引き継がない（限定武器は、その武器自身のレベル。最初はLv.1）
+  }
+  _demonGiveItem(key) {
+    const sp = specialAccByKey(key); if (sp) { this._giveSpecialAcc(sp); return; } // 特別な装飾品（一覧には出ない） // 選択肢（時間切れ）の item：装飾品を入手済みにして（ロビーの一覧・選択欄に出る）、このゲームの間、今付けているものと入れ替えて付ける
     const a = accessoryByKey(key);
     if (!a) { console.warn('悪魔の問答：item の装飾品が見つかりません:', key); return; }
     if (!this.isDevMode) { // デベロッパーモードは、記録（入手済み）には残さない
@@ -4778,12 +4957,13 @@ class GameScene extends Phaser.Scene {
   }
   _demonTalkFinish(result) { // 問答が終わった：'clear'＝戦わずにオールクリア、それ以外＝同じ場所に本物の悪魔（ボス）を出して戦う
     const d = this._demonTalkEnd(); if (!d) return;
-    if (result === 'clear' && !this.mp) { this.showClearTime(); this.triggerAllClear(); return; }
+    if (result === 'clear') { this.showClearTime(); this.triggerAllClear(); return; } // 結果が clear：戦わずに、ダンジョンがオールクリアになる（協力プレイでも、その人はオールクリアのリザルトへ）
     const bossType = ENEMY_TYPES.find(t => t.key === 'demon'); if (!bossType) return;
     const bx = d.x, by = d.y;
     const bossScale = (1 + Math.max(0, this.floor - 10) * 0.12);
     const gfx = this.add.circle(bx, by, bossType.radius, bossType.color).setDepth(4);
-    gfx.setStrokeStyle(3, 0xffd54c, 0.9);
+    gfx.setStrokeStyle(3, 0x2a1038, 1); // 問答中と同じ、真っ黒な体と暗い縁
+    this.demonDripFx(gfx, bossType.radius); // 問答中と同じ、黒い筋と雫（戦闘中も変わらない）
     const hpBar = this.add.rectangle(bx, by - bossType.radius - 10, bossType.radius * 2, 6, 0xff5b5b).setDepth(4);
     const label = this.add.text(bx, by - bossType.radius - 22, bossType.bossLabel || 'ボス', { fontSize: '12px', color: '#ffd54c', fontStyle: 'bold', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(4);
     const bossId = this.floor + '_boss';
@@ -4797,8 +4977,9 @@ class GameScene extends Phaser.Scene {
   _demonTalkUpdate(dt) {
     const d = this._demonTalk; if (!d) return;
     if (this._resultOpen || this.isGhost || this.isDowned || this.transitioning) { this._demonTalkEnd(); return; }
+    if (this._demonTest && d.state === 'wait') { this._soulMeetDemon(); this._demonTalkFinish('fight'); return; } // 🛠 ロビーのテストボタンから入った時：問答は飛ばして、すぐ悪魔との戦いにする
     const T = d.cfg || DEMON_TALK_DEFAULTS;
-    if (d.state === 'wait') { d.t += dt; if (d.t >= T.delay && d.load !== 'loading') this._demonAppear(); return; } // 読み込み中なら、読み終わるまで待つ
+    if (d.state === 'wait') { if (d.load !== 'loading' && Math.hypot(this.player.x - d.x, this.player.y - d.y) <= d.trigger) this._demonAppear(); return; } // 時間ではなく、プレイヤーが悪魔の近くに来たら出る（読み込み中なら、読み終わるまで待つ）
     if (d.state === 'say') {
       d.shown += dt * T.charsPerSec;
       const n = Math.min(d.text.length, Math.floor(d.shown));
@@ -9671,7 +9852,10 @@ class GameScene extends Phaser.Scene {
 
   updateHud() {
     const pct = Math.max(0, this.playerHp / this.playerMaxHp) * 100;
-    document.getElementById('hpBarFill').style.width = pct + '%';
+    const hpFillEl = document.getElementById('hpBarFill');
+    hpFillEl.style.width = pct + '%';
+    if (this._spUndead == null) this._spUndead = this.hasSpecial('undeadcrest');
+    hpFillEl.style.background = this._spUndead ? 'linear-gradient(90deg,#8a4dff,#c58bff)' : ''; // ♾️ 不死の紋章を付けている間は、HPバーが紫（外すと元の色）
     document.getElementById('enemyNum').textContent = this.enemies ? this.enemies.length : 0;
     const row1 = document.getElementById('uiRow1'); if (row1) row1.style.display = (this.pv && this.pv.mode === 'werewolf') ? 'none' : ''; // 人狼ゲームでは「階層／PvP・敵残り」の1行目はいらない
     // 人狼ゲーム中は、武器の代わりに自分の役職を出す（人狼＝赤／村人＝緑）
@@ -9962,6 +10146,136 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // 😈 悪魔の翼（装飾品「悪魔の腕輪」を付けている間だけ出る。武器ではないので、どの武器でも使える）。背中から悪魔の根が何本も生えていて、射程に敵が入るとシュッと突き刺し、
+  // 刺したまま背中側へ戻って、ゆらゆら揺れながらぶら下がる。刺している間は、その敵のHPを削り続ける。
+  // 状態：idle（背中でゆらゆら）→ stab（敵へ伸びる）→ pull（刺したまま戻る）→ hold（ぶら下げて継続ダメージ）→ idle。
+  // ボス・蛇は引き寄せられないので、その場で根が刺さったままダメージだけ入る（離れすぎると外れる）。
+  _wingsClear() {
+    const W = this._wings; if (!W) return;
+    for (const r of W.roots) if (r.tgt) r.tgt._wingBy = null;
+    W.roots = [];
+    if (W.gfx && W.gfx.scene) W.gfx.clear();
+  }
+  updateDemonWings(dt) {
+    const on = !!this._spWings && !this.isGhost && !this.isDowned && !this.transitioning && this.player && this.player.active !== false;
+    let W = this._wings;
+    if (!on) { if (W && W.roots.length) this._wingsClear(); return; }
+    const C = ACC_DEMONWINGS, px = this.player.x, py = this.player.y;
+    if (!W) W = this._wings = { roots: [], gfx: null, face: Math.PI / 2, px, py, t: 0 };
+    if (!W.gfx || !W.gfx.scene) W.gfx = this.add.graphics().setDepth(5);
+    if (W.roots.length !== C.count) { // 本数が変わった・初回：作り直す
+      for (const r of W.roots) if (r.tgt) r.tgt._wingBy = null;
+      W.roots = [];
+      for (let i = 0; i < C.count; i++) W.roots.push({ i, st: 'idle', tgt: null, tx: px, ty: py, t: 0, cd: i * 0.12, ph: Math.random() * 6.283, bend: (i % 2 ? 1 : -1), pull: null });
+    }
+    W.t += dt; W.s = (W.s || 0) + dt * C.calm; // W.s＝ゆらゆらの時計（刺しにいく時以外は、ゆっくり）
+    // 向き：動いている方向を、背中の反対側として覚える（止まっている間は、そのまま）
+    const mx = px - W.px, my = py - W.py; W.px = px; W.py = py;
+    if (mx * mx + my * my > 0.25) { const na = Math.atan2(my, mx); W.face += Phaser.Math.Angle.Wrap(na - W.face) * Math.min(1, dt * 8); }
+    const back = W.face + Math.PI, n = W.roots.length, reach = C.range;
+    const slotAng = (r) => back + (n > 1 ? (r.i / (n - 1) - 0.5) * 2 * C.spread : 0); // 背中側の、その根の持ち場
+    const bossLike = (e) => !!(e.type.isBoss || e.type.behavior === 'boss_demon' || e.type.snake);
+
+    for (const r of W.roots) {
+      const sa = slotAng(r), sway = Math.sin(W.s * 2.2 + r.ph);
+      const restLen = 88 + 22 * Math.sin(W.s * 1.7 + r.ph * 1.3);
+      const rx = px + Math.cos(sa + sway * 0.22) * restLen, ry = py + Math.sin(sa + sway * 0.22) * restLen; // 何もない時のゆらゆらの先端
+
+      // 刺している敵が、倒れた・消えた
+      if (r.tgt && (!this.enemies.includes(r.tgt) || r.tgt.hp <= 0 || r.tgt._removed || !r.tgt.gfx || !r.tgt.gfx.scene)) {
+        if (r.tgt) r.tgt._wingBy = null; r.tgt = null; r.st = 'idle'; r.cd = C.retake;
+      }
+      if (r.st === 'idle') {
+        r.cd = Math.max(0, r.cd - dt);
+        r.tx += (rx - r.tx) * Math.min(1, dt * 12); r.ty += (ry - r.ty) * Math.min(1, dt * 12);
+        if (r.cd <= 0) { // 射程に入っている、いちばん近い敵を刺す（同じ敵は1本まで）
+          let best = null, bd = Infinity;
+          for (const e of this.enemies) {
+            if (!e.gfx || !e.type || e.hp <= 0 || e._removed || e._pvp || e._wingBy) continue;
+            const d = Math.hypot(e.gfx.x - px, e.gfx.y - py);
+            if (d > reach + e.type.radius || d >= bd) continue;
+            if (!this.meleeCanReach(e.gfx.x, e.gfx.y, e.type.radius)) continue; // 壁の向こうには届かない
+            best = e; bd = d;
+          }
+          if (best) { r.tgt = best; best._wingBy = r; r.st = 'stab'; r.t = 0; r.nextTick = C.tick; }
+        }
+      } else if (r.st === 'stab') { // シュッと敵へ伸びる
+        const e = r.tgt, ex = e.gfx.x, ey = e.gfx.y, dx = ex - r.tx, dy = ey - r.ty, d = Math.hypot(dx, dy), step = C.stabSpeed * dt;
+        e.hitCooldown = Math.max(e.hitCooldown || 0, 0.3);
+        if (d <= step + 2) {
+          r.tx = ex; r.ty = ey; r.t = 0; r.held = 0;
+          const a = Math.atan2(ey - py, ex - px), sr = e.type.radius;
+          if (!(e.type.key === 'ghost' || isChargeGhostId(e.id))) this.knifeBlood(ex, ey, a, sr, false);
+          this.cameras.main.shake(40, 0.002);
+          if (bossLike(e)) { r.st = 'hold'; r.stuck = true; } else { r.st = 'pull'; r.stuck = false; r.pull = { x: ex, y: ey }; }
+        } else { r.tx += dx / d * step; r.ty += dy / d * step; }
+      }
+      if (r.st === 'pull' || r.st === 'hold') {
+        const e = r.tgt, sr = e.type.radius;
+        e.hitCooldown = Math.max(e.hitCooldown || 0, 0.3); // 刺されている間は、プレイヤーに触れてもダメージを出さない
+        if (!r.stuck) { // 刺したまま背中側へ戻って、ゆらゆら揺れる
+          e.kbX = 0; e.kbY = 0;
+          const dist = C.holdDist + sr, sw = Math.sin(W.s * 2.6 + r.ph), sw2 = Math.cos(W.s * 1.9 + r.ph * 0.7);
+          const hx = px + Math.cos(sa + sw * 0.28) * (dist + sw2 * 9), hy = py + Math.sin(sa + sw * 0.28) * (dist + sw2 * 9);
+          let ntx, nty;
+          if (r.st === 'pull') { r.t += dt; const u = Math.min(1, r.t / C.pullTime), k = 1 - (1 - u) * (1 - u) * (1 - u); ntx = r.pull.x + (hx - r.pull.x) * k; nty = r.pull.y + (hy - r.pull.y) * k; if (u >= 1) r.st = 'hold'; }
+          else { const k = Math.min(1, dt * 14); ntx = e.gfx.x + (hx - e.gfx.x) * k; nty = e.gfx.y + (hy - e.gfx.y) * k; }
+          const oy = e.gfx.y, ca = e.type.canPassWalls;
+          if (ca || !this.circleHitsWall(ntx, oy, sr)) e.gfx.x = ntx; // 壁にはめり込ませない
+          if (ca || !this.circleHitsWall(e.gfx.x, nty, sr)) e.gfx.y = nty;
+          r.tx = e.gfx.x; r.ty = e.gfx.y;
+        } else { // 引き寄せられない相手：その場に刺さったまま。離れすぎたら外れる
+          r.tx = e.gfx.x; r.ty = e.gfx.y;
+          if (Math.hypot(e.gfx.x - px, e.gfx.y - py) > reach * 1.6 + sr) { e._wingBy = null; r.tgt = null; r.st = 'idle'; r.cd = C.retake; r.stuck = false; continue; }
+        }
+        if (e.type.invulnerable || e.type.key === 'ghost') { // ゴースト：無敵でダメージが通らないので、掴んでから10秒たつと、パッと消える（倒した数には数えない）
+          r.held = (r.held || 0) + dt;
+          if (r.held >= ACC_DEMONWINGS.ghostVanish) {
+            this.spawnBurst(e.gfx.x, e.gfx.y, 0xe6faff, 16);
+            e.hp = 0; e._banished = true; e._wingBy = null; r.tgt = null; r.st = 'idle'; r.cd = C.retake; r.stuck = false;
+            this.cleanupDeadEnemies();
+            continue;
+          }
+        }
+        if (r.st === 'hold' || r.stuck) { // 継続ダメージ
+          r.nextTick -= dt;
+          if (r.nextTick <= 0) {
+            r.nextTick += C.tick;
+            const dmg = C.dmg;
+            this.damageEnemy(e, dmg, Math.atan2(e.gfx.y - py, e.gfx.x - px), 0);
+            this.cleanupDeadEnemies();
+          }
+        }
+      }
+    }
+    this._drawWings(W, px, py);
+  }
+  // 根の描画：背中から先端まで、ゆるく曲がる先細りの線（根元は太く、先端は鋭く）
+  _drawWings(W, px, py) {
+    const g = W.gfx; g.clear();
+    for (const r of W.roots) {
+      const sx = px + Math.cos(W.face + Math.PI) * 8, sy = py + Math.sin(W.face + Math.PI) * 8; // 背中の付け根
+      const tx = r.tx, ty = r.ty, dx = tx - sx, dy = ty - sy, dist = Math.hypot(dx, dy) || 1, nx = -dy / dist, ny = dx / dist;
+      const fast = r.st === 'stab';
+      const bend = fast ? dist * 0.05 : (dist * 0.22 + 10) * r.bend * (1 + 0.35 * Math.sin(W.s * 3 + r.ph)); // 刺しにいく時はまっすぐ、普段はくねる
+      const cx = (sx + tx) / 2 + nx * bend, cy = (sy + ty) / 2 + ny * bend;
+      const N = 16, pts = [];
+      for (let k = 0; k <= N; k++) {
+        const u = k / N, a0 = (1 - u) * (1 - u), a1 = 2 * (1 - u) * u, a2 = u * u;
+        const wob = Math.sin(W.s * 7 + r.ph + u * 6) * 2.6 * Math.sin(u * Math.PI) * (fast ? 0.2 : 1);
+        pts.push({ x: a0 * sx + a1 * cx + a2 * tx + nx * wob, y: a0 * sy + a1 * cy + a2 * ty + ny * wob, th: 15 * (1 - u) + 5 }); // 太く（根元15px→先端5px）
+      }
+      // 悪魔の根と同じ色：ふちの暗い紫（太め）の上に、真っ黒な体を重ねる。先端は丸く（とげは無し）
+      for (const pass of [{ col: 0x2a1038, al: 0.7, ex: 7 }, { col: 0x000000, al: 1, ex: 0 }]) {
+        g.fillStyle(pass.col, pass.al); g.lineStyle(1, pass.col, pass.al);
+        for (let k = 0; k <= N; k++) {
+          const p = pts[k], q = pts[Math.min(N, k + 1)], th = p.th + pass.ex;
+          if (k < N) { g.lineStyle(Math.max(th, q.th + pass.ex), pass.col, pass.al); g.lineBetween(p.x, p.y, q.x, q.y); }
+          g.fillCircle(p.x, p.y, th / 2);
+        }
+      }
+    }
+  }
   meleeAttack(w, angle) {
     // 攻撃エフェクト（扇形）
     this.attackFx.clear();
@@ -11627,7 +11941,7 @@ class GameScene extends Phaser.Scene {
       // この弾は個別には爆発させず静かに消す（＝爆発は一斉射撃につき1回だけ）。
       if (p.magicGroup && p.magicGroup.exploded) { p.gfx.destroy(); return false; }
       if (p.life <= 0) { p.gfx.destroy(); return false; }
-      if (this.isWall(p.gfx.x, p.gfx.y)) {
+      if (this.isWall(p.gfx.x, p.gfx.y) || this.demonRootAbsorbs(p.gfx.x, p.gfx.y, p.gfx.radius || 4)) { // 😈 根も壁と同じ：当たった弾はここで消える（爆発する弾は爆発する）
         this.explodeProjectile(p);
         p.gfx.destroy();
         hitSomething = true;
@@ -13291,10 +13605,10 @@ class GameScene extends Phaser.Scene {
   }
 
   // 存在時間が尽きた味方を消す（やられた時とは違い、静かに光って消える）
-  expireAlly(a) {
+  expireAlly(a, quiet) {
     this.logAllyEnd(a, 'expired');
     a.dead = true;
-    this.spawnBurst(a.gfx.x, a.gfx.y, 0xd58bff, 12);
+    if (!quiet) this.spawnBurst(a.gfx.x, a.gfx.y, 0xd58bff, 12);
     this.tweens.killTweensOf(a.gfx); this.tweens.killTweensOf(a.hpBar);
     a.gfx.destroy(); a.hpBar.destroy();
     this.allies = this.allies.filter(x => x !== a);
@@ -15203,6 +15517,7 @@ class GameScene extends Phaser.Scene {
     (this.enemies || []).forEach(e => this.clearSimaharFx(e)); // ダンジョンのシマハルが出していた星・ビームも片付ける（隠れるのは体だけで、これらは画面に残るため）
     (this.projectiles || []).forEach(p => p?.gfx?.destroy());
     (this.enemyProjectiles || []).forEach(p => p?.gfx?.destroy());
+    this.clearDemonShadows();
     this.projectiles = []; this.enemyProjectiles = [];
     this.clearSnakeCorpses(null); this._snakeDoom = {};
     // 黒い魔法陣に触れていた敵は、調伏の儀に道連れにする。ボスも対象で、ボスの仲間（ウロボロスの胴体・カルテットの分身など＝同じ bossGroupId）は丸ごと連れて行く
@@ -18110,6 +18425,7 @@ class GameScene extends Phaser.Scene {
     (this.enemies || []).forEach(e => { e?.gfx?.destroy(); e?.hpBar?.destroy(); e?.label?.destroy(); e?._doomText?.destroy(); });
     (this.projectiles || []).forEach(p => p?.gfx?.destroy());
     (this.enemyProjectiles || []).forEach(p => p?.gfx?.destroy());
+    this.clearDemonShadows();
     (this.bombs || []).forEach(b => { if (b?.halo) this.tweens.killTweensOf(b.halo); b?.halo?.destroy(); b?.gfx?.destroy(); });
     (this.traps || []).forEach(t => { if (t?.halo) this.tweens.killTweensOf(t.halo); t?.halo?.destroy(); t?.gfx?.destroy(); });
     (this.magicCircles || []).forEach(c => c?.gfx?.destroy());
@@ -18259,7 +18575,7 @@ class GameScene extends Phaser.Scene {
     // 掴むモンスター：画面内にいる敵を全員（ボス・無敵の敵も含む全種類）。四つ腕に近い順に、4体は四つ腕の手、それ以外は壁（近くに壁がなければ上）から生えた腕が掴む
     const view = this.cameras.main.worldView;
     const headGids = new Set(this.enemies.filter(e => e.hp > 0 && !e._removed && e.type && e.type.snakeLen).map(e => String(e.bossGroupId != null ? e.bossGroupId : e.id))); // 頭が生きているウロボロスのグループ
-    const cands = this.enemies.filter(e => e.hp > 0 && !e._removed && !e._introAnim && !e._pvp && !e._a4Held && e.gfx && e.gfx.scene && e.type &&
+    const cands = this.enemies.filter(e => e.hp > 0 && !e._removed && !e._introAnim && !e._pvp && !e._a4Held && e.gfx && e.gfx.scene && e.type && !e.type.noGrab &&
       !(e.type.snakeBody && headGids.has(String(e.bossGroupId))) && // ウロボロスの胴体は、頭を掴む時にいっしょに預かる（単独では数えない）
       view.contains(e.gfx.x, e.gfx.y)) // 画面内にいる敵だけ
       .sort((p, q) => Math.hypot(p.gfx.x - a.gfx.x, p.gfx.y - a.gfx.y) - Math.hypot(q.gfx.x - a.gfx.x, q.gfx.y - a.gfx.y));
@@ -18365,11 +18681,19 @@ class GameScene extends Phaser.Scene {
     });
     // ④ 握りつぶしたあと、四つ腕と壁の腕がチカチカして消える
     const flick = (on) => { if (a.gfx.scene) { a.gfx.setVisible(on); a.hpBar.setVisible(on); } wallImgs.forEach(im => im.scene && im.setVisible(on)); };
-    FLICKER.forEach((ms, i) => this.time.delayedCall(T_VANISH + ms, () => { if (a.dead || !a.gfx.scene) return; this.cameras.main.flash(60, 255, 255, 255); flick(i % 2 === 0); })); // 最後は消えた状態
+    FLICKER.forEach((ms, i) => this.time.delayedCall(T_VANISH + ms, () => { if (a.dead || !a.gfx.scene || a._demonPin) return; this.cameras.main.flash(60, 255, 255, 255); flick(i % 2 === 0); })); // 最後は消えた状態
     this.time.delayedCall(T_VANISH + 880 + 60, () => {
       tick.remove(false); wallImgs.forEach(im => im.destroy());
-      if (!a.dead && a.gfx.scene) this.expireAlly(a);
+      if (!a.dead && a.gfx.scene && !a._demonPin) this.expireAlly(a); // 悪魔に押さえつけられている天使は、爆破で消える
     });
+    // 😈 悪魔がいる階：悪魔は天使に掴まれず、天使に根を突き刺す → 根が伸び続けて壁際まで押しやる → 壁に押さえつけて、間をおいて爆破（ほかのモンスターは、いつもどおり掴まれて潰される）
+    const demon = this.enemies.find(e => e.type && e.type.key === 'demon' && e.hp > 0 && !e._removed && e.gfx && e.gfx.scene);
+    if (demon && demon.type.rootsStab) {
+      this.demonAngelPin(demon, a, () => {
+        if (!done) { done = true; held.forEach(h => h.e.hp > 0 && release(h.e)); } // 握りつぶす前に爆破が来た場合は、掴んでいたモンスターを放す
+        tick.remove(false); wallImgs.forEach(im => im.destroy());
+      });
+    }
   }
 
   // 腕の画像（type.arms を持つ敵・味方の体に、左右2本ずつ＝4枚を重ねる）。体（円）より下に描いて、付け根を体で隠す。
@@ -19468,6 +19792,416 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  // 😈 悪魔の攻撃「影」（今は使っていない。戻す時は、悪魔の shadow 設定のコメントを外し、行動の分岐で demonShadowShoot を呼ぶ）：黒くて長い影を、プレイヤーへ向けて高速で打ち出す。
+  //   頭は高速で飛び、プレイヤーの方へ少しだけ曲がる（turnRate）。後ろの体は、頭が通った道（pts）をなぞって付いてくるだけで、自分では曲がらない。
+  //   頭が飛んでいる間、体は後ろへ（撃った場所まで）伸び続ける。壁は通り抜ける（壁の当たり判定なし）。寿命（life）が尽きると、体の後ろ端が頭の道を追いかけて縮み、消える。
+  //   体のどこに触れても当たる（1本の影が当てられるのは1回まで）。悪魔が倒れる・階が変わると、影もすぐ消える。ソロ専用なので通信の同期はしない。
+  demonShadowShoot(e, angle) {
+    const x = e.gfx.x, y = e.gfx.y;
+    this.demonShadows = this.demonShadows || [];
+    this.demonShadows.push({
+      owner: e, gfx: this.add.graphics().setDepth(5),
+      hx: x, hy: y, ang: angle,        // 頭の位置と向き
+      S: 0, S0: 0,                     // S＝頭が飛んだ道のり／S0＝体の後ろ端の道のり（S0〜S が体）
+      age: 0, alive: true, hit: false, hitCd: 0, dead: false, fade: 1, kind: 'shadow', cfg: e.type.shadow,
+      pts: [{ x, y, s: 0 }],           // 頭が通った道（x, y, s＝そこまでの道のり）
+    });
+    this.spawnBurst(x, y, 0x6a2a98, 6);
+  }
+  // 😈 悪魔の攻撃「根」：悪魔の体のふちから、黒い根が、ランダムな向きに、ゆっくりくねくね生えていく。
+  //   動きは影と同じ仕組み（頭が通った道に体が付いてくる）。ただしプレイヤーは狙わず、頭の向きがランダムにゆらぐ。根もとが太く、先が細い。壁は通り抜ける。
+  //   触れ続けると rehit 秒ごとにダメージ。同時に生えている数は max まで（種類ごと）。伸び終わると、全体が細くなって消える（fadeTime 秒）。細くなると当たらなくなる。
+  //   速い根（rootsChase）は turnRate を持つ：生える向きはプレイヤーの方向（少しずらす）で、伸びながらプレイヤーの方へ曲がる。
+  demonRootGrow(e, key, aim, angOverride, side, org, ex) { // ex＝{ head: 生え始めの頭の向き, cfg: この1本だけ設定を上書き } // org＝{x, y}：悪魔の体ではなく、ここから生やす（種の解放） // key＝'roots'（ランダム）／'rootsChase'（プレイヤーへ向かう）／'rootsBurst'（最初の一斉）／aim＝悪魔からプレイヤーへの向き／angOverride＝生える向きを決める時の向き
+    const rt = e.type[key];
+    this.demonShadows = this.demonShadows || [];
+    if (rt.max != null && this.demonShadows.filter(s => s.cfg === rt && s.owner === e && !s.dead).length >= rt.max) return;
+    const ang = angOverride != null ? angOverride : rt.turnRate ? aim + (Math.random() * 2 - 1) * 0.35 : Math.random() * Math.PI * 2; // プレイヤーへ向かう根は、プレイヤーの方向から少しだけずらして生える
+    const x = org ? org.x : e.gfx.x + Math.cos(ang) * e.type.radius * 0.8, y = org ? org.y : e.gfx.y + Math.sin(ang) * e.type.radius * 0.8;
+    const cdir = rt.curve && side ? side : 0; // 曲がる向き（+1 / -1）。曲がる根（守りの根）だけ
+    this.demonShadows.push({
+      owner: e, gfx: this.add.graphics().setDepth(5),
+      hx: x, hy: y, ang: ex && ex.head != null ? ex.head : ang + cdir * (rt.startTurn || 0), cdir,
+      S: 0, S0: 0, age: 0, alive: true, hit: false, hitCd: 0, dead: false, fade: 1, // fade＝太さの倍率（伸び終わると 1→0 になって消える）
+      follow: ex && ex.follow ? ex.follow : null, // 天使に刺さった根：頭が天使に付いていく（天使が押される間、根は伸び続ける）
+      kind: 'root', cfg: ex && ex.cfg ? Object.assign({}, rt, ex.cfg) : rt, wv: 0, wvT: 0, wt: 0,   // wv＝今のゆらぎの速さ／wvT＝めざすゆらぎの速さ／wt＝次に選び直すまでの秒
+      pts: [{ x, y, s: 0 }],
+    });
+  }
+  // 😈 天使への串刺し：悪魔のまわりの、天使の方を向いた範囲から count 本の根が、天使をめがけて勢いよく伸びて突き刺さる。刺さった根は、爆破の時まで残り、爆破と同時に消える。
+  demonStabAngel(e, a) { // 戻り値：根が天使に届くまでの秒
+    const RS = e.type.rootsStab; if (!RS || !a || a.dead || !a.gfx.scene) return 0;
+    const ax = a.gfx.x, ay = a.gfx.y, base = Math.atan2(ay - e.gfx.y, ax - e.gfx.x), n = RS.count, rad = (a.type && a.type.radius) || 30;
+    // 突き刺した感じを出すため、天使（体・腕・HPバー）を根より手前に描く（根は depth 5）
+    a.gfx.setDepth(5.5); if (a.hpBar) a.hpBar.setDepth(5.5);
+    const arms = this._armSets && this._armSets.get(a); if (arms) arms.forEach((im, i) => im.setDepth(i >= 2 ? 5.4 : 5.3)); // 並び順：下側の左・右 → 上側の左・右
+    if (a._extra) a._extra.forEach(im => im.setDepth(5.35));
+    const px = -Math.sin(base), py = Math.cos(base); // 天使へ向かう向きに直角な向き
+    let reach = 0, detoured = false;
+    for (let i = 0; i < n; i++) {
+      const f = n > 1 ? i / (n - 1) - 0.5 : 0; // -0.5 〜 0.5
+      const a0 = base + f * RS.spread; // 根が生え始める向き（悪魔のふち）。根ごとに別々の側から出す
+      const sx = e.gfx.x + Math.cos(a0) * e.type.radius * 0.8, sy = e.gfx.y + Math.sin(a0) * e.type.radius * 0.8;
+      const tx = ax + px * f * 2 * rad * 0.7, ty = ay + py * f * 2 * rad * 0.7; // 天使の体の、別々の場所をねらう（根どうしが重ならない）
+      const head = Math.atan2(ty - sy, tx - sx);
+      const tipX = tx + Math.cos(head) * RS.overshoot, tipY = ty + Math.sin(head) * RS.overshoot; // 天使を突き抜けた先（はみ出す）
+      // 迂回：根が一直線ではなく、なめらかなカーブを描いて回り込むように刺さる（detourChance の割合の根。かならず1本は迂回する）
+      let path = null;
+      if (RS.detour && (Math.random() < RS.detourChance || (i === n - 1 && !detoured))) {
+        detoured = true;
+        const dist = Math.hypot(tipX - sx, tipY - sy), sg = Math.abs(f) > 0.01 ? Math.sign(f) * (Math.random() < 0.75 ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
+        const mx = (sx + tipX) / 2, my = (sy + tipY) / 2, ux = (tipY - sy) / dist, uy = -(tipX - sx) / dist; // 直線に直角な向き
+        const cx = mx + ux * sg * dist * RS.detour * 2, cy = my + uy * sg * dist * RS.detour * 2; // ベジェ曲線の制御点（カーブの一番の膨らみは、その半分）
+        path = []; for (let k = 1; k <= 10; k++) { const u = k / 10, w0 = (1 - u) * (1 - u), w1 = 2 * (1 - u) * u, w2 = u * u; path.push({ x: w0 * sx + w1 * cx + w2 * tipX, y: w0 * sy + w1 * cy + w2 * tipY }); }
+      }
+      let plen = 0, px0 = sx, py0 = sy; for (const q of (path || [{ x: tipX, y: tipY }])) { plen += Math.hypot(q.x - px0, q.y - py0); px0 = q.x; py0 = q.y; }
+      reach = Math.max(reach, plen / RS.speed);
+      this.demonRootGrow(e, 'rootsStab', 0, a0, 0, null, { head, follow: { a, ox: tipX - ax, oy: tipY - ay, path } });
+    }
+    this.cameras.main.shake(180, 0.006);
+    return reach;
+  }
+  // 😈 刺した天使の押さえつけ：刺す → 根が伸び続けて、天使を押していく（根の向きの平均へ） → 壁に着いたらそこで押さえつける → 間をおいて爆破。onEnd＝爆破の直前に呼ぶ後始末
+  demonAngelPin(e, a, onEnd) {
+    const RS = e.type.rootsStab; if (!RS) return;
+    const ctl = { ph: 'wait', t: 0, reach: 0, dx: 0, dy: 0 };
+    let last = this.time.now;
+    const ev = this.time.addEvent({ delay: 16, loop: true, callback: () => {
+      const now = this.time.now, dt = Math.min(0.05, (now - last) / 1000); last = now;
+      if (a.dead || !a.gfx.scene) { ev.remove(false); return; } // 天使が先に消えた（階層移動など）
+      const demonGone = e.hp <= 0 || e._removed;
+      if (ctl.ph === 'wait') {
+        if (demonGone) { ev.remove(false); return; } // 刺す前に悪魔が倒れた：何もしない（天使はいつもどおり消える）
+        ctl.t += dt;
+        if (ctl.t >= RS.startAt) {
+          ctl.reach = this.demonStabAngel(e, a);
+          const d = Math.hypot(a.gfx.x - e.gfx.x, a.gfx.y - e.gfx.y) || 1;
+          ctl.dx = (a.gfx.x - e.gfx.x) / d; ctl.dy = (a.gfx.y - e.gfx.y) / d; // 押していく向き（悪魔から天使への向き）
+          a._demonPin = true; // 通常のチカチカして消える流れは止める（爆破で消える）
+          ctl.ph = 'stab'; ctl.t = 0; ctl.since = 0;
+        }
+        return;
+      }
+      ctl.t += dt; ctl.since += dt; // since＝刺してからの秒
+      if (ctl.ph === 'stab') { if (ctl.t >= ctl.reach + 0.05) { ctl.ph = 'push'; ctl.t = 0; } }
+      else if (ctl.ph === 'push') {
+        const v = RS.pushSpeed * Math.min(1, ctl.t / 0.25), r = (a.type && a.type.radius) || 30; // 押し始めは少しずつ速くなる
+        const nx = a.gfx.x + ctl.dx * v * dt, ny = a.gfx.y + ctl.dy * v * dt;
+        if (this.circleHitsWall(nx, ny, r) || ctl.t >= RS.pushMax) { // 壁に着いた（または押し続ける限界）：ここで押さえつける
+          ctl.ph = 'hold'; ctl.t = 0; this.cameras.main.shake(260, 0.012); this.spawnBurst(a.gfx.x + ctl.dx * r, a.gfx.y + ctl.dy * r, 0x000000, 10);
+        } else { a.gfx.setPosition(nx, ny); this.syncAllyGfx(a); }
+      }
+      if (ctl.ph === 'hold' || demonGone || ctl.since >= RS.vanishAfter) {
+        if (demonGone || ctl.since >= RS.vanishAfter) { ev.remove(false); if (onEnd) onEnd(); this.demonAngelVanish(e, a); }
+      }
+    } });
+  }
+  // 😈 天使が消える：ふつうの天使が消える時と同じく、画面がチカチカして消える（爆破はしない）。刺さっていた根は、すぐでなく rootFade 秒かけてゆっくり細くなって消える。
+  demonAngelVanish(e, a) {
+    if (!a || a.dead || !a.gfx.scene) return;
+    const RS = e.type.rootsStab, FLICKER = [0, 120, 200, 340, 430, 620, 700, 880];
+    for (const s of this.demonShadows || []) if (s.follow && s.follow.a === a) { s.follow = null; s.alive = false; s.cfg = Object.assign({}, s.cfg, { fadeDelay: 0, fadeTime: (RS && RS.rootFade) || 2.5 }); } // 根だけ別の細くなる時間にする（元の設定は変えない）
+    const flick = (on) => { if (a.gfx.scene) { a.gfx.setVisible(on); if (a.hpBar) a.hpBar.setVisible(on); } };
+    FLICKER.forEach((ms, i) => this.time.delayedCall(ms, () => { if (a.dead || !a.gfx.scene) return; this.cameras.main.flash(60, 255, 255, 255); flick(i % 2 === 0); })); // 最後は消えた状態
+    this.time.delayedCall(880 + 60, () => { if (!a.dead && a.gfx.scene) this.expireAlly(a); });
+  }
+  // 😈 種：根の頭が壁に入った所の壁のマスを膨らませる（見た目だけ）。強攻撃（demonSeedBurstUpdate）の時に、全部の種から速い根が生える。
+  demonSeedPlant(e, x, y) {
+    const SB = e.type && e.type.seedBurst; if (!SB) return;
+    const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+    if (ty < 0 || ty >= this.dungeon.height || tx < 0 || tx >= this.dungeon.width) return; // マップの外には植えない
+    this.demonSeeds = this.demonSeeds || [];
+    const mine = this.demonSeeds.filter(q => q.owner === e);
+    if (mine.length >= SB.maxSeeds || mine.some(q => q.tx === tx && q.ty === ty)) return; // 上限／同じマスには1つだけ
+    if (Math.random() >= (SB.plantChance != null ? SB.plantChance : 1)) return; // 植わるのは、壁に入るたびに plantChance の確率（1/4）
+    const cx = (tx + 0.5) * TILE, cy = (ty + 0.5) * TILE;
+    // 壁の「手前側」（部屋の側）へ少しだけずらして出す：下（手前）の床を優先し、なければ、床に面している側へ
+    let ox = 0, oy = 0;
+    const isFloor = (xx, yy) => !this.isWall((xx + 0.5) * TILE, (yy + 0.5) * TILE);
+    for (const [dx, dy] of [[0, 1], [-1, 0], [1, 0], [0, -1]]) if (isFloor(tx + dx, ty + dy)) { ox = dx * TILE * 0.28; oy = dy * TILE * 0.28; break; }
+    this.demonSeeds.push({ owner: e, tx, ty, x: cx, y: cy, ox, oy, t: 0, ph: Math.random() * 6.283, gfx: this.add.graphics().setDepth(4.2) });
+    this.spawnBurst(cx, cy, 0x000000, 4);
+  }
+  updateDemonSeeds(dt) {
+    const list = this.demonSeeds;
+    if (!list || !list.length) return;
+    for (const q of list) {
+      const e = q.owner;
+      if (e.hp <= 0 || e._removed || !this.enemies.includes(e)) { q.dead = true; continue; } // 悪魔が倒れた・階が変わった
+      q.t += dt;
+      const SB = e.type.seedBurst, charging = e._sbState === 'telegraph';
+      const k = charging ? Math.max(0, Math.min(1, 1 - e._sbT / SB.telegraph)) : 0; // 溜めの進み具合 0→1
+      const grow = Math.min(1, q.t / 0.6); // 植えられた直後に、ぷくっと膨らむ
+      const pulse = Math.sin(q.t * (charging ? 9 + 8 * k : 2.5) + q.ph) * (charging ? 0.07 + 0.08 * k : 0.05);
+      const r = TILE * (0.18 + 0.27 * grow * (2 - grow) + 0.12 * k + pulse * 0.6); // 壁のマスの中におさまるくらいの大きさ（溜めの間だけ、少し大きくなる）
+      const g = q.gfx; g.clear();
+      // 黒い影だけ（濃さ100％・色なし）。壁の手前側へ少しずらして描く
+      g.fillStyle(0x000000, 1); g.fillCircle(q.x + q.ox, q.y + q.oy, r);
+    }
+    this.demonSeeds = list.filter(q => { if (q.dead) { q.gfx.destroy(); return false; } return true; });
+  }
+  // 😈 強攻撃「種の解放」の流れ：idle（次まで数える）→ 時間になったら wait（新しい根を出さず、今ある根が全部消えるのを待つ）→ telegraph（溜め：種が光って大きくなる）→ 解放（全部の種から速い根が1本ずつ）→ idle
+  demonSeedBurstUpdate(e, dt) {
+    const SB = e.type.seedBurst;
+    if (!e._sbState) e._sbState = 'idle';
+    const seeds = (this.demonSeeds || []).filter(q => q.owner === e);
+    if (e._sbState === 'idle') {
+      if (seeds.length >= SB.triggerSeeds && (!e._stState || e._stState === 'idle')) e._sbState = 'wait'; // 種が triggerSeeds 個埋まったら強攻撃へ
+    } else if (e._sbState === 'wait') {
+      if (!(this.demonShadows || []).some(s => s.owner === e && s.kind === 'root' && !s.dead)) { // 根が全部消えた
+        e._sbState = 'telegraph'; e._sbT = SB.telegraph;
+        this.showBanner('😈 壁の種が脈打っている…', 1500, '#d9a0ff');
+      }
+    } else if (e._sbState === 'telegraph') {
+      e._sbT -= dt;
+      if (e._sbT <= 0) {
+        for (const q of seeds) {
+          const ang = Math.atan2(this.player.y - q.y, this.player.x - q.x);
+          this.demonRootGrow(e, 'rootsSeed', ang, null, 0, { x: q.x, y: q.y });
+          this.spawnBurst(q.x, q.y, 0xd9a0ff, 8);
+          q.dead = true;
+        }
+        e._sbState = 'idle';
+      }
+    }
+  }
+  // 😈 強攻撃「根の乱れ撃ち」の流れ：idle（次まで数える）→ telegraph（予告）→ storm（ランダムな向きに速い根を次々と出す。根は伸びながらプレイヤーの方へ曲がる）→ idle
+  demonRootStormUpdate(e, dt, inRange) {
+    const RS = e.type.rootsStorm; if (!RS) return;
+    if (!e._stState) { e._stState = 'idle'; e._stCd = RS.firstDelay; }
+    if (e._stState === 'idle') {
+      if ((e._sbState && e._sbState !== 'idle') || !inRange) return; // 種の解放の最中・プレイヤーが遠い時は、数えない
+      if (e.hp > e.maxHp * RS.hpBelow) return; // HPが hpBelow（半分）を切るまでは出さない
+      e._stCd -= dt;
+      if (e._stCd <= 0) { e._stState = 'telegraph'; e._stT = RS.telegraph; this.showBanner('😈 根が暴れ出す…', 1200, '#d9a0ff'); this.cameras.main.shake(300, 0.004); }
+    } else if (e._stState === 'telegraph') {
+      e._stT -= dt;
+      if (e._stT <= 0) { e._stState = 'storm'; e._stT = RS.duration; e._stGap = 0; }
+    } else if (e._stState === 'storm') {
+      e._stT -= dt; e._stGap -= dt;
+      while (e._stGap <= 0) { e._stGap += RS.gap; this.demonRootGrow(e, 'rootsStormRoot', 0, Math.random() * Math.PI * 2); } // ランダムな向きから生える
+      if (e._stT <= 0) { e._stState = 'idle'; e._stCd = RS.interval; }
+    }
+  }
+  // 😈 守りの根：プレイヤーの弾（this.projectiles）が悪魔へ向かって飛んでくる時、その来る方向へ、曲がった根を1本、素早く生やして受け止める。
+  //   弾の今の位置と速さから、「悪魔にいちばん近づく時の距離（外れ具合）と、そこまでの秒」を求めて、体に当たりそうな弾だけに反応する。
+  demonRootGuard(e, dt) {
+    const G = e.type.rootsGuard;
+    if (e._rgCd > 0) e._rgCd -= dt;
+    if (e._sbState && e._sbState !== 'idle') return; // 種の解放の準備中（根が消えるのを待つ・溜め）は、守りの根も出さない
+    if (e._rgCd > 0 || !this.projectiles || !this.projectiles.length) return;
+    if ((this.demonShadows || []).some(s => s.cfg === G && s.owner === e && !s.dead)) return; // 前の守りの根が（細くなって）消えるまでは、次の守りの根は出さない
+    const ex = e.gfx.x, ey = e.gfx.y;
+    let best = null;
+    for (const p of this.projectiles) {
+      if (!p.gfx || !p.gfx.active) continue;
+      const rx = p.gfx.x - ex, ry = p.gfx.y - ey, vx = p.vx || 0, vy = p.vy || 0;
+      const sp2 = vx * vx + vy * vy, dist = Math.hypot(rx, ry);
+      if (sp2 < 1 || dist > G.range) continue;
+      const dot = rx * vx + ry * vy;
+      if (dot >= 0) continue; // 遠ざかっていく弾は無視
+      const tca = -dot / sp2; // 悪魔にいちばん近づくまでの秒
+      if (tca > G.maxTime) continue;
+      const miss = Math.hypot(rx + vx * tca, ry + vy * tca); // その時の、悪魔の中心からのずれ
+      if (miss > e.type.radius + G.margin) continue;
+      if (!best || dist < best.dist) best = { dist, ang: Math.atan2(ry, rx) };
+    }
+    if (!best) return;
+    e._rgCd = G.cooldown;
+    const side = Math.random() < 0.5 ? 1 : -1; // 弾の来る方向の、どちら側から生やすか
+    this.demonRootGrow(e, 'rootsGuard', 0, best.ang - side * G.startOffset, side); // 横から生えて、弾の来る方向をまたぐように曲がる1本
+  }
+  // 😈 戦いが始まった最初の1回：悪魔のまわり全方位へ、根が一斉に生える（rootsBurst：count 本を等間隔に並べ、jitter だけランダムにずらす）
+  demonRootBurst(e) {
+    const rb = e.type.rootsBurst, n = rb.count, base = Math.random() * Math.PI * 2;
+    for (let i = 0; i < n; i++) this.demonRootGrow(e, 'rootsBurst', 0, base + i * (Math.PI * 2 / n) + (Math.random() * 2 - 1) * rb.jitter);
+  }
+  // 😈 根の当たり判定：円（x, y, 半径 r）が根の体に触れているか。いちばん深く食い込んでいる区間を { pen: 食い込み, cx, cy: 根の上の一番近い点, d: そこまでの距離 } で返す（触れていなければ null）。
+  //   伸び終わって細くなった根（fade が 0.35 以下）には触れない。細い先っぽも、半幅が最低5pxあるものとして扱う（速い弾がすり抜けないように）。anyOnly なら、1か所見つけた時点で返す。
+  demonRootNearest(x, y, r, anyOnly) {
+    let best = null;
+    for (const s of this.demonShadows || []) {
+      if (s.kind !== 'root' || s.mine || s.dead || !s.body || !s.bb || s.fade <= 0.35) continue; // mine＝悪魔の右腕の根（自分の味方なので、通れるし、弾も消えない）
+      const bb = s.bb;
+      if (x < bb[0] - r || x > bb[2] + r || y < bb[1] - r || y > bb[3] + r) continue;
+      const B = s.body;
+      for (let i = 0; i < B.length - 1; i++) {
+        const a = B[i], b = B[i + 1];
+        const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2));
+        const cx = a.x + dx * t, cy = a.y + dy * t;
+        const d = Math.hypot(x - cx, y - cy);
+        const pen = Math.max(5, (a.w + (b.w - a.w) * t) / 2) + r - d;
+        if (pen > 0) {
+          if (anyOnly) return { pen, cx, cy, d };
+          if (!best || pen > best.pen) best = { pen, cx, cy, d };
+        }
+      }
+    }
+    return best;
+  }
+  // 弾が根に当たったか（当たった弾は、壁に当たった時と同じ扱いでここで消える）
+  demonRootAbsorbs(x, y, r) {
+    if (!this.demonShadows || !this.demonShadows.length) return false;
+    return !!this.demonRootNearest(x, y, r, true);
+  }
+  // 根は通れない：プレイヤーが根の体に食い込んでいたら、外（根の横）へ押し出す。壁の中へは押し出さない。ゴースト（すり抜け）の間は何もしない。
+  //   食い込みを毎フレーム直すので、根に向かって歩いても進めず、根のふちに沿ってすべる。根が伸びてきて重なった時も、押し出されて閉じ込められない。
+  demonRootPushPlayer() {
+    if (this.isGhost || !this.demonShadows || !this.demonShadows.length) return;
+    const pl = this.player, r = pl.radius || 14;
+    for (let k = 0; k < 3; k++) {
+      const h = this.demonRootNearest(pl.x, pl.y, r);
+      if (!h) return;
+      let nx = 1, ny = 0;
+      if (h.d > 0.01) { nx = (pl.x - h.cx) / h.d; ny = (pl.y - h.cy) / h.d; }
+      const push = h.pen + 1.5;
+      const px = pl.x + nx * push, py = pl.y + ny * push;
+      if (this.circleHitsWall(px, py, r)) return; // 壁の中へは押し出さない
+      pl.x = px; pl.y = py;
+    }
+  }
+  // 影の体：後ろ端から頭までの点と太さ（後ろほど細く、頭が一番太い）。描画と当たり判定の両方で使う
+  demonShadowBody(s, W) {
+    const pts = s.pts, span = s.S - s.S0;
+    if (span < 1 || !pts.length) return null;
+    const body = [];
+    let i0 = 0; while (i0 + 1 < pts.length && pts[i0 + 1].s <= s.S0) i0++; // 後ろ端がある区間
+    const a = pts[i0], b = pts[i0 + 1];
+    if (b && b.s > a.s) { const k = (s.S0 - a.s) / (b.s - a.s); body.push({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, s: s.S0 }); }
+    else body.push({ x: a.x, y: a.y, s: s.S0 });
+    for (let i = i0 + 1; i < pts.length; i++) if (pts[i].s > s.S0 && pts[i].s < s.S) body.push({ x: pts[i].x, y: pts[i].y, s: pts[i].s });
+    body.push({ x: s.hx, y: s.hy, s: s.S });
+    for (const q of body) { const f = Math.max(0, Math.min(1, (q.s - s.S0) / span)); q.w = (s.kind === 'root' ? W * ((s.cfg.taperMin != null ? s.cfg.taperMin : 0.2) + (1 - (s.cfg.taperMin != null ? s.cfg.taperMin : 0.2)) * Math.pow(1 - f, 0.7)) : W * (0.12 + 0.88 * Math.pow(f, 0.7))) * s.fade; }
+    return body;
+  }
+  updateDemonShadows(dt) {
+    const list = this.demonShadows;
+    if (!list || !list.length) return;
+    for (const s of list) {
+      const sh = s.cfg;
+      if (!s.mine && (s.owner.hp <= 0 || s.owner._removed || !this.enemies.includes(s.owner))) { s.dead = true; continue; } // 悪魔が倒れた・階が変わった（プレイヤーの根 mine は持ち主がいない）
+      if (s.mine && s.pts.length) { // 悪魔の右腕の根：根元はプレイヤーに付いてくる。根元に近い点は隣の点の真ん中へ寄せて、プレイヤーが動いてもカクッと折れず、なめらかに曲がるようにする
+        const P = s.pts, n = P.length; P[0].x = this.player.x; P[0].y = this.player.y;
+        const k0 = Math.min(0.5, dt * 12);
+        for (let i = 1; i < n - 1 && i <= 8; i++) { const k = k0 * (1 - i / 10); P[i].x += ((P[i - 1].x + P[i + 1].x) / 2 - P[i].x) * k; P[i].y += ((P[i - 1].y + P[i + 1].y) / 2 - P[i].y) * k; }
+      }
+      s.age += dt;
+      const keep = !!sh.fadeTime && !sh.stopGrow; // 根：伸びる時間が終わっても、細くなって消えるまで、ずっと伸び続ける（stopGrow の根は、そこで止まる）
+      if (s.alive || keep) {
+        // 頭：プレイヤーの方へ少しだけ曲がる。プレイヤーが頭の後ろ側にいる時は曲がらない（ぐるぐる回って追い続けないように）
+        if (sh.wobble) { // 根：頭の向きがランダムにゆらぐ（ゆらぎの速さを、0.4〜1秒ごとにランダムに選び直す）
+          s.wt -= dt;
+          if (s.wt <= 0) { s.wvT = (Math.random() * 2 - 1) * sh.wobble; s.wt = 0.4 + Math.random() * 0.6; }
+          s.wv += (s.wvT - s.wv) * Math.min(1, dt * 3);
+          s.ang += s.wv * dt;
+        }
+        if (s.cdir) s.ang += s.cdir * sh.curve * dt; // 守りの根：伸びながら一定の速さで曲がっていく
+        if (sh.turnRate && !this.isGhost) { // プレイヤーの方へ曲がる（影・プレイヤーへ向かう根）
+          const diff = Phaser.Math.Angle.Wrap(Math.atan2(this.player.y - s.hy, this.player.x - s.hx) - s.ang);
+          if (Math.abs(diff) < sh.homeArc) s.ang += Phaser.Math.Clamp(diff, -sh.turnRate * dt, sh.turnRate * dt);
+        }
+        if (s.follow) { // 天使に刺さった根：頭は、天使に対して刺さった位置を保つ（天使が押されると、根はその分だけ伸びていく）
+          const f = s.follow, A = f.a;
+          if (!A || A.dead || !A.gfx.scene) { s.follow = null; s.alive = false; }
+          else {
+            let l2 = sh.speed * dt;
+            while (l2 > 0) {
+              const wp = f.path && f.path.length ? f.path[0] : null; // 迂回する根：まず道筋の点を順に通り、最後に天使に刺さる
+              const tx = wp ? wp.x : A.gfx.x + f.ox, ty = wp ? wp.y : A.gfx.y + f.oy;
+              const dx = tx - s.hx, dy = ty - s.hy, d = Math.hypot(dx, dy);
+              if (d < 0.5) { if (wp) { f.path.shift(); continue; } break; }
+              const step = Math.min(l2, 10, d); l2 -= step;
+              s.hx += dx / d * step; s.hy += dy / d * step; s.S += step;
+              if (s.S - s.pts[s.pts.length - 1].s >= sh.pointGap) s.pts.push({ x: s.hx, y: s.hy, s: s.S });
+            }
+            s.ang = Math.atan2(A.gfx.y + f.oy - s.hy, A.gfx.x + f.ox - s.hx);
+          }
+        }
+        // 速いので、1フレームで壁を飛び越えないよう細かく刻んで進める
+        let left = s.follow ? 0 : sh.speed * dt;
+        while (left > 0 && (s.alive || keep)) {
+          const step = Math.min(left, 10); left -= step;
+          const nx = s.hx + Math.cos(s.ang) * step, ny = s.hy + Math.sin(s.ang) * step;
+          s.hx = nx; s.hy = ny; s.S += step;
+          if (sh.plantSeed) { const w = this.isWall(nx, ny); if (w && !s.inWall) this.demonSeedPlant(s.owner, nx, ny); s.inWall = w; } // 速い根（plantSeed）の頭が壁に入った所に、種を植える
+          if (s.S - s.pts[s.pts.length - 1].s >= sh.pointGap) s.pts.push({ x: nx, y: ny, s: s.S });
+        }
+        if (s.age >= sh.life && !s.follow) s.alive = false;
+        s.S0 = Math.max(s.S0, s.S - sh.tailMax); // 体の長さの上限（Infinity なら、いつも撃った場所まで伸びる）
+        if (!s.alive) { // 伸びる時間は終わった：細くなり始めるまでの猶予 → 細くなって消える（そのあいだも、頭は伸び続ける）
+          if ((s.fadeWait = (s.fadeWait || 0) + dt) > (sh.fadeDelay || 0)) s.fade -= dt / sh.fadeTime;
+          if (s.fade <= 0) { s.dead = true; continue; }
+        }
+      } else if (sh.fadeTime) { // 根：伸び終わったら、全体が細くなって消える
+        if ((s.fadeWait = (s.fadeWait || 0) + dt) > (sh.fadeDelay || 0)) s.fade -= dt / sh.fadeTime; // 猶予のあいだは太さそのまま
+        if (s.fade <= 0) { s.dead = true; continue; }
+      } else {
+        s.S0 += sh.retractSpeed * dt; // 頭が止まった：後ろ端が頭の道をなぞって追いつく
+        if (s.S0 >= s.S) { s.dead = true; continue; }
+      }
+      while (s.pts.length > 2 && s.pts[1].s <= s.S0) s.pts.shift(); // 通り過ぎた古い点を捨てる（後ろ端の区間の点は残す）
+
+      const body = this.demonShadowBody(s, sh.width);
+      s.body = body; // 根の当たり判定（通れない・弾が消える）が使う。毎フレーム作り直す
+      if (body) {
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (const q of body) { if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x; if (q.y < y0) y0 = q.y; if (q.y > y1) y1 = q.y; }
+        const m = sh.width * 0.5 + 2; s.bb = [x0 - m, y0 - m, x1 + m, y1 + m]; // 体を囲む四角（当たり判定を早く外すため）
+      }
+      const g = s.gfx; g.clear();
+      if (!body || body.length < 2) continue;
+      // 当たり判定：体のどこかの区間に触れたらダメージ。影は1本につき1回、根は触れ続けると rehit 秒ごと
+      if (s.hitCd > 0) s.hitCd -= dt;
+      if (!s.hit && s.hitCd <= 0 && s.fade > 0.35 && sh.damage > 0 && !this.isGhost) {
+        for (let i = 0; i < body.length - 1; i++) {
+          const a = body[i], b = body[i + 1];
+          if (this.applyBeamDamageToPlayer(a.x, a.y, b.x, b.y, (a.w + b.w) * 0.25, sh.damage, 0.5)) { if (sh.rehit) s.hitCd = sh.rehit; else s.hit = true; break; }
+        }
+      }
+      // 描画：ふちの暗い紫（太め）の上に、真っ黒な体を重ねる。区間ごとに共通の辺でつなぐので、曲がっても隙間が出ない
+      const glow = 0.25 + 0.1 * Math.sin(this.time.now / 90); // 強力な根は、赤い光がどくどく脈打つ
+      const passes = sh.look === 'stab'
+        ? [{ col: 0xff2030, alpha: glow, extra: 16 }, { col: 0xc01028, alpha: 0.9, extra: 7 }, { col: 0x000000, alpha: 1, extra: 0 }]
+        : [{ col: 0x2a1038, alpha: 0.6, extra: 7 }, { col: 0x000000, alpha: 1, extra: 0 }];
+      for (const pass of passes) {
+        g.fillStyle(pass.col, pass.alpha);
+        const L = [], R = [];
+        for (let i = 0; i < body.length; i++) {
+          const p0 = body[Math.max(0, i - 1)], p1 = body[Math.min(body.length - 1, i + 1)];
+          let dx = p1.x - p0.x, dy = p1.y - p0.y; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+          const hw = (body[i].w + pass.extra * s.fade) / 2;
+          L.push({ x: body[i].x - dy * hw, y: body[i].y + dx * hw });
+          R.push({ x: body[i].x + dy * hw, y: body[i].y - dx * hw });
+        }
+        for (let i = 0; i < body.length - 1; i++) {
+          g.fillTriangle(L[i].x, L[i].y, R[i].x, R[i].y, L[i + 1].x, L[i + 1].y);
+          g.fillTriangle(R[i].x, R[i].y, R[i + 1].x, R[i + 1].y, L[i + 1].x, L[i + 1].y);
+        }
+        const hd = body[body.length - 1];
+        g.fillCircle(hd.x, hd.y, (hd.w + pass.extra * s.fade) / 2); // 頭の丸み
+      }
+      if (sh.look === 'stab') { // とげ：体の左右から、後ろ向きにとがった赤いとげを生やす（槍の返しのように、刺さったら抜けなさそうに見える）
+        g.fillStyle(0xff2a3c, 1);
+        for (let i = 1; i < body.length - 1; i += 2) {
+          const p0 = body[i - 1], p1 = body[i + 1]; let dx = p1.x - p0.x, dy = p1.y - p0.y; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+          const nx = -dy, ny = dx, hw = body[i].w / 2, len = 6 + hw * 0.9, c = body[i];
+          for (const sg of [1, -1]) {
+            const bx = c.x + nx * sg * hw * 0.8, by = c.y + ny * sg * hw * 0.8;
+            g.fillTriangle(bx + dx * 5, by + dy * 5, bx - dx * 5, by - dy * 5, c.x + nx * sg * (hw + len) - dx * len * 0.7, c.y + ny * sg * (hw + len) - dy * len * 0.7);
+          }
+        }
+      }
+    }
+    this.demonShadows = list.filter(s => { if (s.dead) { s.gfx.destroy(); return false; } return true; });
+  }
+  clearDemonShadows() {
+    (this.demonSeeds || []).forEach(q => q?.gfx?.destroy());
+    this.demonSeeds = [];
+    (this.demonShadows || []).forEach(s => s?.gfx?.destroy());
+    this.demonShadows = [];
+  }
+
   updateEnemyProjectiles(dt) {
     if (!this.enemyProjectiles || !this.enemyProjectiles.length) return;
     for (const p of this.enemyProjectiles) {
@@ -19477,7 +20211,7 @@ class GameScene extends Phaser.Scene {
       p.life -= dt;
     }
     this.enemyProjectiles = this.enemyProjectiles.filter(p => {
-      if (p.life <= 0 || this.isWall(p.gfx.x, p.gfx.y)) { p.gfx.destroy(); return false; }
+      if (p.life <= 0 || this.isWall(p.gfx.x, p.gfx.y) || this.demonRootAbsorbs(p.gfx.x, p.gfx.y, p.gfx.radius || 4)) { p.gfx.destroy(); return false; } // 😈 根に当たった敵の弾も消える
       // 降魔術のウロボロス：体に当たった敵の弾は、その場で消える（とぐろ・振り回しの間は盾にもなる）
       if ((this.s2Snake || (this.s2Rush && this.s2Rush.length)) && this.s2SnakeBlocks(p.gfx.x, p.gfx.y, p.gfx.radius, p.ox, p.oy)) {
         this.spawnBurst(p.gfx.x, p.gfx.y, 0x8cf06a, 4);
@@ -20013,6 +20747,22 @@ class GameScene extends Phaser.Scene {
         if (e.timer <= 0) { e.dirX = Math.random() * 2 - 1; e.dirY = Math.random() * 2 - 1; e.timer = 1 + Math.random() * 1.5; }
         moveX = e.dirX * 0.5; moveY = e.dirY * 0.5;
       }
+    } else if (t.behavior === 'boss_demon') {
+      // 😈 悪魔：その場から動かず、射程内にプレイヤーがいる間（壁越しでも）、根を生やす。
+      //   根は2種類：ランダムな向きにゆっくり生える根（roots）と、速めでプレイヤーへ向かってくる根（rootsChase）。それぞれ、ランダムな間隔で1本ずつ。
+      if (!e._rootBurstDone && t.rootsBurst) { e._rootBurstDone = true; this.demonRootBurst(e); } // 戦いが始まった最初の1回：全方位に一斉に生える
+      if (t.seedBurst) this.demonSeedBurstUpdate(e, dt); // 壁の種が13個埋まったら、一気に解放する強攻撃
+      if (t.rootsGuard) this.demonRootGuard(e, dt); // プレイヤーの弾が迫ってきたら、守りの根を生やす
+      if (t.rootsStorm) this.demonRootStormUpdate(e, dt, !!target && playerDist <= t.rootsStorm.range); // 根の乱れ撃ち（強攻撃）
+      const sbBusy = (e._sbState && e._sbState !== 'idle') || (e._stState && e._stState !== 'idle'); // 強攻撃の準備中・最中は、新しい根を出さない
+      for (const [key, cdKey] of [['roots', '_rtCd'], ['rootsChase', '_rcCd']]) {
+        const rt = t[key]; if (!rt || sbBusy) continue;
+        if (e[cdKey] == null) e[cdKey] = rt.firstDelay;
+        if (target && playerDist <= rt.range) {
+          e[cdKey] -= dt;
+          if (e[cdKey] <= 0) { e[cdKey] = rt.intervalMin + Math.random() * (rt.intervalMax - rt.intervalMin); this.demonRootGrow(e, key, playerAngle); }
+        }
+      }
     } else if (t.behavior === 'boss') {
       // 常に追いかけつつ、射程内かつ壁越しでなければ近接と並行して飛び道具も撃ってくる強敵
       e.fireTimer = (e.fireTimer || 0) - dt;
@@ -20400,6 +21150,7 @@ class GameScene extends Phaser.Scene {
       }
     }
 
+    if (t.behavior === 'boss_demon') { e.kbX = 0; e.kbY = 0; nx = e.gfx.x; ny = e.gfx.y; } // 😈 悪魔は絶対に動かない（ノックバックも、プレイヤーとの重なりの押し出しも受けない）
     const hitWallX = !t.canPassWalls && this.circleHitsWall(nx, e.gfx.y, t.radius);
     const hitWallY = !t.canPassWalls && this.circleHitsWall(e.gfx.x, ny, t.radius);
     if (!hitWallX) e.gfx.x = nx;
@@ -20446,6 +21197,46 @@ class GameScene extends Phaser.Scene {
     if (e.label) { e.label.x = e.gfx.x; e.label.y = e.gfx.y - t.radius - 22; }
   }
 
+  // 特別な装飾品の効果（毎フレーム）。付けているかの確認はセーブを読むので、0.5秒に1回だけ行う。
+  _specialAccUpdate(dt) {
+    this._spT = (this._spT || 0) - dt;
+    if (this._spT <= 0) { this._spT = 0.5; const wasUndead = this._spUndead; this._spUndead = this.hasSpecial('undeadcrest'); this._spNeck = this.hasSpecial('goldsilvernecklace'); this._spWings = this.hasSpecial('demoncollar'); if (wasUndead !== this._spUndead) this.updateHud(); }
+    if (this.isGhost || this.isDowned || !(this.playerHp > 0)) { this._crestQ = null; this._crestLast = null; return; } // 倒れた時は回復しない（復活したら、その時のHPから数え直す）
+    if (!this._spUndead) { this._crestQ = null; this._crestLast = null; }
+    else { // ♾️ 不死の紋章：ダメージを受けるたびに、そのぶんを0.2秒後に回復する（連続で受けても、1回ごとに0.2秒で戻る。待たされない）
+      this._crestQ = this._crestQ || [];
+      if (this._crestLast != null && this.playerHp < this._crestLast) this._crestQ.push({ amt: this._crestLast - this.playerHp, t: ACC_UNDEAD.delay });
+      let heal = 0;
+      for (const q of this._crestQ) q.t -= dt;
+      this._crestQ = this._crestQ.filter(q => { if (q.t <= 0) { heal += q.amt; return false; } return true; });
+      if (heal > 0 && this.playerHp < this.playerMaxHp) {
+        this.playerHp = Math.min(this.playerMaxHp, this.playerHp + heal);
+        this.updateHud();
+        if (this.net && this.mp) this.net.updateOwnState({ hp: this.playerHp, maxHp: this.playerMaxHp });
+      }
+      this._crestLast = this.playerHp;
+    }
+    if (this._spNeck && this.player && this.player.scene) { // 📿 金銀のネックレス：一定時間ごとに、周りに回復と宝箱を出す
+      this._neckT = (this._neckT == null ? ACC_GOLDSILVER.interval : this._neckT) - dt;
+      if (this._neckT <= 0) {
+        this._neckT = ACC_GOLDSILVER.interval;
+        const kinds = ['potion', 'chest']; // 回復と宝箱は最低1つずつ、残りは半々
+        while (kinds.length < ACC_GOLDSILVER.count) kinds.push(Math.random() < 0.5 ? 'potion' : 'chest');
+        const off = Math.random() * Math.PI * 2;
+        kinds.forEach((k, i) => {
+          const ang = off + (i / kinds.length) * Math.PI * 2;
+          let x = this.player.x, y = this.player.y;
+          for (let r = ACC_GOLDSILVER.radius, tries = 0; tries < 6; tries++, r *= 0.7) { // 壁の中には出さない（置けなければ足もとに出す）
+            const tx = this.player.x + Math.cos(ang) * r, ty = this.player.y + Math.sin(ang) * r;
+            if (!this.isWall(tx, ty)) { x = tx; y = ty; break; }
+          }
+          this.emitDungeonDrop(k, x, y, k === 'chest' ? 'green' : null);
+        });
+        this.showFloatText('📿 恵みが降ってきた！', '#ffd54c');
+      }
+    }
+  }
+
   update(time, delta) {
     this._floorUpdate(); // 床：カメラの近くの区画だけを焼いて持つ（遠い区画は空き箱へ）
     // リザルト用：経過時間は、フロア移動の暗転中も含めて数える（リザルト表示中は止める）
@@ -20455,6 +21246,7 @@ class GameScene extends Phaser.Scene {
     if (this._hutReading) return; // 📖 小屋の本を読んでいる間は、ゲームを止める
     const dt = Math.min(delta, 50) / 1000;
     if (this._demonTalk) this._demonTalkUpdate(dt); // 😈 25階の悪魔の問答
+    this._specialAccUpdate(dt); // 📿 金銀のネックレス・♾️ 不死の紋章
 
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.playerInvuln = Math.max(0, this.playerInvuln - dt);
@@ -20540,6 +21332,9 @@ class GameScene extends Phaser.Scene {
     this.updateProjectiles(this._clkOn ? 0 : dt); // 🕒 時が止まっている間は自分の弾も止まる
     this.updateRemoteProjectiles(this._clkOn ? 0 : dt); // 🕒 他プレイヤーの弾も止まる
     this.updateEnemyProjectiles(this._clkOn ? 0 : dt); // 🕒 敵の弾も止まる
+    this.updateDemonShadows(this._clkOn ? 0 : dt); // 😈 悪魔の影（時が止まっている間は止まる）
+    this.updateDemonWings(this._clkOn ? 0 : dt); // 😈 悪魔の翼（プレイヤーの背中の根）
+    this.updateDemonSeeds(this._clkOn ? 0 : dt); // 😈 壁の種
     this.updateArms4Atk(dt); // 四つ腕の攻撃（調伏の儀）
     if (this.bossRush || this.frontline || this.bossFloor || this._bossUiGroup) this.updateBossBar(); // ボスのバーが出ていれば更新（通常ダンジョンの調伏の儀もここ）
     this.updateBombs(this._clkOn ? 0 : dt); // 🕒 時が止まっている間は、爆弾も動かず導火線も進まない
@@ -20616,6 +21411,7 @@ class GameScene extends Phaser.Scene {
       if (!this.circleHitsWall(this.player.x, ny, r)) this.player.y = ny;
     }
 
+    this.demonRootPushPlayer(); // 😈 根は通れない：移動のあと、根の体に食い込んでいたら外へ押し出す
     if (this._astral) this.astralTick(dt); // 幽体離脱：ゴーストの見た目と、触れた敵へのダメージ
     // 向き：スマホは右ジョイスティック操作中のみ更新し、離している間は直前の向きを維持する
     // （タッチ端末ではマウスポインタという概念がなく、離している間にポインタ座標へ
@@ -20909,6 +21705,11 @@ class GameScene extends Phaser.Scene {
         // かなり近づかないと反応しない判定距離にしてある（宝箱自体の当たり半径14pxに近い16px）。
         const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, chest.x, chest.y);
         if (d < 16) {
+          const lw = this.limitedKey && limitedWeaponBase(this.limitedKey); // 限定武器の装飾品を付けている間は、他の武器の宝箱は取れない（触れても反応せず、宝箱はそのまま残る）。今の武器の強化（緑・ピンク）やエフェクトは取れる
+          if (lw && chest.weapon && chest.weapon.key !== lw.key && chest.lootType !== 'effect' && chest.lootType !== 'pink') {
+            if (!(this._lockMsgT > this.time.now)) { this._lockMsgT = this.time.now + 1500; this.showBanner((specialAccByKey(this.limitedKey).icon) + ' ' + specialAccByKey(this.limitedKey).name + 'を付けている間は、他の武器は取れない', 1400); }
+            return true;
+          }
           if (this.mp && this.net) {
             chest.taken = true;
             this.net.claimLoot(this.floor, 'chests', chest.idx).then(won => {
@@ -22077,6 +22878,7 @@ class GameScene extends Phaser.Scene {
   // とどめを刺したのが自分の時だけ呼ぶ（敵の生死の権威はホストだが、誰が倒したかは倒した本人のクライアントだけが確実に知っている）。
   // ボスは「フロアに残った最後のボス（カルテットなら4体の最後の1体）」を倒した人だけが撃破数に数える。
   creditKill(enemy) {
+    if (enemy && enemy.type && enemy.type.key === 'demon' && this._soulMet && !this._soulWasSold) { const sv = loadSave(); sv.soulSold = false; writeSave(sv); } // 悪魔と戦って勝った：魂は売らずに済む（元から売っていた人は、そのまま）
     if (!this.mp || !enemy || !enemy.type) return;
     if (enemy.type.isBoss) {
       const othersAlive = this.enemies.some(x => x !== enemy && x.hp > 0 && x.type && x.type.isBoss);
@@ -22304,7 +23106,7 @@ class GameScene extends Phaser.Scene {
       this._usedAccKeys = this.accKey ? [this.accKey] : []; // リザルト用の装飾品の記録もやり直す
       const rushBase = this.rushWeaponKey && WEAPON_TYPES.find(w => w.key === this.rushWeaponKey);
       const devBase = !rushBase && this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey);
-      const respawnBase = rushBase || devBase || WEAPON_TYPES[0];
+      const respawnBase = (this.limitedKey && limitedWeaponBase(this.limitedKey)) || rushBase || devBase || WEAPON_TYPES[0];
       // ボスラッシュは選んだ武器のLv.5から（デベロッパーモードなら指定レベルから）、
       // 通常のデベロッパーモードは指定したレベル（未指定ならLv.5）からやり直す
       const respawnLevel = rushBase
@@ -23738,6 +24540,21 @@ function renderAccPicker() {
     el.addEventListener('click', openAccModal);
     accPicker.appendChild(el);
   }
+  SPECIAL_ACCS.filter(a => save.specialAccs[a.key]).forEach(a => { // 🔒 特別な装飾品：装備中の装飾品の隣に、いつも出る（一覧には出ない）。押すと付け外し（付けている時だけ明るく、枠が付く）
+    const on = !!save.specialOn[a.key];
+    const sp = document.createElement('div');
+    sp.className = 'accItem' + (on ? ' sel' : '');
+    if (!on) sp.style.opacity = '0.45';
+    sp.textContent = a.icon;
+    sp.title = a.name + '：' + a.effect + (on ? '（付けています。押すと外します）' : '（外しています。押すと付けます）');
+    sp.addEventListener('click', () => {
+      const s2 = loadSave();
+      if (s2.specialOn[a.key]) delete s2.specialOn[a.key];
+      else { s2.specialOn[a.key] = true; if (a.weapon) SPECIAL_ACCS.forEach(o => { if (o !== a && o.weapon) delete s2.specialOn[o.key]; }); } // 限定武器の装飾品は、同時に1つだけ
+      writeSave(s2); renderAccPicker();
+    });
+    accPicker.appendChild(sp);
+  });
 }
 function openAccModal() {
   // 入手済みの装飾品は、押すと装備（もう一度押すと外れる）。付けた1つだけがタイトル画面に出る
@@ -23752,10 +24569,20 @@ function openAccModal() {
     return '<div class="accRow' + (unlocked ? ' pick' : ' locked') + (equipped ? ' sel' : '') + '" data-key="' + escapeHtml(a.key) + '">'
       + '<div class="accIcon">' + escapeHtml(a.icon) + '</div>'
       + '<div class="accInfo"><div class="accName">' + escapeHtml(a.name) + '</div><div class="accDesc">' + escapeHtml(a.desc) + '</div>' + (a.effect ? '<div class="accDesc accEffect">' + escapeHtml(a.effect) + '</div>' : '') + '</div>'
-      + '<div class="accState">' + escapeHtml(state) + '</div></div>';
+      + '<div class=\"accState\">' + escapeHtml(state) + '</div></div>';
+  }).join('') + SPECIAL_ACCS.filter(a => save.specialAccs[a.key]).map(a => { // 😈 特別な装飾品（悪魔からもらったもの）：手に入れたら、一覧の最後に足される。押すと付け外し
+    const on = !!save.specialOn[a.key];
+    return '<div class=\"accRow pick special' + (on ? ' sel' : '') + '\" data-key=\"' + escapeHtml(a.key) + '\" data-sp=\"1\">'
+      + '<div class=\"accIcon\">' + escapeHtml(a.icon) + '</div>'
+      + '<div class=\"accInfo\"><div class=\"accName\">' + escapeHtml(a.name) + '<span class=\"accBadge\">特殊</span></div><div class=\"accDesc accEffect\">' + escapeHtml(a.effect || '') + '</div><div class=\"accNote\">他の装飾品と重ねて付けられる</div></div>'
+      + '<div class=\"spSwitch' + (on ? ' on' : '') + '\">' + (on ? 'ON' : 'OFF') + '<i></i></div></div>';
   }).join('');
   list.querySelectorAll('.accRow.pick').forEach(row => row.addEventListener('click', () => {
     const s2 = loadSave(), k = row.getAttribute('data-key');
+    if (row.getAttribute('data-sp')) { // 特別な装飾品：付け外し（ふつうの装飾品の装備とは別に、いくつでも付けられる）
+      if (s2.specialOn[k]) delete s2.specialOn[k]; else s2.specialOn[k] = true;
+      writeSave(s2); renderAccPicker(); openAccModal(); return;
+    }
     s2.accEquipped = (s2.accEquipped === k) ? '' : k;
     writeSave(s2);
     renderAccPicker();
@@ -23786,7 +24613,7 @@ function setLobbyStatus(msg) { document.getElementById('lobbyStatus').textConten
 
 // ルーム作成・参加の通信中は他のロビー操作を一切できないようにする。
 // （連打での二重作成や、入力途中でのボタン誤操作を防ぐため）
-const LOBBY_CONTROL_IDS = ['soloBtn', 'hutWarpBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'nightmareBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput', 'soloSeedInput'];
+const LOBBY_CONTROL_IDS = ['soloBtn', 'hutWarpBtn', 'demonTestBtn', 'arms4RitualBtn', 'bossRushBtn', 'frontlineBtn', 'nightmareBtn', 'createRoomBtn', 'createFrontlineRoomBtn', 'createPvpRoomBtn', 'pvpTestBtn', 'joinRoomBtn', 'roomCodeInput', 'nameInput', 'soloSeedInput'];
 // ロビーの上に出る短いバナー（ゲーム画面のバナーとは別）
 function showLobbyBanner(text, ms) {
   let el = document.getElementById('lobbyBanner');
@@ -23851,7 +24678,8 @@ function startGame(mode, extra) {
     soloSeed: (extra && extra.soloSeed != null) ? extra.soloSeed : null, // ロビーで指定したシード値（ソロのダンジョンのみ）
     floor: extra && extra.floor,
     roomId: extra && extra.roomId,
-    devFloor: devMode ? Math.max(1, parseInt(document.getElementById('devFloorInput').value, 10) || 11) : null,
+    devFloor: (extra && extra.demonTest) ? 25 : (devMode ? Math.max(1, parseInt(document.getElementById('devFloorInput').value, 10) || 11) : null), // 悪魔テストは25階から
+    demonTest: !!(extra && extra.demonTest), // 🛠 テスト用：25階の悪魔の問答を必ず出す（ソロのみ）
     devWeaponKey: devMode ? devWeaponSelect.value : null,
     devWeaponLevel: devMode ? Math.max(1, parseInt(document.getElementById('devWeaponLevelInput').value, 10) || 5) : null,
     devMode, // リザルト画面の表示（DEVELOPER）切り替え用
@@ -23882,6 +24710,8 @@ function readSoloSeed() {
 document.getElementById('soloBtn').addEventListener('click', () => startGame('solo', { soloSeed: readSoloSeed() }));
 // 🛠 テスト用：雪原の小屋の入り口へワープして始める（ダンジョン（ソロ）と同じ設定で、最初から雪原にいる。白い扉から戻るとダンジョンの1階）
 document.getElementById('hutWarpBtn').addEventListener('click', () => startGame('solo', { soloSeed: readSoloSeed(), warpHut: true }));
+// 🛠 テスト用：ソロのダンジョンを25階から始めて、悪魔の問答を必ず出す（全滅の記録・DEMON_ENABLEDに関係なく出る）
+document.getElementById('demonTestBtn').addEventListener('click', () => startGame('solo', { soloSeed: readSoloSeed(), demonTest: true }));
 // ナイトメア：ダンジョン（ソロ）と同じだが、壁の裏が見えない
 document.getElementById('nightmareBtn').addEventListener('click', () => startGame('solo', { soloSeed: readSoloSeed(), nightmare: true }));
 // ボスラッシュ：まず武器選択画面を出し、選んだ武器のLv.5でスタートする。
@@ -23930,7 +24760,7 @@ let askWeapon = null;
     });
   }
   askWeapon = (title, cb, onCancel, weapons) => {
-    const options = weapons || RUSH_WEAPONS;
+    const base0 = weapons || RUSH_WEAPONS, options = base0.concat(limitedWeaponsOwned().filter(w => !base0.includes(w))); // 特別な装飾品を持っていれば、限定武器も選べる
     if (isDevName()) {
       // 十字架・召喚術もテストのため許容する（通常の武器選択画面には引き続き出さない）
       cb(WEAPON_TYPES.find(w => w.key === devWeaponSelect.value) || options[0]);
