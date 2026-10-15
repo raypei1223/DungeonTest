@@ -380,6 +380,7 @@
   #accModal h1 { margin: 0 0 4px; font-size: 18px; }
   #accModal h1 small { margin-left: 8px; font-size: 11px; font-weight: normal; color: #a0a0b0; }
   #accModal .accName { display: none; } /* 新芽・盾などの名前は表示しない */
+  #accModal .accRow.special .accName { display: block; } /* 悪魔の装飾品（特殊）は、効果説明の上に名前を出す */
   /* 一覧は2列に並べて、スクロールしなくても全部見えるようにする */
   #accModalList { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
   #accModal .accRow { padding: 4px 2px; }
@@ -8396,7 +8397,7 @@ class GameScene extends Phaser.Scene {
     if (this.mp && this.net) {
       const r = this.net.sendDrop({ k: kind, x: Math.round(x), y: Math.round(y), floor: this.floor, lt: lootType || null });
       // 古いドロップがルームに溜まり続けないよう、寿命が来たら消す（途中参加の人へ再送されなくなる）
-      setTimeout(() => { try { r.ref.remove(); } catch (err) { /* ルームが既に無ければ何もしない */ } }, DUNGEON_KILL_DROP.dropLife * 1000);
+      if (!(typeof lootType === 'string' && lootType.startsWith('n:'))) setTimeout(() => { try { r.ref.remove(); } catch (err) { /* ルームが既に無ければ何もしない */ } }, DUNGEON_KILL_DROP.dropLife * 1000);
     } else {
       this.spawnDungeonDropItem(kind, x, y, 'd' + (++this._dungeonDropSeq), lootType);
     }
@@ -8419,6 +8420,14 @@ class GameScene extends Phaser.Scene {
   // 宝箱は緑（自分だけ今の武器がLv+1）かピンク（激レア・仲間全員Lv+1）で、
   // 最北戦線の宝箱と同じく壊す手順を踏まず触れたら即取得できる見た目にする（broken:trueなので拾う判定はそのまま通る）。
   spawnDungeonDropItem(kind, x, y, id, lootType) {
+    if (kind === 'chest' && typeof lootType === 'string' && lootType.startsWith('n:')) { // 📿 金銀のネックレスの宝箱：ダンジョンのチェストと同じ、壊す前の見た目と仕組み（壊すと中身が現れる）
+      const parts = lootType.split(':'), lt = parts[1];
+      const weapon = lt === 'yellow' ? (WEAPON_TYPES.find(w => w.key === parts[2]) || null) : null;
+      const box = this.add.rectangle(x, y, 22, 18, 0xa87844).setDepth(3);
+      box.setStrokeStyle(2, 0x4a3620, 1);
+      this.chests.push({ gfx: box, label: null, lootType: lt, weapon, x, y, idx: id, taken: false, broken: false, hp: CHEST_HP, maxHp: CHEST_HP });
+      return;
+    }
     if (kind === 'chest') {
       const isPink = lootType === 'pink';
       const color = isPink ? 0xff5bc8 : 0x6bd97a;
@@ -8435,7 +8444,10 @@ class GameScene extends Phaser.Scene {
       const cross = this.add.text(x, y, '+', {
         fontSize: '14px', color: '#ffffff', fontStyle: 'bold', fontFamily: 'sans-serif',
       }).setOrigin(0.5).setDepth(3);
-      this.potions.push({ gfx: glow, label: cross, x, y, idx: id, taken: false, life: DUNGEON_KILL_DROP.dropLife });
+      const keep = typeof lootType === 'string' && lootType.startsWith('n:'); // 📿 ネックレスの回復は、時間で消えない（lifeを持たせない）
+      const pot = { gfx: glow, label: cross, x, y, idx: id, taken: false };
+      if (!keep) pot.life = DUNGEON_KILL_DROP.dropLife;
+      this.potions.push(pot);
     }
   }
 
@@ -10174,7 +10186,7 @@ class GameScene extends Phaser.Scene {
     if (mx * mx + my * my > 0.25) { const na = Math.atan2(my, mx); W.face += Phaser.Math.Angle.Wrap(na - W.face) * Math.min(1, dt * 8); }
     const back = W.face + Math.PI, n = W.roots.length, reach = C.range;
     const slotAng = (r) => back + (n > 1 ? (r.i / (n - 1) - 0.5) * 2 * C.spread : 0); // 背中側の、その根の持ち場
-    const bossLike = (e) => !!(e.type.isBoss || e.type.behavior === 'boss_demon' || e.type.snake);
+    const bossLike = (e) => !!(e.type.isBoss || e.type.behavior === 'boss_demon' || e.type.snake || e.type.key === 'arms4'); // 天使（arms4）もボスと同じく、引き寄せられない（その場で根が刺さったままダメージだけ入る）
 
     for (const r of W.roots) {
       const sa = slotAng(r), sway = Math.sin(W.s * 2.2 + r.ph);
@@ -10201,7 +10213,6 @@ class GameScene extends Phaser.Scene {
         }
       } else if (r.st === 'stab') { // シュッと敵へ伸びる
         const e = r.tgt, ex = e.gfx.x, ey = e.gfx.y, dx = ex - r.tx, dy = ey - r.ty, d = Math.hypot(dx, dy), step = C.stabSpeed * dt;
-        e.hitCooldown = Math.max(e.hitCooldown || 0, 0.3);
         if (d <= step + 2) {
           r.tx = ex; r.ty = ey; r.t = 0; r.held = 0;
           const a = Math.atan2(ey - py, ex - px), sr = e.type.radius;
@@ -10212,7 +10223,7 @@ class GameScene extends Phaser.Scene {
       }
       if (r.st === 'pull' || r.st === 'hold') {
         const e = r.tgt, sr = e.type.radius;
-        e.hitCooldown = Math.max(e.hitCooldown || 0, 0.3); // 刺されている間は、プレイヤーに触れてもダメージを出さない
+        if (!bossLike(e)) e.hitCooldown = Math.max(e.hitCooldown || 0, 0.3); // 刺した雑魚敵は、プレイヤーに触れても接触ダメージを出さない（ボス・天使などは対象外）
         if (!r.stuck) { // 刺したまま背中側へ戻って、ゆらゆら揺れる
           e.kbX = 0; e.kbY = 0;
           const dist = C.holdDist + sr, sw = Math.sin(W.s * 2.6 + r.ph), sw2 = Math.cos(W.s * 1.9 + r.ph * 0.7);
@@ -10220,9 +10231,7 @@ class GameScene extends Phaser.Scene {
           let ntx, nty;
           if (r.st === 'pull') { r.t += dt; const u = Math.min(1, r.t / C.pullTime), k = 1 - (1 - u) * (1 - u) * (1 - u); ntx = r.pull.x + (hx - r.pull.x) * k; nty = r.pull.y + (hy - r.pull.y) * k; if (u >= 1) r.st = 'hold'; }
           else { const k = Math.min(1, dt * 14); ntx = e.gfx.x + (hx - e.gfx.x) * k; nty = e.gfx.y + (hy - e.gfx.y) * k; }
-          const oy = e.gfx.y, ca = e.type.canPassWalls;
-          if (ca || !this.circleHitsWall(ntx, oy, sr)) e.gfx.x = ntx; // 壁にはめり込ませない
-          if (ca || !this.circleHitsWall(e.gfx.x, nty, sr)) e.gfx.y = nty;
+          e.gfx.x = ntx; e.gfx.y = nty; // 刺してぶら下げている間は、壁との当たり判定なし（壁をすり抜けて背中側へ運ばれる）
           r.tx = e.gfx.x; r.ty = e.gfx.y;
         } else { // 引き寄せられない相手：その場に刺さったまま。離れすぎたら外れる
           r.tx = e.gfx.x; r.ty = e.gfx.y;
@@ -10263,25 +10272,84 @@ class GameScene extends Phaser.Scene {
       for (let k = 0; k <= N; k++) {
         const u = k / N, a0 = (1 - u) * (1 - u), a1 = 2 * (1 - u) * u, a2 = u * u;
         const wob = Math.sin(W.s * 7 + r.ph + u * 6) * 2.6 * Math.sin(u * Math.PI) * (fast ? 0.2 : 1);
-        pts.push({ x: a0 * sx + a1 * cx + a2 * tx + nx * wob, y: a0 * sy + a1 * cy + a2 * ty + ny * wob, th: 12 * Math.pow(1 - u, 0.75) }); // 太さ：根元12px→先端0px（先が尖る）
+        pts.push({ x: a0 * sx + a1 * cx + a2 * tx + nx * wob, y: a0 * sy + a1 * cy + a2 * ty + ny * wob, th: 12 * (0.2 + 0.8 * Math.pow(1 - u, 0.75)) }); // 太さ：根元12px→先端2.4px（悪魔の根と同じ割合で細くなり、先端は丸い）
       }
-      // 悪魔の根と同じ色：ふちの暗い紫（太め）の上に、真っ黒な体を重ねる。先端は尖らせる（丸みなし）
+      // 悪魔の根と同じ色：ふちの暗い紫（太め）の上に、真っ黒な体を重ねる。先端は悪魔の根と同じく丸くする
       for (const pass of [{ col: 0x2a1038, al: 0.7, ex: 7 }, { col: 0x000000, al: 1, ex: 0 }]) {
         g.fillStyle(pass.col, pass.al);
         const Lp = [], Rp = [];
         for (let k = 0; k <= N; k++) {
           const p0 = pts[Math.max(0, k - 1)], p1 = pts[Math.min(N, k + 1)];
           let ddx = p1.x - p0.x, ddy = p1.y - p0.y; const dl = Math.hypot(ddx, ddy) || 1; ddx /= dl; ddy /= dl;
-          const hw = (pts[k].th + pass.ex * Math.min(1, pts[k].th / 6)) / 2; // ふちも、先端では細くなって消える
+          const hw = (pts[k].th + pass.ex) / 2; // ふちも悪魔の根と同じ太さのまま、先端まで続く
           Lp.push({ x: pts[k].x - ddy * hw, y: pts[k].y + ddx * hw }); Rp.push({ x: pts[k].x + ddy * hw, y: pts[k].y - ddx * hw });
         }
         for (let k = 0; k < N; k++) {
           g.fillTriangle(Lp[k].x, Lp[k].y, Rp[k].x, Rp[k].y, Lp[k + 1].x, Lp[k + 1].y);
           g.fillTriangle(Rp[k].x, Rp[k].y, Rp[k + 1].x, Rp[k + 1].y, Lp[k + 1].x, Lp[k + 1].y);
         }
-        g.fillCircle(pts[0].x, pts[0].y, (pts[0].th + pass.ex) / 2); // 根元だけ丸く（背中になじませる）
+        g.fillCircle(pts[0].x, pts[0].y, (pts[0].th + pass.ex) / 2); // 根元を丸く（背中になじませる）
+        g.fillCircle(pts[N].x, pts[N].y, (pts[N].th + pass.ex) / 2); // 先端も丸く（悪魔の根の頭の丸みと同じ）
       }
     }
+  }
+  // 📿 金銀のネックレスを付けている間は、身体に金と銀の輝きが乗る／♾️ 不死の紋章を付けている間は、身体から紫色の炎が出る（見た目だけ）
+  _accBodyFx(dt) {
+    const P = this.player;
+    const alive = !!(P && P.scene && P.active !== false && P.visible !== false && !this.isGhost && !this.isDowned && !this.transitioning);
+    const neck = alive && !!this._spNeck, crest = alive && !!this._spUndead;
+    if (!this._bodyFxG || !this._bodyFxG.scene) this._bodyFxG = this.add.graphics().setDepth(5.1).setBlendMode(Phaser.BlendModes.ADD);
+    const g = this._bodyFxG; g.clear();
+    if (!neck && !crest) { this._bodyFxT = 0; return; }
+    this._bodyFxT = (this._bodyFxT || 0) + dt;
+    const t = this._bodyFxT, px = P.x, py = P.y, R = (P.radius || TILE * 0.32) * (P.scaleX || 1);
+    this._bodyFxN = this._bodyFxN || 0;
+    const puff = (x, y, rad, color, a, dx, dy, dur, depth) => { // 小さな光の粒（上へ流れて消える）
+      if (this._bodyFxN > 60) return;
+      this._bodyFxN++;
+      const c = this.add.circle(x, y, rad, color, a).setDepth(depth).setBlendMode(Phaser.BlendModes.ADD);
+      this.tweens.add({ targets: c, x: x + dx, y: y + dy, scale: 0.15, alpha: 0, duration: dur, ease: 'Sine.easeOut', onComplete: () => { c.destroy(); this._bodyFxN--; } });
+    };
+    if (neck) { // 金色と銀色の十字が、身体の外でキラキラ光るだけ（身体そのものには何も重ねない）
+      const N = 6, fr = (v) => v - Math.floor(v);
+      for (let i = 0; i < N; i++) {
+        const per = 0.9 + i * 0.17, u = t / per + i / N, cyc = Math.floor(u), ph = u - cyc; // 1つごとに周期をずらして、順にきらっと光る
+        const h = fr(Math.sin(cyc * 12.9898 + i * 78.233) * 43758.5453), h2 = fr(h * 7.13);
+        const ang = h * 6.283, dist = R * (1.2 + 0.9 * h2); // 毎回、身体の外のどこかに出る
+        const x = px + Math.cos(ang) * dist, y = py + Math.sin(ang) * dist;
+        const sz = (R * 0.45 + R * 0.35 * h2) * Math.sin(ph * Math.PI); // 大きくなって消える
+        if (sz < 0.6) continue;
+        const col = (i + cyc) % 2 ? 0xffd54c : 0xe8eef5, core = (i + cyc) % 2 ? 0xfff2b0 : 0xffffff;
+        g.lineStyle(3, col, 0.9); g.lineBetween(x - sz, y, x + sz, y); g.lineBetween(x, y - sz, x, y + sz);
+        g.lineStyle(1.5, core, 1); g.lineBetween(x - sz * 0.6, y, x + sz * 0.6, y); g.lineBetween(x, y - sz * 0.6, x, y + sz * 0.6);
+        g.fillStyle(core, 0.95); g.fillCircle(x, y, Math.max(1.5, sz * 0.14));
+      }
+    }
+    if (crest) { // 紫色の炎：身体のまわりがぼんやり紫に光り、下から上へ紫の炎がゆらめいて立ちのぼる
+      g.fillStyle(0x8a4dff, 0.18 + 0.08 * Math.sin(t * 7)); g.fillCircle(px, py, R * 1.35);
+      g.fillStyle(0xc58bff, 0.14); g.fillCircle(px, py, R * 0.95);
+      this._bodyFlameT = (this._bodyFlameT || 0) - dt;
+      if (this._bodyFlameT <= 0) {
+        this._bodyFlameT = 0.04;
+        const cols = [0x5a1fc0, 0x8a4dff, 0xb36bff, 0xd9a8ff];
+        for (let k = 0; k < 2; k++) {
+          const a = Math.random() * 6.283, d = R * (0.4 + Math.random() * 0.7);
+          puff(px + Math.cos(a) * d, py + Math.sin(a) * d * 0.8 + R * 0.2, 4 + Math.random() * 4, cols[Math.floor(Math.random() * cols.length)], 0.8, (Math.random() - 0.5) * 14, -(26 + Math.random() * 22), 420 + Math.random() * 280, 5.05);
+        }
+      }
+    }
+  }
+  // 📿 金銀のネックレス：金銀財宝のキラキラ。自分のまわりへ、💎🪙✨がきらめきながら広がって消え、金と銀の粒が弾ける
+  _neckSparkle(x, y) {
+    this.spawnBurst(x, y, 0xffd54c, 22); this.spawnBurst(x, y, 0xe8eef5, 22);
+    const icons = ['✨', '💎', '🪙', '⭐', '✨'], N = 20;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2 + Math.random() * 0.3, d = 60 + Math.random() * 70, sz = 12 + Math.random() * 10;
+      const t = this.add.text(x, y, icons[i % icons.length], { fontSize: sz + 'px', fontFamily: 'sans-serif' }).setOrigin(0.5).setResolution(2).setDepth(9).setScale(0.3).setAlpha(0);
+      this.tweens.add({ targets: t, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d - 10, scale: 1.2, alpha: { from: 1, to: 0 }, angle: (Math.random() - 0.5) * 120, duration: 700 + Math.random() * 500, delay: Math.random() * 180, ease: 'Cubic.easeOut', onStart: () => t.setAlpha(1), onComplete: () => t.destroy() });
+    }
+    const ring = this.add.circle(x, y, 10, 0xffd54c, 0).setStrokeStyle(3, 0xfff2b0, 1).setDepth(9); // 金の輪っかが広がる
+    this.tweens.add({ targets: ring, scale: 9, alpha: 0, duration: 650, ease: 'Cubic.easeOut', onComplete: () => ring.destroy() });
   }
   meleeAttack(w, angle) {
     // 攻撃エフェクト（扇形）
@@ -21224,7 +21292,7 @@ class GameScene extends Phaser.Scene {
       this._crestLast = this.playerHp;
     }
     // 📿 金銀のネックレス：階層を移動した時に（暗転が明けた最初のフレームで）、周りに回復と宝箱を円形に出す。階の記録は、付けていない間も取り続ける（付けた瞬間に出ないように）
-    const _nf = this.floor, _moved = this._neckFloor != null && _nf !== this._neckFloor; this._neckFloor = _nf;
+    const _nf = this.floor, _moved = (this._neckFloor != null && _nf !== this._neckFloor) || (this._neckFloor == null && _nf === 1); this._neckFloor = _nf; // 1階（挑戦の最初）からも発動する
     if (this._spNeck && _moved && this.player && this.player.scene) {
       {
         const kinds = ['potion', 'chest']; // 回復と宝箱は最低1つずつ、残りは半々
@@ -21237,9 +21305,20 @@ class GameScene extends Phaser.Scene {
             const tx = this.player.x + Math.cos(ang) * r, ty = this.player.y + Math.sin(ang) * r;
             if (!this.isWall(tx, ty)) { x = tx; y = ty; break; }
           }
-          this.emitDungeonDrop(k, x, y, k === 'chest' ? 'green' : null);
+          let lt = 'n:'; // 先頭の n: ＝ネックレスで出たもの（時間で消えない）
+          if (k === 'chest') { // ダンジョンのチェストと同じ中身の確率：ピンク5%、残りの3/4が黄（ランダムな1種類の武器がLv+1）、1/4が緑（今の武器がLv+1）。壊すまで中身は分からない（先頭の n: が「壊す前の宝箱」の印）
+            const roll = Math.random(), PINK = 0.05;
+            if (roll < PINK) lt = 'n:pink';
+            else if ((roll - PINK) / (1 - PINK) < 3 / 4) {
+              const pool = WEAPON_TYPES.filter(w => !w.hidden);
+              lt = pool.length ? 'n:yellow:' + pool[Math.floor(Math.random() * pool.length)].key : 'n:green';
+            } else lt = 'n:green';
+          }
+          this.emitDungeonDrop(k, x, y, lt);
+          this.spawnBurst(x, y, i % 2 ? 0xe8eef5 : 0xffd54c, 10); // 出た場所にも、金と銀の粒
         });
-        this.showFloatText('📿 恵みが降ってきた！', '#ffd54c');
+        this.showBanner('📿 金銀のネックレスの効果が発動！', 2200, '#ffd54c');
+        this._neckSparkle(this.player.x, this.player.y);
       }
     }
   }
@@ -21254,6 +21333,7 @@ class GameScene extends Phaser.Scene {
     const dt = Math.min(delta, 50) / 1000;
     if (this._demonTalk) this._demonTalkUpdate(dt); // 😈 25階の悪魔の問答
     this._specialAccUpdate(dt); // 📿 金銀のネックレス・♾️ 不死の紋章
+    this._accBodyFx(this._clkOn ? 0 : dt); // 📿 金銀の輝き・♾️ 紫の炎（身体の見た目）
 
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.playerInvuln = Math.max(0, this.playerInvuln - dt);
@@ -24581,7 +24661,7 @@ function openAccModal() {
     const on = !!save.specialOn[a.key];
     return '<div class=\"accRow pick special' + (on ? ' sel' : '') + '\" data-key=\"' + escapeHtml(a.key) + '\" data-sp=\"1\">'
       + '<div class=\"accIcon\">' + escapeHtml(a.icon) + '</div>'
-      + '<div class=\"accInfo\"><div class=\"accName\">' + escapeHtml(a.name) + '<span class=\"accBadge\">特殊</span></div><div class=\"accDesc accEffect\">' + escapeHtml(a.effect || '') + '</div><div class=\"accNote\">他の装飾品と重ねて付けられる</div></div>'
+      + '<div class=\"accInfo\"><div class=\"accName\">' + escapeHtml(a.name) + '<span class=\"accBadge\">特殊</span></div><div class=\"accDesc accEffect\">' + escapeHtml(a.effect || '') + '</div></div>'
       + '<div class=\"spSwitch' + (on ? ' on' : '') + '\">' + (on ? 'ON' : 'OFF') + '<i></i></div></div>';
   }).join('');
   list.querySelectorAll('.accRow.pick').forEach(row => row.addEventListener('click', () => {
