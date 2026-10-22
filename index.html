@@ -6479,7 +6479,7 @@ class GameScene extends Phaser.Scene {
         en.cd -= dt;
         if (en.cd <= 0) { // 自分の斬撃と同じように、自分（プレイヤー）の方へ向けて放つ（場所は狙わない）
           en.tx = this.player.x; en.ty = this.player.y;
-          en.ang = Math.atan2(ty - e.gfx.y, tx - e.gfx.x);
+          en.ang = Math.atan2(en.ty - e.gfx.y, en.tx - e.gfx.x);
           en.flank = Math.random() < V.flankChance; // 回り込み：最初は上か下へそれて、大きく曲がりながら自分へ向かう
           en.off = en.flank ? (Math.random() < 0.5 ? 1 : -1) * V.flankAngle : 0; // 回り込みは、狙う向きからそれる角度（敵が動くので、向きは撃つ直前まで計算し直す）
           en.ang = Phaser.Math.Angle.Wrap(en.ang + en.off);
