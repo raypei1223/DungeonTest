@@ -2093,6 +2093,7 @@ function openPartyHall(onClose, opt) {
 //   部屋の中の座標は「ピクセル」で、PARTY_SLOTS などはその座標。マップは generatePartyMap()、飾りと調べる操作は GameScene の setupParty / _updateParty / _drawParty。
 const PARTY_SLOTS = [[60, 40], [130, 40], [200, 40], [440, 40], [510, 40], [580, 40], [16, 150], [16, 300], [624, 150], [624, 300], [110, 390], [530, 390], [16, 225], [16, 375], [624, 225], [624, 375], [60, 432], [190, 432], [450, 432], [580, 432]]; // メモを貼る場所（最大20枚。13枚目以降は左右の壁の間と下の壁に貼る）
 const PARTY_BALLOONS = [[90, 150], [550, 170], [120, 300], [520, 320], [240, 120], [60, 235]];
+const PARTY_OPEN_TO_ALL = true; // 🧪 テスト用：true の間は、エンディングを見ていない人（endingDone でない人）も、合言葉を入れればパーティールームに入れる。公開する前に false に戻す
 const PARTY_MEMOS_READABLE = true; // 📋 true の間は、パーティールームのメモをプレイヤーが読める（近づいて調べられる）。false にすると読めなくなる
 const PARTY_PORTAL = { i: -2, portal: true, x: 320, y: 118 }; // 🌿 草原への入口（メモと同じ要領で、近づいて E／タップ）
 const VS_HERO = { // ⚔ vs主人公の調整値
@@ -30483,7 +30484,7 @@ async function waitWithMessage(waitFn) {
   return false;
 }
 async function enterPartyRoom() { // 🎉 パーティールームへ：固定のルーム（PARTYLIVE）に入る。同時に入った人は、全員同じ部屋にいる（エンディングを見た人だけ）
-  try { if (!loadSave().endingDone) return; } catch (e) { return; }
+  try { if (!PARTY_OPEN_TO_ALL && !loadSave().endingDone) return; } catch (e) { return; } // PARTY_OPEN_TO_ALL（テスト用）が true なら、エンディング未視聴でも入れる
   partyOpen = true;
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   setLobbyBusy(true); setLobbyStatus('パーティールームに入室中...');
@@ -30506,7 +30507,7 @@ document.getElementById('soloBtn').addEventListener('click', async () => {
   try {
     if (!(await waitWithMessage(waitPartyNumber))) return; // 合言葉を読めなかった：始めずに、もう一度押してもらう
     let endingSeen = false; try { endingSeen = !!loadSave().endingDone; } catch (e) { /* 読めなければ、見ていない扱い */ }
-    const party = endingSeen && !PARTY_NOFB && PARTY_NUM != null && PARTY_NUM !== '' && PARTY_NUM === raw; // エンディングを見た（endingDone）人だけが入れる。見ていない人が合言葉を入れても、ふつうのダンジョン番号として扱う
+    const party = (endingSeen || PARTY_OPEN_TO_ALL) && !PARTY_NOFB && PARTY_NUM != null && PARTY_NUM !== '' && PARTY_NUM === raw; // エンディングを見た（endingDone）人だけが入れる。見ていない人が合言葉を入れても、ふつうのダンジョン番号として扱う
     discardPartyNumber(); // 読んだ番号は、確認が終わったらすぐ捨てる（どこにも保存しない）
     if (party) { document.getElementById('soloSeedInput').value = ''; enterPartyRoom(); return; } // 合言葉は入力欄にも残さない
     if (!(await waitWithMessage(waitGodFloor))) return; // 白い扉などの判定に使う雪原のフロアの番号も、読み終えてから始める
