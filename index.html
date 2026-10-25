@@ -146,6 +146,15 @@
     <div id="slotBar"><button id="editBtn" class="pill">編集</button><button id="synthBtn" class="pill">合成</button></div>
     <div id="slots"></div>
   </div>
+  <div id="result" class="overlay hidden">
+    <div class="card" style="text-align:center">
+      <div class="head"><span class="t">結果</span></div>
+      <div id="resText" style="font-size:6cqw;line-height:1.6;margin-bottom:3cqw"></div>
+      <button id="resNext" class="bigbtn">次のうんちへ</button>
+      <button id="resShop" class="bigbtn" style="background:#f59e0b;box-shadow:0 4px 0 #b36f00">ショップ</button>
+      <button id="resEdit" class="bigbtn" style="background:#2f80c0;box-shadow:0 4px 0 #1f5b8c">編集・合成</button>
+    </div>
+  </div>
   <div id="shop" class="overlay hidden">
     <div class="card">
       <div class="head"><span class="t">ショップ</span><span id="coins"></span><button id="closeShop">✕</button></div>
@@ -209,6 +218,18 @@
   var maxHm = 0;   // highest height (m) among the moments income was received
   var floaters = [];
 
+  // ---- explosions ----
+  var sparks = [], rings = [], chunks = [], ripples = [];
+  var pile = [], hm = [];   // settled chunks on the lake bottom, and the pile height per column
+  function resetPile() { pile = []; hm = []; for (var i = 0; i < 48; i++) hm.push(0); }
+  resetPile();
+  function addRipple(x, amp) { ripples.push({ x: x, amp: amp, age: 0 }); if (ripples.length > 6) ripples.shift(); }
+  var shakeT = 0, shakeA = 0;
+  var blastFly = null;   // { top, up } while the ball is flying after an explosion
+  var camY = 0;          // world y of the screen's top edge (0 = normal view, negative = camera moved up)
+  var actx = null, lastBoom = 0;
+  var BLAST_COLORS = ['#ff6b81', '#ffd43b', '#7cf0ff', '#b388ff', '#69f0ae'];
+
   // ---- recipe: the poops placed together on the synthesis screen ----
   // each part: { shape, r, ox, oy, rot }  (lengths in units of stage width)
   var recipe = [];
@@ -217,25 +238,15 @@
   var synthCss = 0;
 
   // ---- physics ----
-  var GRAVITY = 1200;
-  var WATER_DRAG = 3;
-  var SPAWN_INTERVAL = 3;
-  var ball = { x: 0, y: 0, vx: 0, vy: 0, r: 0, eq: 0.15, m: 0.03, th: 0, w: 0, invI: 0, parts: [{ ox: 0, oy: 0, wx: 0, wy: 0, r: 0 }], R: 0 };
-  var ANG_DRAG = 6;   // water resistance against spinning
-  var poops = [];
-  var dragging = null;       // { dx, dy } while the red ball is being dragged
-  var ballFalling = false;   // released, not landed yet
-  var ballTouched = false;   // the ball touched a poop during this step
-  var spawnT = 0;
-
+  var GRAVITY = 1200, WATER_DRAG = 2.5, ANG_DRAG = 6;
+  var poops = [], roundOn = false;
+  var resultEl = $('result');
+  function anyOverlay() { return [shopEl, editEl, synthEl, resultEl].some(function (e) { return !e.classList.contains('hidden'); }); }
   function resize() {
     dpr = window.devicePixelRatio || 1;
     W = stageEl.clientWidth; H = stageEl.clientHeight;
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var r = Math.min(W, H) * 0.06;
-    ball.r = r; ball.parts[0].r = r; ball.R = r;
-    ball.x = Math.min(Math.max(ball.x || W / 2, r), W - r);
   }
   window.addEventListener('resize', resize);
 
@@ -250,7 +261,10 @@
     }
   }
 
-  function updateMax() { $('maxHud').textContent = '最高高度 ' + maxHm.toFixed(2) + 'm'; }
+  function updateMax() {
+    var n = 0; poops.forEach(function (b) { n += b.parts.length; });
+    $('maxHud').textContent = '最高高度 ' + maxHm.toFixed(2) + 'm　残り ' + n + 'こ';
+  }
   function updateCoins() {
     $('coins').textContent = '💰 ' + coins;
     coinHud.textContent = '💰 ' + coins;
@@ -265,7 +279,7 @@
       var b = document.createElement('button');
       b.className = 'item' + (selected === id ? ' sel' : '');
       b.innerHTML = '<span class="em">' + a.emoji + '</span><span class="nm">' + a.name +
-        '<small>' + a.desc + '・' + a.life + '秒で壊れる</small></span><span class="pr">💰 ' + a.price + '</span>';
+        '<small>' + a.desc + '・爆発力 ' + '💥'.repeat(Math.round(a.price / 100)) + '</small></span><span class="pr">💰 ' + a.price + '</span>';
       b.addEventListener('click', function () { selected = id; $('msg').textContent = ''; renderShop(); });
       box.appendChild(b);
     });
@@ -277,7 +291,7 @@
   }
   function openShop() { paused = true; shopChanged = false; $('msg').textContent = ''; showShopMain(); renderShop(); shopEl.classList.remove('hidden'); }
   function closeShop() {
-    paused = false; shopEl.classList.add('hidden');
+    shopEl.classList.add('hidden'); paused = anyOverlay();
     if (shopChanged) { shopChanged = false; openSynth(); }
   }
   function finishPurchase(k, at) {
@@ -383,7 +397,7 @@
     paused = true; editSel = null; editChanged = false; renderEdit(); editEl.classList.remove('hidden');
   });
   $('closeEdit').addEventListener('click', function () {
-    paused = false; editEl.classList.add('hidden');
+    editEl.classList.add('hidden'); paused = anyOverlay();
     if (editChanged) { editChanged = false; openSynth(); }   // slots changed -> synthesis screen
   });
   $('synthBtn').addEventListener('click', function () { openSynth(); });
@@ -430,7 +444,7 @@
       }
     }
     if (at) best = at;
-    recipe.push({ shape: a.shape, r: r, ox: best.x, oy: best.y, rot: 0, life: a.life, slot: slot });
+    recipe.push({ shape: a.shape, r: r, ox: best.x, oy: best.y, rot: 0, life: a.life, blast: Math.max(1, a.price / 100), slot: slot });
     synthSel = recipe.length - 1;
   }
 
@@ -509,7 +523,7 @@
     drawSynth();
   }
   function closeSynth() {
-    if (!allConnected()) return; synthEl.classList.add('hidden'); paused = false; }
+    if (!allConnected()) return; synthEl.classList.add('hidden'); paused = anyOverlay(); }
 
   var drag = null;
   function synthPoint(e) {
@@ -558,7 +572,7 @@
   holdRepeat($('zoomIn'), function () { setZoom(SYNTH_ZOOM * 1.25); });
   $('synthDone').addEventListener('click', closeSynth);
 
-  // ---- game start ----
+  // ---- game start / rounds ----
   function startPlay() {
     try { screen.orientation.lock('portrait').catch(function () {}); } catch (e) {}
     titleEl.classList.add('hidden');
@@ -567,52 +581,64 @@
     bottomEl.classList.remove('hidden');
     coinHud.classList.remove('hidden');
     $('maxHud').classList.remove('hidden');
-    maxHm = 0; updateMax();
-    incomeT = 0; floaters = [];
-    dragging = null; ballFalling = false;
-    ball.x = 0;
+    shakeT = 0; initAudio();
     resize();
-    ball.x = W / 2;
-    ball.y = H * 0.5 - ball.r * 3;
-    ball.vx = 0; ball.vy = 0;
-    poops = []; spawnT = 0;
-    slots = [{ id: 'rabbit' }, null, null, null, null];
+    slots = [{ id: 'rabbit' }, { id: 'rabbit' }, { id: 'rabbit' }, null, null];
     storage = [];
-    recipe = [{ shape: 'round', r: ANIMALS.rabbit.r, ox: 0, oy: 0, rot: 0, life: ANIMALS.rabbit.life, slot: 0 }];
+    var T = [[-0.0495, 0.0286], [0.0495, 0.0286], [0, -0.0572]];
+    recipe = T.map(function (t, i) { return { shape: 'round', r: ANIMALS.rabbit.r, ox: t[0], oy: t[1], rot: 0, life: 0, blast: 1, slot: i }; });
     renderSlots(); updateCoins();
-    paused = false;
-    running = true;
-    last = performance.now();
+    running = true; last = performance.now();
+    startRound();
     requestAnimationFrame(loop);
   }
   $('play').addEventListener('click', startPlay);
+  function startRound() {
+    poops = []; sparks = []; rings = []; chunks = []; ripples = []; resetPile(); camY = 0; maxHm = 0;
+    spawnComposite();
+    roundOn = true; resultEl.classList.add('hidden'); paused = anyOverlay();
+    updateMax();
+  }
+  function endRound() {
+    roundOn = false;
+    var gain = Math.floor(maxHm * 200);   // money from the highest altitude reached
+    coins += gain; updateCoins();
+    $('resText').innerHTML = '最高高度 ' + maxHm.toFixed(2) + 'm<br>💰 +' + gain;
+    resultEl.classList.remove('hidden'); paused = true;
+  }
+  $('resNext').addEventListener('click', startRound);
+  $('resShop').addEventListener('click', openShop);
+  $('resEdit').addEventListener('click', function () { $('editBtn').click(); });
 
-  // ---- drag the red ball ----
+  // tap a poop: it explodes right now (no chain reaction)
   function canvasPoint(e) {
     var rc = canvas.getBoundingClientRect();
-    return { x: (e.clientX - rc.left) * W / rc.width, y: (e.clientY - rc.top) * H / rc.height };
+    return { x: (e.clientX - rc.left) * W / rc.width, y: (e.clientY - rc.top) * H / rc.height + camY };
   }
+  function topY(b) { var m = 1e9; b.parts.forEach(function (q) { m = Math.min(m, b.y + q.wy - q.r); }); return m; }
   canvas.addEventListener('pointerdown', function (e) {
-    if (!running || paused || dragging) return;
-    var pt = canvasPoint(e);
-    if (Math.hypot(pt.x - ball.x, pt.y - ball.y) > ball.r * 1.8) return;
-    dragging = { dx: pt.x - ball.x, dy: pt.y - ball.y };
-    ball.vx = 0; ball.vy = 0; ball.w = 0;
-    canvas.setPointerCapture(e.pointerId);
+    if (!running || paused || !roundOn) return;
+    var pt = canvasPoint(e), best = null, bd = 1e9;
+    poops.forEach(function (b) {
+      b.parts.forEach(function (q) {
+        var p = { ox: b.x + q.wx, oy: b.y + q.wy, r: q.r, rot: q.rot + b.th, shape: q.shape };
+        var d = Math.hypot(pt.x - p.ox, pt.y - p.oy);
+        if ((inside(p, pt.x, pt.y, q.r * 0.35) || d < q.r * 1.2) && d < bd) { bd = d; best = { b: b, q: q, x: p.ox, y: p.oy }; }
+      });
+    });
+    if (!best) return;
+    if (best.b.parts.length === 1 && poops.length > 1 && poops.every(function (o) { return o === best.b || topY(o) > topY(best.b); })) {
+      var pts = [];
+      poops.forEach(function (o) { o.parts.forEach(function (q) { pts.push({ x: o.x + q.wx, y: o.y + q.wy, p: q.blast || 1 }); }); });
+      poops = [];
+      pts.forEach(function (t) { explode(t.x, t.y, t.p); });
+      return;
+    }
+    var alive = best.b.parts.filter(function (p) { return p !== best.q; });
+    poops.splice(poops.indexOf(best.b), 1);
+    if (alive.length) Array.prototype.push.apply(poops, splitBody(best.b, alive));
+    explode(best.x, best.y, best.q.blast || 1);
   });
-  canvas.addEventListener('pointermove', function (e) {
-    if (!dragging) return;
-    var pt = canvasPoint(e);
-    ball.x = Math.max(ball.r, Math.min(W - ball.r, pt.x - dragging.dx));
-    ball.y = Math.max(ball.r, Math.min(H - ball.r, pt.y - dragging.dy));
-  });
-  function releaseBall() {
-    if (!dragging) return;
-    dragging = null;
-    ballFalling = true;   // no income until it has landed
-  }
-  canvas.addEventListener('pointerup', releaseBall);
-  canvas.addEventListener('pointercancel', releaseBall);
 
   // ---- the finished poop floats up from the bottom, at a random x ----
   // Each poop is a rigid body: it moves AND rotates (buoyancy acts on every part, so uneven submersion makes torque).
@@ -623,11 +649,11 @@
     var parts = [], R = 0;
     for (i = 0; i < recipe.length; i++) {
       p = recipe[i];
-      var q = { ox: (p.ox - cx) * W, oy: (p.oy - cy) * W, r: p.r * W, shape: p.shape, rot: p.rot, age: 0, life: p.life };
+      var q = { ox: (p.ox - cx) * W, oy: (p.oy - cy) * W, r: p.r * W, shape: p.shape, rot: p.rot, age: 0, life: p.life, blast: p.blast || 1 };
       parts.push(q);
       R = Math.max(R, Math.hypot(q.ox, q.oy) + q.r);
     }
-    poops.push(makeBody(parts, R + Math.random() * (W - 2 * R), H + R, 0, 0, 0, 0));
+    poops.push(makeBody(parts, W / 2, H * 0.78 - R, 0, 0, 0, 0));
   }
 
   // a rigid body made of parts (ox/oy are relative to the body's centre of mass, in the body's own frame)
@@ -682,26 +708,31 @@
   }
 
   function integrate(b, dt) {
-    var waterY = H * 0.5, S = 0, tot = 0, torque = 0, i, p;
+    var waterY = H * 0.08, GY = H * 0.78, S = 0, tot = 0, i, p;
     for (i = 0; i < b.parts.length; i++) {
       p = b.parts[i];
-      var si = Math.max(0, Math.min(1, (b.y + p.wy + p.r - waterY) / (p.r * 2)));
-      var wt = p.r * p.r;
-      S += si * wt; tot += wt;
-      if (b.invI) torque += -(wt / b.w0) * GRAVITY * si / b.eq * p.wx;   // buoyancy at each part
+      S += Math.max(0, Math.min(1, (b.y + p.wy + p.r - waterY) / (p.r * 2))) * p.r * p.r; tot += p.r * p.r;
     }
     S /= tot;
-    b.vy += GRAVITY * (1 - S / b.eq) * dt;
-    var k = 1 - Math.min(1, WATER_DRAG * S * dt);
+    b.vy += GRAVITY * (1 - 0.8 * S) * dt;     // slow sinking in water
+    var sp = Math.hypot(b.vx, b.vy), k = 1 - Math.min(0.9, (WATER_DRAG + 3 * sp / W) * S * dt);   // drag grows with speed: fast things are braked hard
     b.vx *= k; b.vy *= k;
-    if (b.invI) {
-      b.w += torque * b.invI * dt;
-      b.w *= 1 - Math.min(1, (ANG_DRAG * S + 0.3) * dt);
-      b.w = Math.max(-12, Math.min(12, b.w));
-      b.th += b.w * dt;
-      updWorld(b);
-    }
+    b.w *= 1 - Math.min(1, (ANG_DRAG * S + 0.3) * dt);
+    b.w = Math.max(-12, Math.min(12, b.w));
+    b.th += b.w * dt; updWorld(b);
     b.x += b.vx * dt; b.y += b.vy * dt;
+    for (i = 0; i < b.parts.length; i++) {      // lake-bottom ground
+      p = b.parts[i];
+      var pen = b.y + p.wy + p.r - GY;
+      if (pen <= 0) continue;
+      b.y -= pen;
+      var rx = p.wx, ry = p.wy + p.r, vc = b.vy + b.w * rx;
+      if (vc > 0) {
+        var j = 1.2 * vc / (1 / b.m + b.invI * rx * rx);
+        b.vy -= j / b.m; b.w -= rx * j * b.invI;
+      }
+      var fr = Math.min(1, 10 * dt); b.vx *= 1 - fr; b.w *= 1 - fr * 0.5;
+    }
     var l = 0, r = 0;
     for (i = 0; i < b.parts.length; i++) { p = b.parts[i]; l = Math.max(l, p.r - p.wx); r = Math.max(r, p.r + p.wx); }
     if (b.x - l < 0) { b.x = l; b.vx = Math.abs(b.vx) * 0.3; }
@@ -719,7 +750,6 @@
         var dx = (b.x + pb.wx) - ax, dy = (b.y + pb.wy) - ay, min = pa.r + pb.r;
         var d2 = dx * dx + dy * dy;
         if (d2 >= min * min) continue;
-        if (a === ball || b === ball) ballTouched = true;
         var d = Math.sqrt(d2), nx = 1, ny = 0;
         if (d > 0.0001) { nx = dx / d; ny = dy / d; }
         var push = min - d;
@@ -741,90 +771,216 @@
     }
   }
 
-  function step(dt) {
-    spawnT += dt;
-    if (spawnT >= SPAWN_INTERVAL) { spawnT -= SPAWN_INTERVAL; spawnComposite(); }
-
-    incomeT += dt;
-    if (incomeT >= 1) {
-      incomeT -= 1;
-      var rest = H * 0.5 - ball.r * (1 - 2 * ball.eq);
-      var gain = Math.floor((rest - ball.y) / (H * 0.01));
-      if (gain > 0 && !dragging && !ballFalling) {   // no income while dragging or falling
-        coins += gain; updateCoins();
-        var hm = (rest - ball.y) / (ball.r * 2) * 0.1;
-        if (hm > maxHm) { maxHm = hm; updateMax(); }
-        floaters.push({ text: '+' + gain, x: ball.x, y: ball.y - ball.r * 1.6, age: 0, ly: ball.y, ry: rest,
-          hm: (rest - ball.y) / (ball.r * 2) * 0.1 });   // the red ball (diameter) counts as 10 cm
+  // ---- explosion: a poop bursts like a firework shell when its life ends ----
+  function initAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch (e) {}
+  }
+  function boomSound(blast) {   // a short, small, wet "buri": irregular low pulses + turbulence noise
+    var now = performance.now();
+    if (now - lastBoom < 40) return;
+    lastBoom = now;
+    try {
+      if (!actx) return;
+      var sr = actx.sampleRate, dur = 0.2 + 0.05 * Math.min(blast, 3), n = Math.floor(sr * dur);
+      var buf = actx.createBuffer(1, n, sr), d = buf.getChannelData(0);
+      var f0 = 85 + Math.random() * 40, ph = 0, jit = 0, pc = 0, amp = 1, lp = 0, lp2 = 0, i;
+      for (i = 0; i < n; i++) {
+        var tt = i / n;
+        jit = jit * 0.995 + (Math.random() - 0.5) * 0.03;   // slow pitch wobble
+        var f = f0 * (1.5 - 0.7 * tt) * (1 + jit);          // pitch sags as it goes
+        ph += f / sr;
+        if (ph >= 1) { ph -= 1; pc++; amp = (pc & 1 ? 0.7 : 1) * (0.85 + Math.random() * 0.3); }   // uneven pulses
+        var pulse = Math.exp(-ph * 6) * Math.min(1, ph / 0.03) * amp;
+        var raw = pulse * (1 + (Math.random() * 2 - 1) * 0.7);   // turbulence rides on each pulse
+        lp += 0.2 * (raw - lp); lp2 += 0.2 * (lp - lp2);          // soft, muffled
+        var env = Math.min(1, i / (sr * 0.008)) * Math.pow(1 - tt, 0.8);
+        d[i] = lp2 * env * 1.6;
+      }
+      var src = actx.createBufferSource(), g = actx.createGain();
+      src.buffer = buf; g.gain.value = Math.min(0.32, 0.2 + 0.03 * blast);
+      src.connect(g); g.connect(actx.destination); src.start();
+    } catch (e) {}
+  }
+  function explode(x, y, blast) {
+    var wet = y > H * 0.08, R = W * (0.12 + 0.07 * blast) * (wet ? 1.3 : 1), i, b, dx, dy, d, f, v, nx, ny, n;
+    poops.forEach(function (b) {
+      var sx = 0, sy = 0, tq = 0;
+      b.parts.forEach(function (q) {
+        dx = b.x + q.wx - x; dy = b.y + q.wy - y; d = Math.hypot(dx, dy);
+        f = 1 - d / (R + q.r);
+        if (f <= 0) return;
+        nx = d > 0.001 ? dx / d : 0; ny = d > 0.001 ? dy / d : -1;
+        ny -= 0.5; n = Math.hypot(nx, ny); nx /= n; ny /= n;
+        v = f * W * (2.2 + blast) * (b.y + q.wy > H * 0.08 ? 1.7 : 1); var wt = q.r * q.r / b.w0;
+        sx += wt * v * nx; sy += wt * v * ny; tq += wt * v * (q.wx * ny - q.wy * nx);
+      });
+      b.vx += sx / b.m; b.vy += sy / b.m; b.w += tq * b.invI * 0.15;
+      var sp = Math.hypot(b.vx, b.vy), cap = W * 5;
+      if (sp > cap) { b.vx *= cap / sp; b.vy *= cap / sp; }
+    });
+    var sd = Math.abs(y - H * 0.08);
+    if (sd < R * 1.6) addRipple(x, Math.min(W * 0.06, W * 0.035 * blast * (1 - sd / (R * 1.6))));
+    // poop chunks: brown pieces that scatter, rather heavy
+    var col = '#ffe3a3', pc = ['#7b4a1e', '#6b3f16', '#8a5626', '#5f4120', '#98622e'];
+    var cnt = Math.min(Math.round(12 + 6 * blast), Math.max(0, 140 - chunks.length));
+    for (i = 0; i < cnt; i++) {
+      var ang = Math.random() * Math.PI * 2, spd = R * (1.4 + 2.2 * Math.random()) * (wet ? 0.7 : 1);
+      chunks.push({ x: x, y: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - R * 0.5, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 14,
+        age: 0, life: 1.6 + Math.random() * 1.0, size: W * (0.012 + 0.014 * Math.random()) * (0.8 + 0.25 * blast), col: pc[(Math.random() * pc.length) | 0] });
+    }
+    boomSound(blast);
+    try { if (navigator.vibrate) navigator.vibrate(12 + 10 * blast); } catch (e) {}
+  }
+  function updFx(dt) {
+    var i, s, k = Math.exp(-2.2 * dt);
+    for (i = 0; i < sparks.length; i++) {
+      s = sparks[i]; s.age += dt;
+      s.vx *= k; s.vy = s.vy * k + 500 * dt;
+      s.x += s.vx * dt; s.y += s.vy * dt;
+    }
+    sparks = sparks.filter(function (o) { return o.age < o.life; });
+    for (i = 0; i < chunks.length; i++) {
+      s = chunks[i]; s.age += dt;
+      var inW = s.y > H * 0.08, kc = Math.exp(-(inW ? 3.5 : 0.6) * dt);
+      s.vx *= kc; s.vy = s.vy * kc + (inW ? 600 : 2200) * dt;   // heavy: falls fast in air, sinks slowly in water
+      s.x += s.vx * dt; s.y += s.vy * dt; s.rot += s.vr * dt;
+      var bi = Math.max(0, Math.min(47, Math.floor(s.x / W * 48))), fy = H * 0.78 - hm[bi];
+      if (s.y + s.size * 0.5 >= fy) {   // landed: it stays and piles up
+        s.dead = true;
+        pile.push({ x: Math.max(0, Math.min(W, s.x)), y: fy - s.size * 0.4 + (Math.random() - 0.5) * s.size * 0.3, rot: s.rot, size: s.size, col: s.col });
+        hm[bi] = Math.min(W * 0.15, hm[bi] + s.size * 0.7);
+        if (pile.length > 500) pile.shift();
       }
     }
-    for (var f = 0; f < floaters.length; f++) { floaters[f].age += dt; floaters[f].y -= 40 * dt; }
-    floaters = floaters.filter(function (o) { return o.age < 1; });
-
-    if (dragging) { ball.vx = 0; ball.vy = 0; } else integrate(ball, dt);
+    chunks = chunks.filter(function (o) { return !o.dead; });
+    for (i = 0; i < ripples.length; i++) ripples[i].age += dt;
+    ripples = ripples.filter(function (o) { return o.age < 2.5; });
+    for (i = 0; i < rings.length; i++) rings[i].age += dt;
+    rings = rings.filter(function (o) { return o.age < o.life; });
+    if (shakeT > 0) shakeT -= dt;
+  }
+  function step(dt) {
+    updFx(dt);
     var i, j;
-    for (i = 0; i < poops.length; i++) {
-      integrate(poops[i], dt);
-      poops[i].parts.forEach(function (q) { q.age += dt; });
-    }
-    var all = (dragging ? [] : [ball]).concat(poops);   // the held ball passes through poops
-    ballTouched = false;
-    for (i = 0; i < all.length; i++)
-      for (j = i + 1; j < all.length; j++) collide(all[i], all[j]);
-    // landed: touched the water or a poop after being released
-    if (ballFalling && !dragging && (ballTouched || ball.y + ball.r >= H * 0.5)) ballFalling = false;
-    // each part breaks on its own once its lifetime is over (kinds differ)
-    var next = [];
+    for (i = 0; i < poops.length; i++) integrate(poops[i], dt);
+    for (i = 0; i < poops.length; i++)
+      for (j = i + 1; j < poops.length; j++) collide(poops[i], poops[j]);
+    var top = 1e9;
     poops.forEach(function (b) {
-      var alive = b.parts.filter(function (q) { return q.age < q.life; });
-      if (alive.length === b.parts.length) next.push(b);
-      else if (alive.length) Array.prototype.push.apply(next, splitBody(b, alive));
+      top = Math.min(top, b.y);
+      var inW = b.y > H * 0.08;   // crossing the surface fast makes a ripple
+      if (b.wasIn !== undefined && b.wasIn !== inW) { var spd = Math.hypot(b.vx, b.vy); if (spd > W * 0.4) addRipple(b.x, Math.min(W * 0.04, spd * 0.012)); }
+      b.wasIn = inW;
+      b.parts.forEach(function (q) {
+        var h = (H * 0.78 - (b.y + q.wy + q.r)) / (W * 1.2);   // metres above the water (1 m = 1.2 widths)
+        if (h > maxHm) maxHm = h;
+      });
     });
-    poops = next;
+    if (roundOn) updateMax();
+    if (poops.length) {   // camera follows the highest poop
+      var camTarget = Math.min(0, top - H * 0.3);
+      camY += (camTarget - camY) * (1 - Math.exp(-5 * dt));
+      if (camY > -0.05) camY = 0;
+    } else if (roundOn && !sparks.length && !chunks.length) endRound();
   }
 
+  var waveY = [];
   function draw() {
-    var waterY = H * 0.5;
-    var sky = ctx.createLinearGradient(0, 0, 0, waterY);
-    sky.addColorStop(0, '#9fd8ff'); sky.addColorStop(1, '#e3f4ff');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, waterY);
+    var waterY = H * 0.08;
+    // wavy surface: two sine waves sampled at a few dozen points (cheap)
+    var WN = 36, wt = performance.now() / 1000, wj;
+    for (wj = 0; wj <= WN; wj++) { var wx = wj / WN * W; var wv = waterY + W * 0.007 * Math.sin(wx * 0.035 + wt * 1.6) + W * 0.004 * Math.sin(wx * 0.09 - wt * 2.3);
+      for (var ri = 0; ri < ripples.length; ri++) {   // ripples spread out from where things hit or blast the surface
+        var rp = ripples[ri], rd = Math.abs(wx - rp.x), fr = Math.max(0, Math.min(1, (rp.age * W * 0.9 - rd) / (W * 0.1)));
+        if (fr > 0) wv += rp.amp * fr * Math.exp(-rd / (W * 0.5) - rp.age * 1.4) * Math.sin(rd * 0.08 - rp.age * 9);
+      }
+      waveY[wj] = wv;
+    }
+    function wavePath() {
+      ctx.beginPath(); ctx.moveTo(0, waveY[0]);
+      for (var j = 1; j <= WN; j++) ctx.lineTo(j / WN * W, waveY[j]);
+      ctx.lineTo(W, H + 40); ctx.lineTo(0, H + 40); ctx.closePath();
+    }
+    ctx.save();
+    if (shakeT > 0) { var sa = shakeA * Math.min(1, shakeT / 0.2); ctx.translate((Math.random() - 0.5) * 2 * sa, (Math.random() - 0.5) * 2 * sa); }
+    ctx.translate(0, -camY);   // camera
+    var alt = Math.min(1, -camY / (H * 4));
+    var sky = ctx.createLinearGradient(0, camY, 0, waterY);
+    sky.addColorStop(0, 'rgb(' + Math.round(159 - 139 * alt) + ',' + Math.round(216 - 186 * alt) + ',' + Math.round(255 - 175 * alt) + ')');
+    sky.addColorStop(1, '#e3f4ff');
+    ctx.fillStyle = sky; ctx.fillRect(0, camY - 40, W, waterY - camY + 40 + W * 0.03);
     var wg = ctx.createLinearGradient(0, waterY, 0, H);
     wg.addColorStop(0, '#3a9ad9'); wg.addColorStop(1, '#0d4f8b');
-    ctx.fillStyle = wg; ctx.fillRect(0, waterY, W, H - waterY);
+    ctx.fillStyle = wg; wavePath(); ctx.fill();
+    ctx.fillStyle = '#7a6a48'; ctx.fillRect(0, H * 0.78, W, H * 0.22 + 40);
+    ctx.fillStyle = '#9a8860'; ctx.fillRect(0, H * 0.78, W, 3);
+    for (k = 0; k < pile.length; k++) { var pp = pile[k]; ctx.fillStyle = pp.col; ctx.beginPath(); ctx.ellipse(pp.x, pp.y, pp.size, pp.size * 0.72, pp.rot, 0, 6.2832); ctx.fill(); }
     var i, k, b, q;
+    // height marks every 0.5 m (visible only when the camera is up)
+    if (camY < -1) {
+      var restY = H * 0.78, mpx = W * 1.2;   // pixels per metre
+      var k0 = Math.max(1, Math.ceil((restY - (camY + H)) / mpx / 0.5)), k1 = Math.min(k0 + 40, Math.floor((restY - camY) / mpx / 0.5));
+      ctx.font = 'bold ' + Math.round(Math.min(W, H) * 0.035) + 'px sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+      ctx.lineWidth = 1.5; ctx.setLineDash([6, 8]);
+      for (var hk = k0; hk <= k1; hk++) {
+        var my = restY - hk * 0.5 * mpx;
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.beginPath(); ctx.moveTo(0, my); ctx.lineTo(W, my); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.fillText((hk * 0.5).toFixed(1) + 'm', 6, my - 3);
+      }
+      ctx.setLineDash([]);
+    }
     for (i = 0; i < poops.length; i++) {
       b = poops[i];
-      for (k = 0; k < b.parts.length; k++) { q = b.parts[k]; drawShape(ctx, q.shape, b.x + q.wx, b.y + q.wy, q.r, q.rot + b.th); }
+      for (k = 0; k < b.parts.length; k++) {
+        q = b.parts[k];
+        drawShape(ctx, q.shape, b.x + q.wx, b.y + q.wy, q.r, q.rot + b.th);
+      }
     }
-    ell(ctx, ball.x, ball.y, ball.r, ball.r, '#e53935');
-    ell(ctx, ball.x - ball.r * 0.3, ball.y - ball.r * 0.3, ball.r * 0.25, ball.r * 0.25, 'rgba(255,255,255,0.35)');
-    ctx.fillStyle = 'rgba(30,120,200,0.45)';
-    ctx.fillRect(0, waterY, W, H - waterY);
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillRect(0, waterY - 1, W, 2);
-    ctx.font = 'bold ' + Math.round(Math.min(W, H) * 0.07) + 'px sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineWidth = 4; ctx.lineJoin = 'round';
-    for (k = 0; k < floaters.length; k++) {
-      var o = floaters[k];
-      ctx.globalAlpha = Math.max(0, 1 - o.age);
-      // height line (gold) at the ball's height
-      ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
-      ctx.strokeStyle = '#ffd43b';
-      ctx.beginPath(); ctx.moveTo(0, o.ly); ctx.lineTo(W, o.ly); ctx.stroke();
-      ctx.setLineDash([]);
-      // height value above the gold line, at the right edge
-      ctx.font = 'bold ' + Math.round(Math.min(W, H) * 0.05) + 'px sans-serif';
-      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3;
-      var label = o.hm.toFixed(2) + 'm';
-      ctx.strokeStyle = '#7a4a00'; ctx.strokeText(label, W - 8, o.ly - 4);
-      ctx.fillStyle = '#ffd43b'; ctx.fillText(label, W - 8, o.ly - 4);
-      ctx.font = 'bold ' + Math.round(Math.min(W, H) * 0.07) + 'px sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4;
-      ctx.strokeStyle = '#7a4a00'; ctx.strokeText(o.text, o.x, o.y);
-      ctx.fillStyle = '#ffd43b'; ctx.fillText(o.text, o.x, o.y);
+    ctx.fillStyle = 'rgba(30,120,200,0.45)'; wavePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, waveY[0]);
+    for (wj = 1; wj <= WN; wj++) ctx.lineTo(wj / WN * W, waveY[wj]);
+    ctx.stroke();
+    if (maxHm > 0.02) {   // record line
+      var by = H * 0.78 - maxHm * W * 1.2, lb = maxHm.toFixed(2) + 'm';
+      ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.strokeStyle = '#ffd43b';
+      ctx.beginPath(); ctx.moveTo(0, by); ctx.lineTo(W, by); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = 'bold ' + Math.round(W * 0.05) + 'px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3;
+      ctx.strokeStyle = '#7a4a00'; ctx.strokeText(lb, W - 8, by - 4);
+      ctx.fillStyle = '#ffd43b'; ctx.fillText(lb, W - 8, by - 4);
+    }
+    for (k = 0; k < chunks.length; k++) {
+      var ch = chunks[k];
+      ctx.globalAlpha = 1;
+      ctx.save(); ctx.translate(ch.x, ch.y); ctx.rotate(ch.rot);
+      ell(ctx, 0, 0, ch.size, ch.size * 0.72, ch.col);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
+    // firework effects
+    ctx.globalCompositeOperation = 'lighter';
+    for (k = 0; k < rings.length; k++) {
+      var rg = rings[k], t = rg.age / rg.life;
+      ctx.globalAlpha = Math.max(0, 1 - t) * 0.5;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.rMax * 0.35 * (1 - t * 0.5), 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = Math.max(0, 1 - t);
+      ctx.strokeStyle = rg.col; ctx.lineWidth = Math.max(2, W * 0.012 * (1 - t));
+      ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.rMax * (0.2 + 0.8 * t), 0, Math.PI * 2); ctx.stroke();
+    }
+    for (k = 0; k < sparks.length; k++) {
+      var sp2 = sparks[k], al = 1 - sp2.age / sp2.life;
+      ctx.globalAlpha = al; ctx.fillStyle = sp2.col;
+      ctx.beginPath(); ctx.arc(sp2.x, sp2.y, sp2.size * (0.5 + 0.5 * al), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   var last = 0, acc = 0;
