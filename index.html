@@ -126,7 +126,7 @@
   .chip.empty { opacity: 0.55; border-style: dashed; }
   button.chip:active { background: #fff3d1; border-color: #f59e0b; }
   .sec { font-weight: bold; margin: 1cqw 0 2cqw; }
-  #edit .card { max-height: 90%; overflow: auto; }
+  #edit .card, #shop .card { max-height: 90%; overflow: auto; }
   #pickTitle { font-weight: bold; margin-bottom: 3cqw; }
   #pickCancel { background: #9aa4ad; box-shadow: 0 4px 0 #6f7983; }
   .hidden { display: none !important; }
@@ -138,6 +138,7 @@
   <div id="title">
     <h1>湖にうんちを<br>浮かべるゲーム</h1>
     <button id="play">プレイ</button>
+    <button id="resetSave" class="hidden" style="position:absolute;left:50%;bottom:6cqw;transform:translateX(-50%);font-size:3.5cqw;padding:1.5cqw 4cqw;border:0;border-radius:2cqw;background:rgba(255,255,255,0.7);color:#555">データを消す</button>
   </div>
   <button id="shopBtn" class="hidden">ショップ</button>
   <div id="coinHud" class="hidden"></div>
@@ -152,7 +153,8 @@
       <div id="resText" style="font-size:6cqw;line-height:1.6;margin-bottom:3cqw"></div>
       <button id="resNext" class="bigbtn">次のうんちへ</button>
       <button id="resShop" class="bigbtn" style="background:#f59e0b;box-shadow:0 4px 0 #b36f00">ショップ</button>
-      <button id="resEdit" class="bigbtn" style="background:#2f80c0;box-shadow:0 4px 0 #1f5b8c">編集・合成</button>
+      <button id="resEdit" class="bigbtn" style="background:#2f80c0;box-shadow:0 4px 0 #1f5b8c">編集</button>
+      <button id="resSynth" class="bigbtn" style="background:#8b5cf6;box-shadow:0 4px 0 #5b36b0">合成</button>
     </div>
   </div>
   <div id="shop" class="overlay hidden">
@@ -160,6 +162,7 @@
       <div class="head"><span class="t">ショップ</span><span id="coins"></span><button id="closeShop">✕</button></div>
       <div id="items"></div>
       <button id="buy" class="bigbtn" disabled>買う</button>
+      <button id="buySlot" class="bigbtn" style="background:#2f9e5b;box-shadow:0 4px 0 #1e6e3e"></button>
       <div id="pick" class="hidden">
         <div id="pickTitle">どのスロットと入れ替える?(外した動物は倉庫へ)</div>
         <div id="pickSlots" class="grid"></div>
@@ -203,11 +206,21 @@
 
   // ---- animals: each one has a different poop shape ----
   var ANIMALS = {
-    rabbit: { emoji: '🐰', name: 'うさぎ', shape: 'round', desc: 'まるいうんち', price: 100, r: 0.05, life: 30 },
-    dog:    { emoji: '🐶', name: 'いぬ',   shape: 'swirl', desc: 'とぐろのうんち', price: 200, r: 0.055, life: 45 },
-    cow:    { emoji: '🐮', name: 'うし',   shape: 'pie',   desc: 'ぺちゃんこうんち', price: 300, r: 0.055, life: 20 }
+    mouse:    { emoji: '🐭', name: 'ねずみ',   shape: 'round',   desc: 'ちいさなつぶ',       price: 50,  r: 0.032 },
+    rabbit:   { emoji: '🐰', name: 'うさぎ',   shape: 'round',   desc: 'まるいうんち',       price: 100, r: 0.05 },
+    chicken:  { emoji: '🐔', name: 'にわとり', shape: 'drop',    desc: 'しずくのうんち',     price: 150, r: 0.045 },
+    dog:      { emoji: '🐶', name: 'いぬ',     shape: 'swirl',   desc: 'とぐろのうんち',     price: 200, r: 0.055 },
+    sheep:    { emoji: '🐑', name: 'ひつじ',   shape: 'pellets', desc: 'ころころうんち',     price: 250, r: 0.05 },
+    cow:      { emoji: '🐮', name: 'うし',     shape: 'pie',     desc: 'ぺちゃんこうんち',   price: 300, r: 0.055 },
+    horse:    { emoji: '🐴', name: 'うま',     shape: 'long',    desc: 'ながいうんち',       price: 400, r: 0.05 },
+    giraffe:  { emoji: '🦒', name: 'きりん',   shape: 'stick',   desc: 'たてながうんち',     price: 450, r: 0.045 },
+    hippo:    { emoji: '🦛', name: 'かば',     shape: 'pie',     desc: 'どでかぺちゃんこ',   price: 600, r: 0.085 },
+    elephant: { emoji: '🐘', name: 'ぞう',     shape: 'round',   desc: 'きょだいなまる',     price: 700, r: 0.085 },
+    dino:     { emoji: '🦖', name: 'きょうりゅう', shape: 'swirl', desc: 'きょだいなとぐろ', price: 800, r: 0.09 }
   };
-  var SLOT_COUNT = 5;
+
+  var MIN_SLOTS = 5, MAX_SLOTS = 15;
+  function slotPrice(n) { return 200 * (n - 3); }   // price of the (n+1)th slot
   var slots = [];   // { id } or null
   var storage = []; // owned animals that are not set in a slot (倉庫)
   var picking = false;
@@ -239,7 +252,7 @@
 
   // ---- physics ----
   var GRAVITY = 1200, WATER_DRAG = 2.5, ANG_DRAG = 6;
-  var poops = [], roundOn = false;
+  var poops = [], roundOn = false, endT = 0, bestHm = 0;
   var resultEl = $('result');
   function anyOverlay() { return [shopEl, editEl, synthEl, resultEl].some(function (e) { return !e.classList.contains('hidden'); }); }
   function resize() {
@@ -253,9 +266,12 @@
   // ---- slots UI ----
   function renderSlots() {
     slotsEl.innerHTML = '';
-    for (var i = 0; i < SLOT_COUNT; i++) {
+    var many = slots.length > MIN_SLOTS;
+    slotsEl.style.gridTemplateColumns = 'repeat(' + (many ? 8 : 5) + ', 1fr)';
+    for (var i = 0; i < slots.length; i++) {
       var d = document.createElement('div');
       d.className = 'slot' + (slots[i] ? '' : ' empty');
+      if (many) d.style.fontSize = '6cqw';
       d.textContent = slots[i] ? ANIMALS[slots[i].id].emoji : '';
       slotsEl.appendChild(d);
     }
@@ -284,10 +300,22 @@
       box.appendChild(b);
     });
     $('buy').disabled = !selected;
+    var n = slots.length, bs = $('buySlot');
+    if (n >= MAX_SLOTS) { bs.textContent = 'スロットは最大です(' + n + '/' + MAX_SLOTS + ')'; bs.disabled = true; }
+    else { bs.textContent = 'スロットを増やす 💰' + slotPrice(n) + '(' + n + '/' + MAX_SLOTS + ')'; bs.disabled = false; }
+  }
+  function buySlot() {
+    var n = slots.length;
+    if (picking || n >= MAX_SLOTS) return;
+    var pr = slotPrice(n);
+    if (coins < pr) { $('msg').textContent = 'コインが足りません'; return; }
+    coins -= pr; slots.push(null);
+    renderSlots(); renderShop(); saveGame();
+    $('msg').textContent = 'スロットが増えました!(' + slots.length + '/' + MAX_SLOTS + ')';
   }
   function showShopMain() {
     picking = false;
-    $('items').classList.remove('hidden'); $('buy').classList.remove('hidden'); $('pick').classList.add('hidden');
+    $('items').classList.remove('hidden'); $('buy').classList.remove('hidden'); $('buySlot').classList.remove('hidden'); $('pick').classList.add('hidden');
   }
   function openShop() { paused = true; shopChanged = false; $('msg').textContent = ''; showShopMain(); renderShop(); shopEl.classList.remove('hidden'); }
   function closeShop() {
@@ -299,6 +327,7 @@
     addPart(selected, k, at);
     shopChanged = true;                // the synthesis screen opens when the shop is closed
     showShopMain(); renderShop();
+    saveGame();
     $('msg').textContent = ANIMALS[selected].name + 'を買いました!';
   }
   function buy() {
@@ -312,7 +341,7 @@
   }
   function startPick() {
     picking = true;
-    $('items').classList.add('hidden'); $('buy').classList.add('hidden'); $('pick').classList.remove('hidden');
+    $('items').classList.add('hidden'); $('buy').classList.add('hidden'); $('buySlot').classList.add('hidden'); $('pick').classList.remove('hidden');
     $('msg').textContent = '';
     var box = $('pickSlots'); box.innerHTML = '';
     slots.forEach(function (sl, i) {
@@ -405,6 +434,7 @@
   shopBtn.addEventListener('click', openShop);
   $('closeShop').addEventListener('click', closeShop);
   $('buy').addEventListener('click', buy);
+  $('buySlot').addEventListener('click', buySlot);
 
   // ---- shapes (shared by the lake and the synthesis screen) ----
   function ell(c, x, y, rx, ry, color) {
@@ -418,6 +448,24 @@
       ell(c, 0, r * 0.1, r * 0.78, r * 0.4, '#7b4a1e');
       ell(c, 0, -r * 0.35, r * 0.55, r * 0.35, '#8a5626');
       ell(c, r * 0.05, -r * 0.75, r * 0.25, r * 0.25, '#98622e');
+    } else if (shape === 'drop') {
+      ell(c, 0, r * 0.2, r * 0.9, r * 0.7, '#7b4a1e');
+      ell(c, 0, -r * 0.55, r * 0.4, r * 0.5, '#8a5626');
+      ell(c, -r * 0.3, 0, r * 0.22, r * 0.2, 'rgba(255,255,255,0.22)');
+    } else if (shape === 'pellets') {
+      [[-0.7, 0.3], [0, 0.35], [0.7, 0.3], [-0.35, -0.25], [0.35, -0.25]].forEach(function (o) {
+        ell(c, o[0] * r, o[1] * r, r * 0.4, r * 0.33, '#4a2f14');
+        ell(c, o[0] * r - r * 0.1, o[1] * r - r * 0.1, r * 0.12, r * 0.09, 'rgba(255,255,255,0.22)');
+      });
+    } else if (shape === 'long') {
+      ell(c, -r * 0.65, r * 0.05, r * 0.7, r * 0.42, '#6b3f16');
+      ell(c, r * 0.65, -r * 0.05, r * 0.7, r * 0.42, '#6b3f16');
+      ell(c, 0, 0, r * 0.7, r * 0.45, '#7b4a1e');
+      ell(c, -r * 0.2, -r * 0.2, r * 0.5, r * 0.12, 'rgba(255,255,255,0.2)');
+    } else if (shape === 'stick') {
+      ell(c, 0, r * 0.9, r * 0.7, r * 0.4, '#6b3f16');
+      ell(c, 0, 0, r * 0.45, r * 1.25, '#7b4a1e');
+      ell(c, -r * 0.15, -r * 0.4, r * 0.12, r * 0.5, 'rgba(255,255,255,0.2)');
     } else if (shape === 'pie') {
       ell(c, 0, r * 0.15, r * 1.25, r * 0.65, '#5f4120');
       ell(c, -r * 0.25, -r * 0.05, r * 0.5, r * 0.22, 'rgba(255,255,255,0.18)');
@@ -435,16 +483,16 @@
       for (i = 0; i < recipe.length; i++) { cx += recipe[i].ox; cy += recipe[i].oy; }
       cx /= recipe.length; cy /= recipe.length;
     }
-    var lim = 0.1, best = { x: 0, y: 0 }, bestD = 1e9;
-    for (var gx = -lim; gx <= lim + 1e-9; gx += 0.01) {
-      for (var gy = -lim; gy <= lim + 1e-9; gy += 0.01) {
+    var lim = 0.3, best = { x: 0, y: 0 }, bestD = 1e9;
+    for (var gx = -lim; gx <= lim + 1e-9; gx += 0.005) {
+      for (var gy = -lim; gy <= lim + 1e-9; gy += 0.005) {
         var ok = recipe.every(function (p) { return Math.hypot(gx - p.ox, gy - p.oy) >= p.r + r; });
         var d = Math.hypot(gx - cx, gy - cy);
         if (ok && d < bestD) { bestD = d; best = { x: gx, y: gy }; }
       }
     }
     if (at) best = at;
-    recipe.push({ shape: a.shape, r: r, ox: best.x, oy: best.y, rot: 0, life: a.life, blast: Math.max(1, a.price / 100), slot: slot });
+    recipe.push({ shape: a.shape, r: r, ox: best.x, oy: best.y, rot: 0, blast: Math.max(1, a.price / 100), slot: slot });
     synthSel = recipe.length - 1;
   }
 
@@ -452,7 +500,11 @@
   var SHAPE_ELL = {   // ellipses [x, y, rx, ry] in units of the part radius
     round: [[0, 0, 1, 1]],
     swirl: [[0, 0.55, 1, 0.45], [0, 0.1, 0.78, 0.4], [0, -0.35, 0.55, 0.35], [0.05, -0.75, 0.25, 0.25]],
-    pie:   [[0, 0.15, 1.25, 0.65]]
+    pie:   [[0, 0.15, 1.25, 0.65]],
+    drop:  [[0, 0.2, 0.9, 0.7], [0, -0.55, 0.4, 0.5]],
+    pellets: [[-0.7, 0.3, 0.4, 0.33], [0, 0.35, 0.4, 0.33], [0.7, 0.3, 0.4, 0.33], [-0.35, -0.25, 0.4, 0.33], [0.35, -0.25, 0.4, 0.33]],
+    long:  [[-0.65, 0.05, 0.7, 0.42], [0.65, -0.05, 0.7, 0.42], [0, 0, 0.7, 0.45]],
+    stick: [[0, 0.9, 0.7, 0.4], [0, 0, 0.45, 1.25]]
   };
   var TOUCH_TOL = 0.004;  // small gap still counts as touching
   function inside(p, x, y, grow) {
@@ -523,7 +575,7 @@
     drawSynth();
   }
   function closeSynth() {
-    if (!allConnected()) return; synthEl.classList.add('hidden'); paused = anyOverlay(); }
+    if (!allConnected()) return; synthEl.classList.add('hidden'); paused = anyOverlay(); saveGame(); }
 
   var drag = null;
   function synthPoint(e) {
@@ -573,6 +625,35 @@
   $('synthDone').addEventListener('click', closeSynth);
 
   // ---- game start / rounds ----
+  // ---- save data (localStorage) ----
+  var SAVE_KEY = 'poo_save_v1';
+  function saveGame() {
+    if (!running) return;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ coins: coins, slots: slots, storage: storage, recipe: recipe, bestHm: bestHm }));
+    } catch (e) {}
+  }
+  function loadGame() {
+    try {
+      var d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+      if (!d || !isFinite(d.coins) || !Array.isArray(d.slots) || d.slots.length < MIN_SLOTS || d.slots.length > MAX_SLOTS || !Array.isArray(d.storage) || !Array.isArray(d.recipe)) return false;
+      var okA = function (o) { return o && ANIMALS[o.id]; };
+      if (!d.slots.every(function (o) { return o === null || okA(o); }) || !d.storage.every(okA)) return false;
+      if (!d.recipe.every(function (p) { return p && isFinite(p.r) && isFinite(p.ox) && isFinite(p.oy) && SHAPE_ELL[p.shape]; })) return false;
+      coins = d.coins; slots = d.slots; storage = d.storage; recipe = d.recipe; bestHm = isFinite(d.bestHm) ? d.bestHm : 0;
+      return true;
+    } catch (e) { return false; }
+  }
+  try { if (localStorage.getItem(SAVE_KEY)) $('resetSave').classList.remove('hidden'); } catch (e) {}
+  $('resetSave').addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (!confirm('保存したデータを消します。よろしいですか?')) return;
+    try { localStorage.removeItem(SAVE_KEY); } catch (er) {}
+    $('resetSave').classList.add('hidden');
+  });
+  window.addEventListener('pagehide', saveGame);
+  document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); });
+
   function startPlay() {
     try { screen.orientation.lock('portrait').catch(function () {}); } catch (e) {}
     titleEl.classList.add('hidden');
@@ -583,10 +664,12 @@
     $('maxHud').classList.remove('hidden');
     shakeT = 0; initAudio();
     resize();
-    slots = [{ id: 'rabbit' }, { id: 'rabbit' }, { id: 'rabbit' }, null, null];
-    storage = [];
-    var T = [[-0.0495, 0.0286], [0.0495, 0.0286], [0, -0.0572]];
-    recipe = T.map(function (t, i) { return { shape: 'round', r: ANIMALS.rabbit.r, ox: t[0], oy: t[1], rot: 0, life: 0, blast: 1, slot: i }; });
+    if (!loadGame()) {
+      slots = [{ id: 'rabbit' }, { id: 'rabbit' }, { id: 'rabbit' }, null, null];
+      storage = [];
+      var T = [[-0.0495, 0.0286], [0.0495, 0.0286], [0, -0.0572]];
+      recipe = T.map(function (t, i) { return { shape: 'round', r: ANIMALS.rabbit.r, ox: t[0], oy: t[1], rot: 0, blast: 1, slot: i }; });
+    }
     renderSlots(); updateCoins();
     running = true; last = performance.now();
     startRound();
@@ -596,19 +679,22 @@
   function startRound() {
     poops = []; sparks = []; rings = []; chunks = []; ripples = []; resetPile(); camY = 0; maxHm = 0;
     spawnComposite();
-    roundOn = true; resultEl.classList.add('hidden'); paused = anyOverlay();
+    roundOn = true; resultEl.classList.add('hidden'); endT = 0; paused = anyOverlay();
     updateMax();
   }
   function endRound() {
-    roundOn = false;
+    roundOn = false; endT = 0;
     var gain = Math.floor(maxHm * 200);   // money from the highest altitude reached
     coins += gain; updateCoins();
-    $('resText').innerHTML = '最高高度 ' + maxHm.toFixed(2) + 'm<br>💰 +' + gain;
+    var isRec = maxHm > bestHm; if (isRec) bestHm = maxHm;
+    $('resText').innerHTML = (isRec ? '<span style="color:#ffd43b">🏆 最高記録！</span><br>' : '') + '最高高度 ' + maxHm.toFixed(2) + 'm<br>💰 +' + gain;
     resultEl.classList.remove('hidden'); paused = true;
+    saveGame();
   }
   $('resNext').addEventListener('click', startRound);
   $('resShop').addEventListener('click', openShop);
   $('resEdit').addEventListener('click', function () { $('editBtn').click(); });
+  $('resSynth').addEventListener('click', function () { $('synthBtn').click(); });
 
   // tap a poop: it explodes right now (no chain reaction)
   function canvasPoint(e) {
@@ -649,7 +735,7 @@
     var parts = [], R = 0;
     for (i = 0; i < recipe.length; i++) {
       p = recipe[i];
-      var q = { ox: (p.ox - cx) * W, oy: (p.oy - cy) * W, r: p.r * W, shape: p.shape, rot: p.rot, age: 0, life: p.life, blast: p.blast || 1 };
+      var q = { ox: (p.ox - cx) * W, oy: (p.oy - cy) * W, r: p.r * W, shape: p.shape, rot: p.rot, blast: p.blast || 1 };
       parts.push(q);
       R = Math.max(R, Math.hypot(q.ox, q.oy) + q.r);
     }
@@ -771,7 +857,7 @@
     }
   }
 
-  // ---- explosion: a poop bursts like a firework shell when its life ends ----
+  // ---- explosion: a poop bursts like a firework shell when tapped ----
   function initAudio() {
     try {
       if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -884,7 +970,8 @@
       var camTarget = Math.min(0, top - H * 0.3);
       camY += (camTarget - camY) * (1 - Math.exp(-5 * dt));
       if (camY > -0.05) camY = 0;
-    } else if (roundOn && !sparks.length && !chunks.length) endRound();
+      endT = 0;
+    } else if (roundOn) { endT += dt; if (endT >= 0.5) endRound(); }   // 0.5 s after the last poop bursts
   }
 
   var waveY = [];
@@ -942,6 +1029,13 @@
         drawShape(ctx, q.shape, b.x + q.wx, b.y + q.wy, q.r, q.rot + b.th);
       }
     }
+    for (k = 0; k < chunks.length; k++) {
+      var ch = chunks[k];
+      ctx.globalAlpha = 1;
+      ctx.save(); ctx.translate(ch.x, ch.y); ctx.rotate(ch.rot);
+      ell(ctx, 0, 0, ch.size, ch.size * 0.72, ch.col);
+      ctx.restore();
+    }
     ctx.fillStyle = 'rgba(30,120,200,0.45)'; wavePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, waveY[0]);
     for (wj = 1; wj <= WN; wj++) ctx.lineTo(wj / WN * W, waveY[wj]);
@@ -953,13 +1047,6 @@
       ctx.font = 'bold ' + Math.round(W * 0.05) + 'px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3;
       ctx.strokeStyle = '#7a4a00'; ctx.strokeText(lb, W - 8, by - 4);
       ctx.fillStyle = '#ffd43b'; ctx.fillText(lb, W - 8, by - 4);
-    }
-    for (k = 0; k < chunks.length; k++) {
-      var ch = chunks[k];
-      ctx.globalAlpha = 1;
-      ctx.save(); ctx.translate(ch.x, ch.y); ctx.rotate(ch.rot);
-      ell(ctx, 0, 0, ch.size, ch.size * 0.72, ch.col);
-      ctx.restore();
     }
     ctx.globalAlpha = 1;
     // firework effects
