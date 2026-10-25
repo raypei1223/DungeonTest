@@ -19,7 +19,7 @@
     background: #222; color: #fff; font: bold 20px sans-serif; text-align: center;
   }
   @media (orientation: landscape) and (pointer: coarse) { #rotate { display: flex; } }
-  #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   #title {
     position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
     background: linear-gradient(#bfe6ff, #7cc4ee);
@@ -214,6 +214,9 @@
   var ball = { x: 0, y: 0, vx: 0, vy: 0, r: 0, eq: 0.15, m: 0.03, th: 0, w: 0, invI: 0, parts: [{ ox: 0, oy: 0, wx: 0, wy: 0, r: 0 }], R: 0 };
   var ANG_DRAG = 6;   // water resistance against spinning
   var poops = [];
+  var dragging = null;       // { dx, dy } while the red ball is being dragged
+  var ballFalling = false;   // released, not landed yet
+  var ballTouched = false;   // the ball touched a poop during this step
   var spawnT = 0;
 
   function resize() {
@@ -554,6 +557,7 @@
     bottomEl.classList.remove('hidden');
     coinHud.classList.remove('hidden');
     incomeT = 0; floaters = [];
+    dragging = null; ballFalling = false;
     ball.x = 0;
     resize();
     ball.x = W / 2;
@@ -570,6 +574,33 @@
     requestAnimationFrame(loop);
   }
   $('play').addEventListener('click', startPlay);
+
+  // ---- drag the red ball ----
+  function canvasPoint(e) {
+    var rc = canvas.getBoundingClientRect();
+    return { x: (e.clientX - rc.left) * W / rc.width, y: (e.clientY - rc.top) * H / rc.height };
+  }
+  canvas.addEventListener('pointerdown', function (e) {
+    if (!running || paused || dragging) return;
+    var pt = canvasPoint(e);
+    if (Math.hypot(pt.x - ball.x, pt.y - ball.y) > ball.r * 1.8) return;
+    dragging = { dx: pt.x - ball.x, dy: pt.y - ball.y };
+    ball.vx = 0; ball.vy = 0; ball.w = 0;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    if (!dragging) return;
+    var pt = canvasPoint(e);
+    ball.x = Math.max(ball.r, Math.min(W - ball.r, pt.x - dragging.dx));
+    ball.y = Math.max(ball.r, Math.min(H - ball.r, pt.y - dragging.dy));
+  });
+  function releaseBall() {
+    if (!dragging) return;
+    dragging = null;
+    ballFalling = true;   // no income until it has landed
+  }
+  canvas.addEventListener('pointerup', releaseBall);
+  canvas.addEventListener('pointercancel', releaseBall);
 
   // ---- the finished poop floats up from the bottom, at a random x ----
   // Each poop is a rigid body: it moves AND rotates (buoyancy acts on every part, so uneven submersion makes torque).
@@ -676,6 +707,7 @@
         var dx = (b.x + pb.wx) - ax, dy = (b.y + pb.wy) - ay, min = pa.r + pb.r;
         var d2 = dx * dx + dy * dy;
         if (d2 >= min * min) continue;
+        if (a === ball || b === ball) ballTouched = true;
         var d = Math.sqrt(d2), nx = 1, ny = 0;
         if (d > 0.0001) { nx = dx / d; ny = dy / d; }
         var push = min - d;
@@ -706,7 +738,7 @@
       incomeT -= 1;
       var rest = H * 0.5 - ball.r * (1 - 2 * ball.eq);
       var gain = Math.floor((rest - ball.y) / (H * 0.01));
-      if (gain > 0) {
+      if (gain > 0 && !dragging && !ballFalling) {   // no income while dragging or falling
         coins += gain; updateCoins();
         floaters.push({ text: '+' + gain, x: ball.x, y: ball.y - ball.r * 1.6, age: 0 });
       }
@@ -714,15 +746,18 @@
     for (var f = 0; f < floaters.length; f++) { floaters[f].age += dt; floaters[f].y -= 40 * dt; }
     floaters = floaters.filter(function (o) { return o.age < 1; });
 
-    integrate(ball, dt);
+    if (dragging) { ball.vx = 0; ball.vy = 0; } else integrate(ball, dt);
     var i, j;
     for (i = 0; i < poops.length; i++) {
       integrate(poops[i], dt);
       poops[i].parts.forEach(function (q) { q.age += dt; });
     }
-    var all = [ball].concat(poops);
+    var all = (dragging ? [] : [ball]).concat(poops);   // the held ball passes through poops
+    ballTouched = false;
     for (i = 0; i < all.length; i++)
       for (j = i + 1; j < all.length; j++) collide(all[i], all[j]);
+    // landed: touched the water or a poop after being released
+    if (ballFalling && !dragging && (ballTouched || ball.y + ball.r >= H * 0.5)) ballFalling = false;
     // each part breaks on its own once its lifetime is over (kinds differ)
     var next = [];
     poops.forEach(function (b) {
