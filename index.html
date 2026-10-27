@@ -1,1087 +1,206 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>湖にうんちを浮かべるゲーム</title>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Hammerschlagen Side View</title>
 <style>
-  :root { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe6ff; touch-action: none; -webkit-user-select: none; user-select: none; }
-  *, *::before, *::after { box-sizing: inherit; }
-  #stage {
-    position: fixed; left: 50%; top: 0; bottom: 0; transform: translateX(-50%);
-    width: min(100vw, 56.25vh); overflow: hidden; background: #bfe6ff;
-    container-type: inline-size;
-    font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
-  }
-  @supports (height: 100dvh) { #stage { width: min(100vw, 56.25dvh); } }
-  #rotate {
-    position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center;
-    background: #222; color: #fff; font: bold 20px sans-serif; text-align: center;
-  }
-  @media (orientation: landscape) and (pointer: coarse) { #rotate { display: flex; } }
-  #game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  #title {
-    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
-    background: linear-gradient(#bfe6ff, #7cc4ee);
-    padding-top: calc(env(safe-area-inset-top, 0px) + 24cqw);
-  }
-  #title h1 {
-    margin: 0; padding: 0 6cqw; text-align: center; color: #5a3a1a; word-break: keep-all;
-    font-size: 10.5cqw; line-height: 1.35; text-shadow: 0 0.6cqw 0 #fff;
-  }
-  button { font-family: inherit; }
-  #play {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    font-size: 8cqw; font-weight: bold; white-space: nowrap;
-    padding: 0.6em 1.8em; border: none; border-radius: 999px;
-    color: #fff; background: #e53935; box-shadow: 0 1.4cqw 0 #a02320;
-  }
-  #play:active { transform: translate(-50%, calc(-50% + 1cqw)); box-shadow: 0 0.4cqw 0 #a02320; }
-
-  #shopBtn {
-    position: absolute; left: 10px; top: calc(env(safe-area-inset-top, 0px) + 10px);
-    font-size: 4.2cqw; font-weight: bold; color: #fff; background: #f59e0b;
-    border: none; border-radius: 999px; padding: 0.5em 1.1em; box-shadow: 0 3px 0 #b36f00;
-  }
-  #shopBtn:active { transform: translateY(2px); box-shadow: 0 1px 0 #b36f00; }
-  #coinHud {
-    position: absolute; right: 10px; top: calc(env(safe-area-inset-top, 0px) + 10px);
-    font-size: 4.2cqw; font-weight: bold; color: #5a3a1a; background: rgba(255, 248, 232, 0.9);
-    border-radius: 999px; padding: 0.5em 1.1em;
-  }
-  #bottom { position: absolute; left: 0; right: 0; bottom: 0; }
-  #slotBar { display: flex; gap: 2cqw; padding: 0 2cqw 1.5cqw; }
-  .pill {
-    font-size: 4cqw; font-weight: bold; color: #fff; background: #2f80c0; border: none;
-    border-radius: 999px; padding: 0.4em 1.2em; box-shadow: 0 3px 0 #1f5b8c;
-  }
-  .pill:active { transform: translateY(2px); box-shadow: 0 1px 0 #1f5b8c; }
-  #maxHud {
-    position: absolute; left: 50%; transform: translateX(-50%);
-    top: calc(env(safe-area-inset-top, 0px) + 10px + 11cqw);
-    font-size: 4cqw; font-weight: bold; color: #5a3a1a; background: rgba(255, 248, 232, 0.9);
-    border-radius: 999px; padding: 0.4em 1.1em; white-space: nowrap;
-  }
-  #slots {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 2cqw;
-    padding: 2cqw 2cqw calc(2cqw + env(safe-area-inset-bottom, 0px));
-  }
-  .slot {
-    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
-    font-size: 9cqw; line-height: 1; border-radius: 14%;
-    background: rgba(8, 40, 80, 0.88); border: 2px solid rgba(255, 255, 255, 0.45);
-  }
-  .slot.empty { background: rgba(8, 40, 80, 0.55); border-style: dashed; border-color: rgba(255, 255, 255, 0.3); }
-
-  .overlay {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: rgba(0, 0, 0, 0.55); padding: 0 6cqw;
-  }
-  .card {
-    width: 100%; background: #fff8e8; color: #5a3a1a; border-radius: 4cqw; padding: 4cqw;
-    font-size: 4.4cqw;
-  }
-  .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3cqw; font-weight: bold; }
-  .head .t { font-size: 6cqw; }
-  #closeShop, #closeEdit { border: none; background: #ddd0b4; color: #5a3a1a; border-radius: 50%; width: 9cqw; height: 9cqw; font-size: 5cqw; }
-  .item {
-    display: flex; align-items: center; gap: 3cqw; width: 100%; margin-bottom: 2cqw; text-align: left;
-    background: #fff; color: inherit; border: 3px solid #e8dcc0; border-radius: 3cqw; padding: 2cqw 3cqw;
-    font-size: inherit;
-  }
-  .item.sel { border-color: #f59e0b; background: #fff3d1; }
-  .item .em { font-size: 10cqw; line-height: 1; }
-  .item .nm { flex: 1; font-weight: bold; }
-  .item .nm small { display: block; font-weight: normal; font-size: 3.6cqw; opacity: 0.75; }
-  .item .pr { font-weight: bold; }
-  .bigbtn {
-    width: 100%; border: none; border-radius: 999px; padding: 0.6em; margin-top: 1cqw;
-    font-size: 5cqw; font-weight: bold; color: #fff; background: #e53935; box-shadow: 0 4px 0 #a02320;
-  }
-  .bigbtn:disabled { background: #bbb; box-shadow: 0 4px 0 #888; }
-  #msg { min-height: 1.4em; margin-top: 2cqw; text-align: center; font-size: 4cqw; }
-
-  #synthHint { font-size: 3.6cqw; opacity: 0.8; margin-bottom: 2cqw; }
-  #synthCanvas {
-    display: block; width: 100%; aspect-ratio: 1; border-radius: 3cqw; touch-action: none;
-    border: 3px solid #e8dcc0;
-  }
-  #synthMsg { min-height: 1.4em; margin-top: 2cqw; text-align: center; font-size: 3.8cqw; color: #c62828; font-weight: bold; }
-  #synthBtns { display: flex; gap: 3cqw; margin-top: 3cqw; }
-  #synthBtns button {
-    flex: 1; border: none; border-radius: 3cqw; padding: 0.4em; font-size: 7cqw; font-weight: bold;
-    background: #ddd0b4; color: #5a3a1a; box-shadow: 0 3px 0 #b9a984;
-  }
-  #synthBtns button:active { transform: translateY(2px); box-shadow: 0 1px 0 #b9a984; }
-  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2cqw; margin-bottom: 3cqw; }
-  .chip {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5cqw;
-    min-height: 15cqw; padding: 1.5cqw 0; font-size: 3cqw; font-weight: bold; color: inherit;
-    background: #fff; border: 3px solid #e8dcc0; border-radius: 2.5cqw;
-  }
-  .chip .em { font-size: 7cqw; line-height: 1; }
-  .chip.sel { border-color: #f59e0b; background: #fff3d1; }
-  #editHint { font-size: 3.6cqw; opacity: 0.8; margin-bottom: 2cqw; }
-  .chip.empty { opacity: 0.55; border-style: dashed; }
-  button.chip:active { background: #fff3d1; border-color: #f59e0b; }
-  .sec { font-weight: bold; margin: 1cqw 0 2cqw; }
-  #edit .card, #shop .card { max-height: 90%; overflow: auto; }
-  #pickTitle { font-weight: bold; margin-bottom: 3cqw; }
-  #pickCancel { background: #9aa4ad; box-shadow: 0 4px 0 #6f7983; }
-  .hidden { display: none !important; }
-</style>
-</head>
+html,body{margin:0;height:100%;background:#1b1209;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;font-family:"Trebuchet MS",system-ui,sans-serif}
+canvas{display:block;position:absolute;left:0;top:0;touch-action:none}
+.ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(24,12,2,.66);color:#fff;text-align:center;gap:16px}
+.ov.h{display:none}
+h1{margin:0;font-size:clamp(30px,7vw,64px);color:#ffd36b;text-shadow:0 4px 0 #6b3a10;letter-spacing:.02em}
+p{margin:0;font-size:clamp(14px,2.4vw,20px);max-width:min(560px,86%);line-height:1.5}
+button{font:700 clamp(18px,3vw,28px) "Trebuchet MS",system-ui,sans-serif;padding:.5em 1.8em;border:0;border-radius:999px;background:#ffb02e;color:#3a1c00;box-shadow:0 5px 0 #9a5a00;cursor:pointer}
+button:active{transform:translateY(3px);box-shadow:0 2px 0 #9a5a00}
+button:focus-visible{outline:3px solid #fff}
+#mute{position:absolute;right:10px;top:10px;font-size:20px;padding:.3em .7em;z-index:5}
+</style></head>
 <body>
-<div id="stage">
-  <canvas id="game" class="hidden"></canvas>
-  <div id="title">
-    <h1>湖にうんちを<br>浮かべるゲーム</h1>
-    <button id="play">プレイ</button>
-    <button id="resetSave" class="hidden" style="position:absolute;left:50%;bottom:6cqw;transform:translateX(-50%);font-size:3.5cqw;padding:1.5cqw 4cqw;border:0;border-radius:2cqw;background:rgba(255,255,255,0.7);color:#555">データを消す</button>
-  </div>
-  <button id="shopBtn" class="hidden">ショップ</button>
-  <div id="coinHud" class="hidden"></div>
-  <div id="maxHud" class="hidden"></div>
-  <div id="bottom" class="hidden">
-    <div id="slotBar"><button id="editBtn" class="pill">編集</button><button id="synthBtn" class="pill">合成</button></div>
-    <div id="slots"></div>
-  </div>
-  <div id="result" class="overlay hidden">
-    <div class="card" style="text-align:center">
-      <div class="head"><span class="t">結果</span></div>
-      <div id="resText" style="font-size:6cqw;line-height:1.6;margin-bottom:3cqw"></div>
-      <button id="resNext" class="bigbtn">次のうんちへ</button>
-      <button id="resShop" class="bigbtn" style="background:#f59e0b;box-shadow:0 4px 0 #b36f00">ショップ</button>
-      <button id="resEdit" class="bigbtn" style="background:#2f80c0;box-shadow:0 4px 0 #1f5b8c">編集</button>
-      <button id="resSynth" class="bigbtn" style="background:#8b5cf6;box-shadow:0 4px 0 #5b36b0">合成</button>
-    </div>
-  </div>
-  <div id="shop" class="overlay hidden">
-    <div class="card">
-      <div class="head"><span class="t">ショップ</span><span id="coins"></span><button id="closeShop">✕</button></div>
-      <div id="items"></div>
-      <button id="buy" class="bigbtn" disabled>買う</button>
-      <button id="buySlot" class="bigbtn" style="background:#2f9e5b;box-shadow:0 4px 0 #1e6e3e"></button>
-      <div id="pick" class="hidden">
-        <div id="pickTitle">どのスロットと入れ替える?(外した動物は倉庫へ)</div>
-        <div id="pickSlots" class="grid"></div>
-        <button id="pickCancel" class="bigbtn">やめる</button>
-      </div>
-      <div id="msg"></div>
-    </div>
-  </div>
-  <div id="edit" class="overlay hidden">
-    <div class="card">
-      <div class="head"><span class="t">編集</span><button id="closeEdit">✕</button></div>
-      <div id="editHint">タップで選んで、スロットと倉庫の動物を入れ替えられます</div>
-      <div class="sec">セット中</div>
-      <div id="editSet" class="grid"></div>
-      <div class="sec">倉庫</div>
-      <div id="editStore" class="grid"></div>
-      <button id="unsetBtn" class="bigbtn" disabled>選んだ動物を倉庫に戻す</button>
-    </div>
-  </div>
-  <div id="synth" class="overlay hidden">
-    <div class="card">
-      <div class="head"><span class="t">合成</span></div>
-      <div id="synthHint">ドラッグで動かして、ボタンで回転・拡大縮小しながら組み合わせよう</div>
-      <canvas id="synthCanvas"></canvas>
-      <div id="synthBtns"><button id="rotL">↺</button><button id="rotR">↻</button><button id="zoomOut">－</button><button id="zoomIn">＋</button></div>
-      <div id="synthMsg"></div>
-      <button id="synthDone" class="bigbtn">完成</button>
-    </div>
-  </div>
-</div>
-<div id="rotate">スマホを縦向きにしてください</div>
-
+<canvas id="c"></canvas>
+<div class="ov" id="start"><h1>Hammerschlagen</h1><p id="desc"></p><button id="play"></button></div>
+<div class="ov h" id="clear"><h1 id="ct"></h1><p id="res"></p><button id="again"></button></div>
+<button id="mute" aria-label="Sound">🔊</button>
+<script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>
 <script>
-(function () {
-  var $ = function (id) { return document.getElementById(id); };
-  var stageEl = $('stage'), titleEl = $('title'), canvas = $('game'), ctx = canvas.getContext('2d');
-  var coinHud = $('coinHud'), slotsEl = $('slots'), bottomEl = $('bottom'), editEl = $('edit'), shopEl = $('shop'), shopBtn = $('shopBtn');
-  var synthEl = $('synth'), synthCanvas = $('synthCanvas'), sctx = synthCanvas.getContext('2d');
-  var W = 0, H = 0, dpr = 1;
-  var running = false, paused = false;
+// ---------- Poki SDK (falls back to a stub when not on Poki / offline) ----------
+const P=window.PokiSDK||{init:()=>Promise.resolve(),gameLoadingFinished(){},gameplayStart(){},gameplayStop(){},commercialBreak:(cb)=>{cb&&cb();return Promise.resolve()},happyTime(){},setDebug(){}};
+let userMute=false,adMute=false;
+P.init().catch(()=>{}).then(()=>{try{P.gameLoadingFinished()}catch(e){}});
 
-  // ---- animals: each one has a different poop shape ----
-  var ANIMALS = {
-    mouse:    { emoji: '🐭', name: 'ねずみ',   shape: 'round',   desc: 'ちいさなつぶ',       price: 50,  r: 0.032 },
-    rabbit:   { emoji: '🐰', name: 'うさぎ',   shape: 'round',   desc: 'まるいうんち',       price: 100, r: 0.05 },
-    chicken:  { emoji: '🐔', name: 'にわとり', shape: 'drop',    desc: 'しずくのうんち',     price: 150, r: 0.045 },
-    dog:      { emoji: '🐶', name: 'いぬ',     shape: 'swirl',   desc: 'とぐろのうんち',     price: 200, r: 0.055 },
-    sheep:    { emoji: '🐑', name: 'ひつじ',   shape: 'pellets', desc: 'ころころうんち',     price: 250, r: 0.05 },
-    cow:      { emoji: '🐮', name: 'うし',     shape: 'pie',     desc: 'ぺちゃんこうんち',   price: 300, r: 0.055 },
-    horse:    { emoji: '🐴', name: 'うま',     shape: 'long',    desc: 'ながいうんち',       price: 400, r: 0.05 },
-    giraffe:  { emoji: '🦒', name: 'きりん',   shape: 'stick',   desc: 'たてながうんち',     price: 450, r: 0.045 },
-    hippo:    { emoji: '🦛', name: 'かば',     shape: 'pie',     desc: 'どでかぺちゃんこ',   price: 600, r: 0.085 },
-    elephant: { emoji: '🐘', name: 'ぞう',     shape: 'round',   desc: 'きょだいなまる',     price: 700, r: 0.085 },
-    dino:     { emoji: '🦖', name: 'きょうりゅう', shape: 'swirl', desc: 'きょだいなとぐろ', price: 800, r: 0.09 }
-  };
+// ---------- Text ----------
+const ja=/^ja/.test(navigator.language);
+const T=ja?{desc:'ハンマーをドラッグして、釘に振り下ろそう。勢いが強いほど深く刺さる。でも面を斜めに当てると釘が曲がってしまう！',play:'あそぶ',hint:'ハンマーをドラッグして振り下ろそう！',clear:'クリア！',again:'もう一回',nails:'釘',time:'タイム',hits:'打数',perfect:'パーフェクト！',bent:'曲がった！'}
+:{desc:'Drag the hammer and swing it down on the nails. The harder you hit, the deeper they go — but hit with a tilted face and the nail bends!',play:'Play',hint:'Drag the hammer, then swing it down!',clear:'Cleared!',again:'Play again',nails:'Nails',time:'Time',hits:'Swings',perfect:'PERFECT!',bent:'BENT!'};
+const $=id=>document.getElementById(id);
+$('desc').textContent=T.desc;$('play').textContent=T.play;$('ct').textContent=T.clear;$('again').textContent=T.again;
 
-  var MIN_SLOTS = 5, MAX_SLOTS = 15;
-  function slotPrice(n) { return 200 * (n - 3); }   // price of the (n+1)th slot
-  var slots = [];   // { id } or null
-  var storage = []; // owned animals that are not set in a slot (倉庫)
-  var picking = false;
-  var shopChanged = false;   // something was bought since the shop was opened
-  var coins = 1000;
-  var selected = null;
-  var incomeT = 0;
-  var maxHm = 0;   // highest height (m) among the moments income was received
-  var floaters = [];
+// ---------- Canvas ----------
+const W=1280,H=720,GY=560,FLOOR=680;
+const cv=$('c'),g=cv.getContext('2d');
+let sc=1,ox=0,oy=0,dpr=1;
+function fit(){dpr=devicePixelRatio||1;cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';sc=Math.min(cv.width/W,cv.height/H);ox=(cv.width-W*sc)/2;oy=(cv.height-H*sc)/2}
+addEventListener('resize',fit);fit();
 
-  // ---- explosions ----
-  var sparks = [], rings = [], chunks = [], ripples = [];
-  var pile = [], hm = [];   // settled chunks on the lake bottom, and the pile height per column
-  function resetPile() { pile = []; hm = []; for (var i = 0; i < 48; i++) hm.push(0); }
-  resetPile();
-  function addRipple(x, amp) { ripples.push({ x: x, amp: amp, age: 0 }); if (ripples.length > 6) ripples.shift(); }
-  var shakeT = 0, shakeA = 0;
-  var blastFly = null;   // { top, up } while the ball is flying after an explosion
-  var camY = 0;          // world y of the screen's top edge (0 = normal view, negative = camera moved up)
-  var actx = null, lastBoom = 0;
-  var BLAST_COLORS = ['#ff6b81', '#ffd43b', '#7cf0ff', '#b388ff', '#69f0ae'];
+// ---------- Audio ----------
+let ac;const lastS={};
+function AC(){if(!ac){try{ac=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(ac&&ac.state==='suspended')ac.resume();return ac}
+function snd(k,f,d,type,v,sl){const now=performance.now();if(userMute||adMute||now-(lastS[k]||0)<70)return;lastS[k]=now;const a=AC();if(!a)return;const o=a.createOscillator(),n=a.createGain(),t=a.currentTime;o.type=type;o.frequency.setValueAtTime(f,t);if(sl)o.frequency.exponentialRampToValueAtTime(sl,t+d);n.gain.setValueAtTime(v,t);n.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(n);n.connect(a.destination);o.start(t);o.stop(t+d)}
+$('mute').onclick=()=>{userMute=!userMute;$('mute').textContent=userMute?'🔇':'🔊'};
 
-  // ---- recipe: the poops placed together on the synthesis screen ----
-  // each part: { shape, r, ox, oy, rot }  (lengths in units of stage width)
-  var recipe = [];
-  var synthSel = 0;
-  var SYNTH_ZOOM = 2.5;
-  var synthCss = 0;
+// ---------- Game state ----------
+const M=1,I=7000,GR=1500,DT=1/480,KP=45,KD=8,FMAX=7000;
+// local collision points: [x,y,radius]  (handle runs along local x, head faces are local ±y)
+const PTS=[];for(let x=-110;x<=70;x+=20)PTS.push([x,0,6]);
+[[70,30],[85,30],[100,30],[70,-30],[85,-30],[100,-30],[100,15],[100,-15],[100,0]].forEach(p=>PTS.push([p[0],p[1],0]));
+let hm,nails,parts,texts,shake,t,hits,hint,grab,state='menu';
+const mouse={x:0,y:0};
+function reset(){
+  hm={x:220,y:GY-32,a:0,vx:0,vy:0,w:0};
+  nails=[[450,60],[620,66],[790,72],[960,64],[1130,70]].map(a=>({x:a[0],h:a[1],bent:0,done:false}));
+  parts=[];texts=[];shake=0;t=0;hits=0;hint=true;grab=null;
+}
+reset();
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function wp(p){const c=Math.cos(hm.a),s=Math.sin(hm.a),rx=c*p[0]-s*p[1],ry=s*p[0]+c*p[1];return[hm.x+rx,hm.y+ry,rx,ry]}
+function surf(x){for(const n of nails)if(!n.done&&Math.abs(x-n.x)<9)return[GY-n.h,n];return[GY,null]}
+function burst(x,y,n,col,sp){for(let i=0;i<n;i++){const a=-Math.PI*Math.random();parts.push({x,y,vx:Math.cos(a)*sp*Math.random(),vy:Math.sin(a)*sp*Math.random(),l:.5+Math.random()*.4,c:col})}}
+function say(x,y,s,c){texts.push({x,y,s,c,l:1})}
 
-  // ---- physics ----
-  var GRAVITY = 1200, WATER_DRAG = 2.5, ANG_DRAG = 6;
-  var poops = [], roundOn = false, endT = 0, bestHm = 0;
-  var resultEl = $('result');
-  function anyOverlay() { return [shopEl, editEl, synthEl, resultEl].some(function (e) { return !e.classList.contains('hidden'); }); }
-  function resize() {
-    dpr = window.devicePixelRatio || 1;
-    W = stageEl.clientWidth; H = stageEl.clientHeight;
-    canvas.width = W * dpr; canvas.height = H * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+function step(dt){
+  hm.vy+=GR*dt;
+  if(grab){ // pull the grabbed point toward the cursor with a limited spring force
+    const c=Math.cos(hm.a),s=Math.sin(hm.a),rx=c*grab[0]-s*grab[1],ry=s*grab[0]+c*grab[1];
+    const vx=hm.vx-hm.w*ry,vy=hm.vy+hm.w*rx;
+    let fx=KP*(mouse.x-(hm.x+rx))-KD*vx,fy=KP*(mouse.y-(hm.y+ry))-KD*vy;
+    const f=Math.hypot(fx,fy);if(f>FMAX){fx*=FMAX/f;fy*=FMAX/f}
+    hm.vx+=fx/M*dt;hm.vy+=fy/M*dt;hm.w+=(rx*fy-ry*fx)/I*dt;
   }
-  window.addEventListener('resize', resize);
+  hm.w*=1-1.2*dt;hm.vx*=1-.15*dt;hm.w=clamp(hm.w,-40,40);
+  hm.x+=hm.vx*dt;hm.y+=hm.vy*dt;hm.a+=hm.w*dt;
+  let maxPen=0;
+  for(const p of PTS){
+    const[X,Y,rx,ry]=wp(p),[sy,n]=surf(X),pen=Y+p[2]-sy;
+    if(pen<=0)continue;
+    maxPen=Math.max(maxPen,pen);
+    const vy=hm.vy+hm.w*rx;
+    if(vy<=0)continue;
+    const j=(1+(n?.1:.25))*vy/(1/M+rx*rx/I);
+    hm.vy-=j/M;hm.w-=rx*j/I;
+    const vt=hm.vx-hm.w*ry,jt=clamp(-vt/(1/M+ry*ry/I),-.6*j,.6*j);
+    hm.vx+=jt/M;hm.w-=ry*jt/I;
+    if(n&&vy>150){
+      // flatness of the hitting surface: 1 = face parallel to the nail head
+      const cs=Math.cos(hm.a),fl=p[1]>25?cs:p[1]<-25?-cs:.2;
+      let eff=clamp((fl-.5)/.5,.12,1);
+      if(fl<.8&&vy>700&&!n.bent){n.bent=1;say(n.x,sy-30,T.bent,'#ff6b5a');snd('b',300,.2,'sawtooth',.15,120)}
+      if(n.bent)eff*=.55;
+      const d=(vy-150)*.03*eff;
+      n.h-=d;hits++;hint=false;
+      if(eff>.9&&vy>1300)say(n.x,sy-40,T.perfect,'#ffe27a');
+      shake=Math.max(shake,Math.min(14,vy/130));
+      burst(n.x,sy,Math.min(14,4+vy/200|0),'#d9d9e0',Math.min(500,vy/3));
+      snd('n',1500+Math.min(1500,vy),.14,'triangle',.28,700);snd('nl',180,.1,'square',.18,60);
+      if(n.h<=4){n.h=4;n.done=true;snd('d',520,.25,'sine',.25,1040);if(nails.every(q=>q.done))win()}
+    }else if(!n&&vy>250){
+      shake=Math.max(shake,Math.min(8,vy/250));burst(X,GY,5,'#c98a4b',260);snd('g',120,.14,'sine',Math.min(.4,vy/1500),50);
+    }
+  }
+  hm.y-=maxPen;
+  if(hm.x<30){hm.x=30;hm.vx=Math.abs(hm.vx)*.3}
+  if(hm.x>W-30){hm.x=W-30;hm.vx=-Math.abs(hm.vx)*.3}
+  if(hm.y<-250){hm.y=-250;hm.vy=0}
+}
 
-  // ---- slots UI ----
-  function renderSlots() {
-    slotsEl.innerHTML = '';
-    var many = slots.length > MIN_SLOTS;
-    slotsEl.style.gridTemplateColumns = 'repeat(' + (many ? 8 : 5) + ', 1fr)';
-    for (var i = 0; i < slots.length; i++) {
-      var d = document.createElement('div');
-      d.className = 'slot' + (slots[i] ? '' : ' empty');
-      if (many) d.style.fontSize = '6cqw';
-      d.textContent = slots[i] ? ANIMALS[slots[i].id].emoji : '';
-      slotsEl.appendChild(d);
-    }
-  }
+// ---------- Flow ----------
+function win(){
+  state='clear';grab=null;
+  try{P.gameplayStop();P.happyTime(1)}catch(e){}
+  $('res').textContent=`${T.time}: ${t.toFixed(1)}s  /  ${T.hits}: ${hits}`;
+  $('clear').classList.remove('h');
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>snd('w'+i,f,.3,'triangle',.25),i*120));
+}
+function begin(){reset();state='play';$('start').classList.add('h');$('clear').classList.add('h');try{P.gameplayStart()}catch(e){}}
+$('play').onclick=()=>{AC();begin()};
+$('again').onclick=()=>{
+  AC();$('clear').classList.add('h');
+  let p;try{p=P.commercialBreak(()=>{adMute=true})}catch(e){}
+  Promise.resolve(p).catch(()=>{}).then(()=>{adMute=false;begin()});
+};
 
-  function updateMax() {
-    var n = 0; poops.forEach(function (b) { n += b.parts.length; });
-    $('maxHud').textContent = '最高高度 ' + maxHm.toFixed(2) + 'm　残り ' + n + 'こ';
-  }
-  function updateCoins() {
-    $('coins').textContent = '💰 ' + coins;
-    coinHud.textContent = '💰 ' + coins;
-  }
+// ---------- Input ----------
+function pos(e){return{x:(e.clientX*dpr-ox)/sc,y:(e.clientY*dpr-oy)/sc}}
+cv.addEventListener('pointerdown',e=>{
+  const m=pos(e);mouse.x=m.x;mouse.y=m.y;
+  if(state!=='play')return;
+  const c=Math.cos(hm.a),s=Math.sin(hm.a),dx=m.x-hm.x,dy=m.y-hm.y,lx=c*dx+s*dy,ly=-s*dx+c*dy;
+  const gx=clamp(lx,-110,98),lim=gx>68?28:6,gy=clamp(ly,-lim,lim);
+  if(Math.hypot(lx-gx,ly-gy)<48){grab=[gx,gy];cv.setPointerCapture(e.pointerId)}
+});
+cv.addEventListener('pointermove',e=>{const m=pos(e);mouse.x=m.x;mouse.y=m.y});
+['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{grab=null}));
+addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault()});
+addEventListener('contextmenu',e=>e.preventDefault());
 
-  // ---- shop UI ----
-  function renderShop() {
-    updateCoins();
-    var box = $('items'); box.innerHTML = '';
-    Object.keys(ANIMALS).forEach(function (id) {
-      var a = ANIMALS[id];
-      var b = document.createElement('button');
-      b.className = 'item' + (selected === id ? ' sel' : '');
-      b.innerHTML = '<span class="em">' + a.emoji + '</span><span class="nm">' + a.name +
-        '<small>' + a.desc + '・爆発力 ' + '💥'.repeat(Math.round(a.price / 100)) + '</small></span><span class="pr">💰 ' + a.price + '</span>';
-      b.addEventListener('click', function () { selected = id; $('msg').textContent = ''; renderShop(); });
-      box.appendChild(b);
-    });
-    $('buy').disabled = !selected;
-    var n = slots.length, bs = $('buySlot');
-    if (n >= MAX_SLOTS) { bs.textContent = 'スロットは最大です(' + n + '/' + MAX_SLOTS + ')'; bs.disabled = true; }
-    else { bs.textContent = 'スロットを増やす 💰' + slotPrice(n) + '(' + n + '/' + MAX_SLOTS + ')'; bs.disabled = false; }
+// ---------- Drawing ----------
+function drawBG(){
+  const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#6a4426');gr.addColorStop(1,'#2b170a');g.fillStyle=gr;g.fillRect(-20,-20,W+40,H+40);
+  g.strokeStyle='rgba(0,0,0,.18)';g.lineWidth=2;for(let x=0;x<W;x+=107){g.beginPath();g.moveTo(x,0);g.lineTo(x,GY);g.stroke()}
+  for(let i=0;i<W/70+1;i++){g.fillStyle=i%2?'#f4f4f0':'#2a73c6';g.beginPath();g.moveTo(i*70,0);g.lineTo(i*70+35,26);g.lineTo(i*70,52);g.lineTo(i*70-35,26);g.fill()}
+  g.fillStyle='#3b2412';g.fillRect(-20,FLOOR,W+40,H);
+  g.fillStyle='#23140a';g.fillRect(100,GY+110,70,FLOOR-GY-110);g.fillRect(1110,GY+110,70,FLOOR-GY-110);
+  const lg=g.createLinearGradient(0,GY,0,GY+120);lg.addColorStop(0,'#d9a05a');lg.addColorStop(.5,'#b57a3a');lg.addColorStop(1,'#7a4c22');
+  g.fillStyle=lg;g.fillRect(-20,GY,W+40,120);
+  g.fillStyle='rgba(255,230,170,.35)';g.fillRect(-20,GY,W+40,4);
+  g.strokeStyle='rgba(70,36,10,.35)';g.lineWidth=2;
+  for(let k=0;k<6;k++){g.beginPath();for(let x=-20;x<=W+20;x+=20){const y=GY+14+k*18+Math.sin(x*.012+k*2)*4;x<0?g.moveTo(x,y):g.lineTo(x,y)}g.stroke()}
+  g.fillStyle='rgba(70,36,10,.45)';[[300,GY+60],[880,GY+84],[1200,GY+40]].forEach(k=>{g.beginPath();g.ellipse(k[0],k[1],16,9,0,0,7);g.fill()});
+}
+function drawNail(n){
+  const top=GY-n.h;g.save();
+  g.fillStyle='#9ea3ad';g.fillRect(n.x-2.5,GY-n.h*.5,5,n.h*.5);
+  g.translate(n.x,GY-n.h*.5);g.rotate(n.bent*.45);
+  g.fillRect(-2.5,-(n.h*.5),5,n.h*.5+1);
+  g.fillStyle='#d6dae2';g.fillRect(-11,-(n.h*.5),22,4.5);
+  g.restore();
+}
+function drawHammer(){
+  g.save();g.translate(hm.x,hm.y);g.rotate(hm.a);
+  g.fillStyle='#a8662c';g.fillRect(-110,-6,182,12);
+  g.fillStyle='#c98446';g.fillRect(-110,-6,182,4);
+  g.fillStyle='#4e5560';g.fillRect(70,-30,30,60);
+  g.fillStyle='#7d8696';g.fillRect(70,-30,8,60);
+  g.fillStyle='#2f343c';g.fillRect(70,-30,30,6);g.fillRect(70,24,30,6);
+  g.fillStyle='#ffe27a';g.fillRect(-110,-6,26,12);
+  g.restore();
+  if(grab){
+    const c=Math.cos(hm.a),s=Math.sin(hm.a),gx=hm.x+c*grab[0]-s*grab[1],gy=hm.y+s*grab[0]+c*grab[1];
+    g.strokeStyle='rgba(255,226,122,.8)';g.lineWidth=3;g.setLineDash([8,8]);g.beginPath();g.moveTo(gx,gy);g.lineTo(mouse.x,mouse.y);g.stroke();g.setLineDash([]);
+    g.fillStyle='#fff';g.beginPath();g.arc(gx,gy,6,0,7);g.fill();
+    g.strokeStyle='#ffb02e';g.lineWidth=3;g.beginPath();g.arc(mouse.x,mouse.y,12,0,7);g.stroke();
   }
-  function buySlot() {
-    var n = slots.length;
-    if (picking || n >= MAX_SLOTS) return;
-    var pr = slotPrice(n);
-    if (coins < pr) { $('msg').textContent = 'コインが足りません'; return; }
-    coins -= pr; slots.push(null);
-    renderSlots(); renderShop(); saveGame();
-    $('msg').textContent = 'スロットが増えました!(' + slots.length + '/' + MAX_SLOTS + ')';
-  }
-  function showShopMain() {
-    picking = false;
-    $('items').classList.remove('hidden'); $('buy').classList.remove('hidden'); $('buySlot').classList.remove('hidden'); $('pick').classList.add('hidden');
-  }
-  function openShop() { paused = true; shopChanged = false; $('msg').textContent = ''; showShopMain(); renderShop(); shopEl.classList.remove('hidden'); }
-  function closeShop() {
-    shopEl.classList.add('hidden'); paused = anyOverlay();
-    if (shopChanged) { shopChanged = false; openSynth(); }
-  }
-  function finishPurchase(k, at) {
-    renderSlots(); updateCoins();
-    addPart(selected, k, at);
-    shopChanged = true;                // the synthesis screen opens when the shop is closed
-    showShopMain(); renderShop();
-    saveGame();
-    $('msg').textContent = ANIMALS[selected].name + 'を買いました!';
-  }
-  function buy() {
-    if (!selected) return;
-    var a = ANIMALS[selected], free = slots.indexOf(null);
-    if (coins < a.price) { $('msg').textContent = 'コインが足りません'; return; }
-    if (free < 0) { startPick(); return; }   // slots are full: choose which one to replace
-    coins -= a.price;
-    slots[free] = { id: selected };
-    finishPurchase(free, null);
-  }
-  function startPick() {
-    picking = true;
-    $('items').classList.add('hidden'); $('buy').classList.add('hidden'); $('buySlot').classList.add('hidden'); $('pick').classList.remove('hidden');
-    $('msg').textContent = '';
-    var box = $('pickSlots'); box.innerHTML = '';
-    slots.forEach(function (sl, i) {
-      var a = ANIMALS[sl.id], b = document.createElement('button');
-      b.className = 'chip';
-      b.innerHTML = '<span class="em">' + a.emoji + '</span><span>' + a.name + '</span>';
-      b.addEventListener('click', function () { pickSlot(i); });
-      box.appendChild(b);
-    });
-  }
-  function pickSlot(k) {
-    var a = ANIMALS[selected], old = slots[k];
-    if (coins < a.price) return;
-    coins -= a.price;
-    storage.push(old);                                   // the replaced animal goes to the warehouse
-    var idx = -1;
-    recipe.forEach(function (p, i) { if (p.slot === k) idx = i; });
-    var at = null;
-    if (idx >= 0) { at = { x: recipe[idx].ox, y: recipe[idx].oy }; recipe.splice(idx, 1); }
-    slots[k] = { id: selected };
-    finishPurchase(k, at);                               // new poop takes the old one's place
-  }
-  $('pickCancel').addEventListener('click', function () { showShopMain(); renderShop(); });
-
-  // ---- edit screen: change which animals are in the slots ----
-  var editSel = null, editChanged = false;   // editSel: { t: 'slot' | 'store', i }
-  function chip(sl, emptyLabel, sel, onClick) {
-    var d = document.createElement(onClick ? 'button' : 'div');
-    if (sl) {
-      var a = ANIMALS[sl.id];
-      d.className = 'chip' + (sel ? ' sel' : '');
-      d.innerHTML = '<span class="em">' + a.emoji + '</span><span>' + a.name + '</span>';
-    } else {
-      d.className = 'chip empty' + (sel ? ' sel' : ''); d.textContent = emptyLabel;
-    }
-    if (onClick) d.addEventListener('click', onClick);
-    return d;
-  }
-  function renderEdit() {
-    var set = $('editSet'), store = $('editStore');
-    set.innerHTML = ''; store.innerHTML = '';
-    slots.forEach(function (sl, i) {
-      set.appendChild(chip(sl, '空', editSel && editSel.t === 'slot' && editSel.i === i, function () { tapSlot(i); }));
-    });
-    if (!storage.length) store.appendChild(chip(null, 'なし', false, null));
-    storage.forEach(function (sl, j) {
-      store.appendChild(chip(sl, '', editSel && editSel.t === 'store' && editSel.i === j, function () { tapStore(j); }));
-    });
-    var count = slots.filter(Boolean).length;
-    $('unsetBtn').disabled = !(editSel && editSel.t === 'slot' && slots[editSel.i] && count > 1);
-  }
-  function partIndex(k) { var idx = -1; recipe.forEach(function (p, i) { if (p.slot === k) idx = i; }); return idx; }
-  function tapSlot(i) {
-    if (editSel && editSel.t === 'store') { placeFromStore(editSel.i, i); return; }
-    editSel = (editSel && editSel.t === 'slot' && editSel.i === i) ? null : { t: 'slot', i: i };
-    renderEdit();
-  }
-  function tapStore(j) {
-    if (editSel && editSel.t === 'slot') { placeFromStore(j, editSel.i); return; }
-    editSel = (editSel && editSel.t === 'store' && editSel.i === j) ? null : { t: 'store', i: j };
-    renderEdit();
-  }
-  function placeFromStore(j, i) {
-    var animal = storage.splice(j, 1)[0], old = slots[i], at = null, idx = partIndex(i);
-    if (old) storage.push(old);                      // the animal that was there goes to the warehouse
-    if (idx >= 0) { at = { x: recipe[idx].ox, y: recipe[idx].oy }; recipe.splice(idx, 1); }
-    slots[i] = animal;
-    addPart(animal.id, i, at);
-    editSel = null; editChanged = true;
-    renderSlots(); renderEdit();
-  }
-  $('unsetBtn').addEventListener('click', function () {
-    if (!editSel || editSel.t !== 'slot' || !slots[editSel.i] || slots.filter(Boolean).length <= 1) return;
-    var i = editSel.i, idx = partIndex(i);
-    storage.push(slots[i]); slots[i] = null;
-    if (idx >= 0) recipe.splice(idx, 1);
-    synthSel = Math.max(0, Math.min(synthSel, recipe.length - 1));
-    editSel = null; editChanged = true;
-    renderSlots(); renderEdit();
-  });
-  $('editBtn').addEventListener('click', function () {
-    paused = true; editSel = null; editChanged = false; renderEdit(); editEl.classList.remove('hidden');
-  });
-  $('closeEdit').addEventListener('click', function () {
-    editEl.classList.add('hidden'); paused = anyOverlay();
-    if (editChanged) { editChanged = false; openSynth(); }   // slots changed -> synthesis screen
-  });
-  $('synthBtn').addEventListener('click', function () { openSynth(); });
-
-  shopBtn.addEventListener('click', openShop);
-  $('closeShop').addEventListener('click', closeShop);
-  $('buy').addEventListener('click', buy);
-  $('buySlot').addEventListener('click', buySlot);
-
-  // ---- shapes (shared by the lake and the synthesis screen) ----
-  function ell(c, x, y, rx, ry, color) {
-    c.fillStyle = color;
-    c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); c.fill();
-  }
-  function drawShape(c, shape, x, y, r, rot) {
-    c.save(); c.translate(x, y); c.rotate(rot || 0);
-    if (shape === 'swirl') {
-      ell(c, 0, r * 0.55, r * 1.0, r * 0.45, '#6b3f16');
-      ell(c, 0, r * 0.1, r * 0.78, r * 0.4, '#7b4a1e');
-      ell(c, 0, -r * 0.35, r * 0.55, r * 0.35, '#8a5626');
-      ell(c, r * 0.05, -r * 0.75, r * 0.25, r * 0.25, '#98622e');
-    } else if (shape === 'drop') {
-      ell(c, 0, r * 0.2, r * 0.9, r * 0.7, '#7b4a1e');
-      ell(c, 0, -r * 0.55, r * 0.4, r * 0.5, '#8a5626');
-      ell(c, -r * 0.3, 0, r * 0.22, r * 0.2, 'rgba(255,255,255,0.22)');
-    } else if (shape === 'pellets') {
-      [[-0.7, 0.3], [0, 0.35], [0.7, 0.3], [-0.35, -0.25], [0.35, -0.25]].forEach(function (o) {
-        ell(c, o[0] * r, o[1] * r, r * 0.4, r * 0.33, '#4a2f14');
-        ell(c, o[0] * r - r * 0.1, o[1] * r - r * 0.1, r * 0.12, r * 0.09, 'rgba(255,255,255,0.22)');
-      });
-    } else if (shape === 'long') {
-      ell(c, -r * 0.65, r * 0.05, r * 0.7, r * 0.42, '#6b3f16');
-      ell(c, r * 0.65, -r * 0.05, r * 0.7, r * 0.42, '#6b3f16');
-      ell(c, 0, 0, r * 0.7, r * 0.45, '#7b4a1e');
-      ell(c, -r * 0.2, -r * 0.2, r * 0.5, r * 0.12, 'rgba(255,255,255,0.2)');
-    } else if (shape === 'stick') {
-      ell(c, 0, r * 0.9, r * 0.7, r * 0.4, '#6b3f16');
-      ell(c, 0, 0, r * 0.45, r * 1.25, '#7b4a1e');
-      ell(c, -r * 0.15, -r * 0.4, r * 0.12, r * 0.5, 'rgba(255,255,255,0.2)');
-    } else if (shape === 'pie') {
-      ell(c, 0, r * 0.15, r * 1.25, r * 0.65, '#5f4120');
-      ell(c, -r * 0.25, -r * 0.05, r * 0.5, r * 0.22, 'rgba(255,255,255,0.18)');
-    } else {
-      ell(c, 0, 0, r, r, '#7b4a1e');
-      ell(c, -r * 0.3, -r * 0.3, r * 0.25, r * 0.25, 'rgba(255,255,255,0.25)');
-    }
-    c.restore();
-  }
-
-  // ---- synthesis screen ----
-  function addPart(id, slot, at) {
-    var a = ANIMALS[id], r = a.r, cx = 0, cy = 0, i;
-    if (recipe.length) {
-      for (i = 0; i < recipe.length; i++) { cx += recipe[i].ox; cy += recipe[i].oy; }
-      cx /= recipe.length; cy /= recipe.length;
-    }
-    var lim = 0.3, best = { x: 0, y: 0 }, bestD = 1e9;
-    for (var gx = -lim; gx <= lim + 1e-9; gx += 0.005) {
-      for (var gy = -lim; gy <= lim + 1e-9; gy += 0.005) {
-        var ok = recipe.every(function (p) { return Math.hypot(gx - p.ox, gy - p.oy) >= p.r + r; });
-        var d = Math.hypot(gx - cx, gy - cy);
-        if (ok && d < bestD) { bestD = d; best = { x: gx, y: gy }; }
-      }
-    }
-    if (at) best = at;
-    recipe.push({ shape: a.shape, r: r, ox: best.x, oy: best.y, rot: 0, blast: Math.max(1, a.price / 100), slot: slot });
-    synthSel = recipe.length - 1;
-  }
-
-  // ---- connectivity: every poop must touch another one ----
-  var SHAPE_ELL = {   // ellipses [x, y, rx, ry] in units of the part radius
-    round: [[0, 0, 1, 1]],
-    swirl: [[0, 0.55, 1, 0.45], [0, 0.1, 0.78, 0.4], [0, -0.35, 0.55, 0.35], [0.05, -0.75, 0.25, 0.25]],
-    pie:   [[0, 0.15, 1.25, 0.65]],
-    drop:  [[0, 0.2, 0.9, 0.7], [0, -0.55, 0.4, 0.5]],
-    pellets: [[-0.7, 0.3, 0.4, 0.33], [0, 0.35, 0.4, 0.33], [0.7, 0.3, 0.4, 0.33], [-0.35, -0.25, 0.4, 0.33], [0.35, -0.25, 0.4, 0.33]],
-    long:  [[-0.65, 0.05, 0.7, 0.42], [0.65, -0.05, 0.7, 0.42], [0, 0, 0.7, 0.45]],
-    stick: [[0, 0.9, 0.7, 0.4], [0, 0, 0.45, 1.25]]
-  };
-  var TOUCH_TOL = 0.004;  // small gap still counts as touching
-  function inside(p, x, y, grow) {
-    var dx = x - p.ox, dy = y - p.oy, c = Math.cos(p.rot), sn = Math.sin(p.rot);
-    var lx = (dx * c + dy * sn) / p.r, ly = (-dx * sn + dy * c) / p.r, g = grow / p.r;
-    var E = SHAPE_ELL[p.shape];
-    for (var i = 0; i < E.length; i++) {
-      var ex = (lx - E[i][0]) / (E[i][2] + g), ey = (ly - E[i][1]) / (E[i][3] + g);
-      if (ex * ex + ey * ey <= 1) return true;
-    }
-    return false;
-  }
-  function touching(a, b, tol) {
-    if (tol === undefined) tol = TOUCH_TOL;
-    if (Math.hypot(a.ox - b.ox, a.oy - b.oy) > (a.r + b.r) * 1.6 + tol) return false;
-    var st = a.r / 10, ext = a.r * 1.3;
-    for (var x = a.ox - ext; x <= a.ox + ext; x += st)
-      for (var y = a.oy - ext; y <= a.oy + ext; y += st)
-        if (inside(a, x, y, 0) && inside(b, x, y, tol)) return true;
-    return false;
-  }
-  function allConnected() {
-    if (recipe.length <= 1) return true;
-    var seen = [0], q = [0];
-    while (q.length) {
-      var i = q.pop();
-      for (var j = 0; j < recipe.length; j++)
-        if (seen.indexOf(j) < 0 && touching(recipe[i], recipe[j])) { seen.push(j); q.push(j); }
-    }
-    return seen.length === recipe.length;
-  }
-
-  function synthScale() { return W * SYNTH_ZOOM; }
-  function drawSynth() {
-    var S = synthScale(), c = synthCss / 2;
-    var g = sctx.createLinearGradient(0, 0, 0, synthCss);
-    g.addColorStop(0, '#d9f0ff'); g.addColorStop(1, '#8fcdf0');
-    sctx.fillStyle = g; sctx.fillRect(0, 0, synthCss, synthCss);
-    for (var i = 0; i < recipe.length; i++) {
-      var p = recipe[i];
-      drawShape(sctx, p.shape, c + p.ox * S, c + p.oy * S, p.r * S, p.rot);
-    }
-    var s = recipe[synthSel];
-    if (s) {
-      sctx.strokeStyle = '#f59e0b'; sctx.lineWidth = 3; sctx.setLineDash([6, 5]);
-      sctx.beginPath(); sctx.arc(c + s.ox * S, c + s.oy * S, s.r * S * 1.3, 0, Math.PI * 2); sctx.stroke();
-      sctx.setLineDash([]);
-    }
-    var ok = allConnected();
-    $('synthDone').disabled = !ok;
-    $('synthMsg').textContent = ok ? '' : 'くっついていないうんちがあります';
-  }
-  // zoom: "－" shows a wider area, "＋" zooms back in (never so far that a poop leaves the view)
-  function maxZoom() {
-    var m = 0.001;
-    recipe.forEach(function (p) { m = Math.max(m, Math.abs(p.ox) + p.r * 1.3, Math.abs(p.oy) + p.r * 1.3); });
-    return Math.max(1, Math.min(3, synthCss / 2 / W / m));
-  }
-  function setZoom(z) { SYNTH_ZOOM = Math.max(1, Math.min(z, maxZoom())); drawSynth(); }
-
-  function openSynth() {
-    paused = true;
-    synthEl.classList.remove('hidden');
-    synthCss = synthCanvas.clientWidth;
-    synthCanvas.width = synthCss * dpr; synthCanvas.height = synthCss * dpr;
-    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    SYNTH_ZOOM = Math.min(SYNTH_ZOOM, maxZoom());
-    drawSynth();
-  }
-  function closeSynth() {
-    if (!allConnected()) return; synthEl.classList.add('hidden'); paused = anyOverlay(); saveGame(); }
-
-  var drag = null;
-  function synthPoint(e) {
-    var rc = synthCanvas.getBoundingClientRect();
-    return { x: (e.clientX - rc.left) * synthCss / rc.width, y: (e.clientY - rc.top) * synthCss / rc.width };
-  }
-  synthCanvas.addEventListener('pointerdown', function (e) {
-    var pt = synthPoint(e), S = synthScale(), c = synthCss / 2;
-    for (var i = recipe.length - 1; i >= 0; i--) {
-      var p = recipe[i];
-      if (Math.hypot(pt.x - (c + p.ox * S), pt.y - (c + p.oy * S)) <= p.r * S * 1.3) {
-        synthSel = i;
-        drag = { i: i, dx: pt.x - (c + p.ox * S), dy: pt.y - (c + p.oy * S) };
-        synthCanvas.setPointerCapture(e.pointerId);
-        break;
-      }
-    }
-    drawSynth();
-  });
-  synthCanvas.addEventListener('pointermove', function (e) {
-    if (!drag) return;
-    var pt = synthPoint(e), S = synthScale(), c = synthCss / 2, p = recipe[drag.i];
-    var lim = c / S - p.r;
-    p.ox = Math.max(-lim, Math.min(lim, (pt.x - drag.dx - c) / S));
-    p.oy = Math.max(-lim, Math.min(lim, (pt.y - drag.dy - c) / S));
-    drawSynth();
-  });
-  function endDrag() { drag = null; }
-  synthCanvas.addEventListener('pointerup', endDrag);
-  synthCanvas.addEventListener('pointercancel', endDrag);
-  // tap = one step, hold = keeps repeating
-  function holdRepeat(btn, fn) {
-    var t1 = null, t2 = null;
-    function stop() { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; }
-    btn.addEventListener('pointerdown', function (e) {
-      e.preventDefault(); stop(); fn();
-      t1 = setTimeout(function () { t2 = setInterval(fn, 80); }, 350);
-    });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { btn.addEventListener(ev, stop); });
-    btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-  }
-  function rotateSel(d) { if (recipe[synthSel]) { recipe[synthSel].rot += d; drawSynth(); } }
-  holdRepeat($('rotL'), function () { rotateSel(-Math.PI / 12); });
-  holdRepeat($('rotR'), function () { rotateSel(Math.PI / 12); });
-  holdRepeat($('zoomOut'), function () { setZoom(SYNTH_ZOOM / 1.25); });
-  holdRepeat($('zoomIn'), function () { setZoom(SYNTH_ZOOM * 1.25); });
-  $('synthDone').addEventListener('click', closeSynth);
-
-  // ---- game start / rounds ----
-  // ---- save data (localStorage) ----
-  var SAVE_KEY = 'poo_save_v1';
-  function saveGame() {
-    if (!running) return;
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ coins: coins, slots: slots, storage: storage, recipe: recipe, bestHm: bestHm }));
-    } catch (e) {}
-  }
-  function loadGame() {
-    try {
-      var d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-      if (!d || !isFinite(d.coins) || !Array.isArray(d.slots) || d.slots.length < MIN_SLOTS || d.slots.length > MAX_SLOTS || !Array.isArray(d.storage) || !Array.isArray(d.recipe)) return false;
-      var okA = function (o) { return o && ANIMALS[o.id]; };
-      if (!d.slots.every(function (o) { return o === null || okA(o); }) || !d.storage.every(okA)) return false;
-      if (!d.recipe.every(function (p) { return p && isFinite(p.r) && isFinite(p.ox) && isFinite(p.oy) && SHAPE_ELL[p.shape]; })) return false;
-      coins = d.coins; slots = d.slots; storage = d.storage; recipe = d.recipe; bestHm = isFinite(d.bestHm) ? d.bestHm : 0;
-      return true;
-    } catch (e) { return false; }
-  }
-  try { if (localStorage.getItem(SAVE_KEY)) $('resetSave').classList.remove('hidden'); } catch (e) {}
-  $('resetSave').addEventListener('click', function (e) {
-    e.stopPropagation();
-    if (!confirm('保存したデータを消します。よろしいですか?')) return;
-    try { localStorage.removeItem(SAVE_KEY); } catch (er) {}
-    $('resetSave').classList.add('hidden');
-  });
-  window.addEventListener('pagehide', saveGame);
-  document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); });
-
-  function startPlay() {
-    try { screen.orientation.lock('portrait').catch(function () {}); } catch (e) {}
-    titleEl.classList.add('hidden');
-    canvas.classList.remove('hidden');
-    shopBtn.classList.remove('hidden');
-    bottomEl.classList.remove('hidden');
-    coinHud.classList.remove('hidden');
-    $('maxHud').classList.remove('hidden');
-    shakeT = 0; initAudio();
-    resize();
-    if (!loadGame()) {
-      slots = [{ id: 'rabbit' }, { id: 'rabbit' }, { id: 'rabbit' }, null, null];
-      storage = [];
-      var T = [[-0.0495, 0.0286], [0.0495, 0.0286], [0, -0.0572]];
-      recipe = T.map(function (t, i) { return { shape: 'round', r: ANIMALS.rabbit.r, ox: t[0], oy: t[1], rot: 0, blast: 1, slot: i }; });
-    }
-    renderSlots(); updateCoins();
-    running = true; last = performance.now();
-    startRound();
-    requestAnimationFrame(loop);
-  }
-  $('play').addEventListener('click', startPlay);
-  function startRound() {
-    poops = []; sparks = []; rings = []; chunks = []; ripples = []; resetPile(); camY = 0; maxHm = 0;
-    spawnComposite();
-    roundOn = true; resultEl.classList.add('hidden'); endT = 0; paused = anyOverlay();
-    updateMax();
-  }
-  function endRound() {
-    roundOn = false; endT = 0;
-    var gain = Math.floor(maxHm * 200);   // money from the highest altitude reached
-    coins += gain; updateCoins();
-    var isRec = maxHm > bestHm; if (isRec) bestHm = maxHm;
-    $('resText').innerHTML = (isRec ? '<span style="color:#ffd43b">🏆 最高記録！</span><br>' : '') + '最高高度 ' + maxHm.toFixed(2) + 'm<br>💰 +' + gain;
-    resultEl.classList.remove('hidden'); paused = true;
-    saveGame();
-  }
-  $('resNext').addEventListener('click', startRound);
-  $('resShop').addEventListener('click', openShop);
-  $('resEdit').addEventListener('click', function () { $('editBtn').click(); });
-  $('resSynth').addEventListener('click', function () { $('synthBtn').click(); });
-
-  // tap a poop: it explodes right now (no chain reaction)
-  function canvasPoint(e) {
-    var rc = canvas.getBoundingClientRect();
-    return { x: (e.clientX - rc.left) * W / rc.width, y: (e.clientY - rc.top) * H / rc.height + camY };
-  }
-  function topY(b) { var m = 1e9; b.parts.forEach(function (q) { m = Math.min(m, b.y + q.wy - q.r); }); return m; }
-  canvas.addEventListener('pointerdown', function (e) {
-    if (!running || paused || !roundOn) return;
-    var pt = canvasPoint(e), best = null, bd = 1e9;
-    poops.forEach(function (b) {
-      b.parts.forEach(function (q) {
-        var p = { ox: b.x + q.wx, oy: b.y + q.wy, r: q.r, rot: q.rot + b.th, shape: q.shape };
-        var d = Math.hypot(pt.x - p.ox, pt.y - p.oy);
-        if ((inside(p, pt.x, pt.y, q.r * 0.35) || d < q.r * 1.2) && d < bd) { bd = d; best = { b: b, q: q, x: p.ox, y: p.oy }; }
-      });
-    });
-    if (!best) return;
-    if (best.b.parts.length === 1 && poops.length > 1 && poops.every(function (o) { return o === best.b || topY(o) > topY(best.b); })) {
-      var pts = [];
-      poops.forEach(function (o) { o.parts.forEach(function (q) { pts.push({ x: o.x + q.wx, y: o.y + q.wy, p: q.blast || 1 }); }); });
-      poops = [];
-      pts.forEach(function (t) { explode(t.x, t.y, t.p); });
-      return;
-    }
-    var alive = best.b.parts.filter(function (p) { return p !== best.q; });
-    poops.splice(poops.indexOf(best.b), 1);
-    if (alive.length) Array.prototype.push.apply(poops, splitBody(best.b, alive));
-    explode(best.x, best.y, best.q.blast || 1);
-  });
-
-  // ---- the finished poop floats up from the bottom, at a random x ----
-  // Each poop is a rigid body: it moves AND rotates (buoyancy acts on every part, so uneven submersion makes torque).
-  function spawnComposite() {
-    var i, p, wsum = 0, cx = 0, cy = 0;
-    for (i = 0; i < recipe.length; i++) { p = recipe[i]; wsum += p.r * p.r; cx += p.ox * p.r * p.r; cy += p.oy * p.r * p.r; }
-    cx /= wsum; cy /= wsum;
-    var parts = [], R = 0;
-    for (i = 0; i < recipe.length; i++) {
-      p = recipe[i];
-      var q = { ox: (p.ox - cx) * W, oy: (p.oy - cy) * W, r: p.r * W, shape: p.shape, rot: p.rot, blast: p.blast || 1 };
-      parts.push(q);
-      R = Math.max(R, Math.hypot(q.ox, q.oy) + q.r);
-    }
-    poops.push(makeBody(parts, W / 2, H * 0.78 - R, 0, 0, 0, 0));
-  }
-
-  // a rigid body made of parts (ox/oy are relative to the body's centre of mass, in the body's own frame)
-  function makeBody(parts, x, y, th, vx, vy, w) {
-    var w0 = Math.pow(0.05 * W, 2), mass = 0, inertia = 0, R = 0;
-    parts.forEach(function (q) {
-      var wt = q.r * q.r / w0;
-      mass += wt;
-      inertia += wt * (q.ox * q.ox + q.oy * q.oy + q.r * q.r / 2);
-      R = Math.max(R, Math.hypot(q.ox, q.oy) + q.r);
-    });
-    var body = { x: x, y: y, vx: vx, vy: vy, th: th, w: w, eq: 0.45, m: mass, invI: 1 / inertia, w0: w0, parts: parts, R: R };
-    updWorld(body);
-    return body;
-  }
-
-  // after some parts broke: the rest may fall apart into several separate poops
-  function splitBody(b, alive) {
-    var c = Math.cos(b.th), sn = Math.sin(b.th), tol = TOUCH_TOL * W;
-    var wp = alive.map(function (p) {
-      return { ox: b.x + p.wx, oy: b.y + p.wy, r: p.r, shape: p.shape, rot: p.rot + b.th, ref: p };
-    });
-    var done = [], out = [];
-    for (var s0 = 0; s0 < wp.length; s0++) {
-      if (done.indexOf(s0) >= 0) continue;
-      var comp = [s0], stack = [s0]; done.push(s0);
-      while (stack.length) {
-        var i = stack.pop();
-        for (var j = 0; j < wp.length; j++)
-          if (done.indexOf(j) < 0 && touching(wp[i], wp[j], tol)) { done.push(j); comp.push(j); stack.push(j); }
-      }
-      var sw = 0, cx = 0, cy = 0;
-      comp.forEach(function (k) { var w = wp[k].r * wp[k].r; sw += w; cx += wp[k].ox * w; cy += wp[k].oy * w; });
-      cx /= sw; cy /= sw;
-      var parts = comp.map(function (k) {
-        var p = wp[k].ref, dx = wp[k].ox - cx, dy = wp[k].oy - cy;
-        p.ox = dx * c + dy * sn; p.oy = -dx * sn + dy * c;
-        return p;
-      });
-      var rx = cx - b.x, ry = cy - b.y;
-      out.push(makeBody(parts, cx, cy, b.th, b.vx - b.w * ry, b.vy + b.w * rx, b.w));
-    }
-    return out;
-  }
-
-  function updWorld(b) {
-    var c = Math.cos(b.th), sn = Math.sin(b.th);
-    for (var i = 0; i < b.parts.length; i++) {
-      var p = b.parts[i];
-      p.wx = p.ox * c - p.oy * sn; p.wy = p.ox * sn + p.oy * c;
-    }
-  }
-
-  function integrate(b, dt) {
-    var waterY = H * 0.08, GY = H * 0.78, S = 0, tot = 0, i, p;
-    for (i = 0; i < b.parts.length; i++) {
-      p = b.parts[i];
-      S += Math.max(0, Math.min(1, (b.y + p.wy + p.r - waterY) / (p.r * 2))) * p.r * p.r; tot += p.r * p.r;
-    }
-    S /= tot;
-    b.vy += GRAVITY * (1 - 0.8 * S) * dt;     // slow sinking in water
-    var sp = Math.hypot(b.vx, b.vy), k = 1 - Math.min(0.9, (WATER_DRAG + 3 * sp / W) * S * dt);   // drag grows with speed: fast things are braked hard
-    b.vx *= k; b.vy *= k;
-    b.w *= 1 - Math.min(1, (ANG_DRAG * S + 0.3) * dt);
-    b.w = Math.max(-12, Math.min(12, b.w));
-    b.th += b.w * dt; updWorld(b);
-    b.x += b.vx * dt; b.y += b.vy * dt;
-    for (i = 0; i < b.parts.length; i++) {      // lake-bottom ground
-      p = b.parts[i];
-      var pen = b.y + p.wy + p.r - GY;
-      if (pen <= 0) continue;
-      b.y -= pen;
-      var rx = p.wx, ry = p.wy + p.r, vc = b.vy + b.w * rx;
-      if (vc > 0) {
-        var j = 1.2 * vc / (1 / b.m + b.invI * rx * rx);
-        b.vy -= j / b.m; b.w -= rx * j * b.invI;
-      }
-      var fr = Math.min(1, 10 * dt); b.vx *= 1 - fr; b.w *= 1 - fr * 0.5;
-    }
-    var l = 0, r = 0;
-    for (i = 0; i < b.parts.length; i++) { p = b.parts[i]; l = Math.max(l, p.r - p.wx); r = Math.max(r, p.r + p.wx); }
-    if (b.x - l < 0) { b.x = l; b.vx = Math.abs(b.vx) * 0.3; }
-    if (b.x + r > W) { b.x = W - r; b.vx = -Math.abs(b.vx) * 0.3; }
-  }
-
-  function collide(a, b) {
-    var bx = b.x - a.x, by = b.y - a.y, bm = a.R + b.R;
-    if (bx * bx + by * by >= bm * bm) return;
-    var ia = 1 / a.m, ib = 1 / b.m, sum = ia + ib;
-    for (var i = 0; i < a.parts.length; i++) {
-      for (var j = 0; j < b.parts.length; j++) {
-        var pa = a.parts[i], pb = b.parts[j];
-        var ax = a.x + pa.wx, ay = a.y + pa.wy;
-        var dx = (b.x + pb.wx) - ax, dy = (b.y + pb.wy) - ay, min = pa.r + pb.r;
-        var d2 = dx * dx + dy * dy;
-        if (d2 >= min * min) continue;
-        var d = Math.sqrt(d2), nx = 1, ny = 0;
-        if (d > 0.0001) { nx = dx / d; ny = dy / d; }
-        var push = min - d;
-        // contact point and lever arms (before moving the bodies apart)
-        var cxp = ax + nx * (pa.r - push / 2), cyp = ay + ny * (pa.r - push / 2);
-        var rax = cxp - a.x, ray = cyp - a.y, rbx = cxp - b.x, rby = cyp - b.y;
-        a.x -= nx * push * ia / sum; a.y -= ny * push * ia / sum;
-        b.x += nx * push * ib / sum; b.y += ny * push * ib / sum;
-        var vax = a.vx - a.w * ray, vay = a.vy + a.w * rax;
-        var vbx = b.vx - b.w * rby, vby = b.vy + b.w * rbx;
-        var vn = (vbx - vax) * nx + (vby - vay) * ny;
-        if (vn < 0) {
-          var cra = rax * ny - ray * nx, crb = rbx * ny - rby * nx;
-          var jj = -(1 + 0.2) * vn / (sum + a.invI * cra * cra + b.invI * crb * crb);
-          a.vx -= jj * ia * nx; a.vy -= jj * ia * ny; a.w -= jj * a.invI * cra;
-          b.vx += jj * ib * nx; b.vy += jj * ib * ny; b.w += jj * b.invI * crb;
-        }
-      }
-    }
-  }
-
-  // ---- explosion: a poop bursts like a firework shell when tapped ----
-  function initAudio() {
-    try {
-      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
-      if (actx.state === 'suspended') actx.resume();
-    } catch (e) {}
-  }
-  function boomSound(blast) {   // a short, small, wet "buri": irregular low pulses + turbulence noise
-    var now = performance.now();
-    if (now - lastBoom < 40) return;
-    lastBoom = now;
-    try {
-      if (!actx) return;
-      var sr = actx.sampleRate, dur = 0.2 + 0.05 * Math.min(blast, 3), n = Math.floor(sr * dur);
-      var buf = actx.createBuffer(1, n, sr), d = buf.getChannelData(0);
-      var f0 = 85 + Math.random() * 40, ph = 0, jit = 0, pc = 0, amp = 1, lp = 0, lp2 = 0, i;
-      for (i = 0; i < n; i++) {
-        var tt = i / n;
-        jit = jit * 0.995 + (Math.random() - 0.5) * 0.03;   // slow pitch wobble
-        var f = f0 * (1.5 - 0.7 * tt) * (1 + jit);          // pitch sags as it goes
-        ph += f / sr;
-        if (ph >= 1) { ph -= 1; pc++; amp = (pc & 1 ? 0.7 : 1) * (0.85 + Math.random() * 0.3); }   // uneven pulses
-        var pulse = Math.exp(-ph * 6) * Math.min(1, ph / 0.03) * amp;
-        var raw = pulse * (1 + (Math.random() * 2 - 1) * 0.7);   // turbulence rides on each pulse
-        lp += 0.2 * (raw - lp); lp2 += 0.2 * (lp - lp2);          // soft, muffled
-        var env = Math.min(1, i / (sr * 0.008)) * Math.pow(1 - tt, 0.8);
-        d[i] = lp2 * env * 1.6;
-      }
-      var src = actx.createBufferSource(), g = actx.createGain();
-      src.buffer = buf; g.gain.value = Math.min(0.32, 0.2 + 0.03 * blast);
-      src.connect(g); g.connect(actx.destination); src.start();
-    } catch (e) {}
-  }
-  function explode(x, y, blast) {
-    var wet = y > H * 0.08, R = W * (0.12 + 0.07 * blast) * (wet ? 1.3 : 1), i, b, dx, dy, d, f, v, nx, ny, n;
-    poops.forEach(function (b) {
-      var sx = 0, sy = 0, tq = 0;
-      b.parts.forEach(function (q) {
-        dx = b.x + q.wx - x; dy = b.y + q.wy - y; d = Math.hypot(dx, dy);
-        f = 1 - d / (R + q.r);
-        if (f <= 0) return;
-        nx = d > 0.001 ? dx / d : 0; ny = d > 0.001 ? dy / d : -1;
-        ny -= 0.5; n = Math.hypot(nx, ny); nx /= n; ny /= n;
-        v = f * W * (2.2 + blast) * (b.y + q.wy > H * 0.08 ? 1.7 : 1); var wt = q.r * q.r / b.w0;
-        sx += wt * v * nx; sy += wt * v * ny; tq += wt * v * (q.wx * ny - q.wy * nx);
-      });
-      b.vx += sx / b.m; b.vy += sy / b.m; b.w += tq * b.invI * 0.15;
-      var sp = Math.hypot(b.vx, b.vy), cap = W * 5;
-      if (sp > cap) { b.vx *= cap / sp; b.vy *= cap / sp; }
-    });
-    var sd = Math.abs(y - H * 0.08);
-    if (sd < R * 1.6) addRipple(x, Math.min(W * 0.06, W * 0.035 * blast * (1 - sd / (R * 1.6))));
-    // poop chunks: brown pieces that scatter, rather heavy
-    var col = '#ffe3a3', pc = ['#7b4a1e', '#6b3f16', '#8a5626', '#5f4120', '#98622e'];
-    var cnt = Math.min(Math.round(12 + 6 * blast), Math.max(0, 140 - chunks.length));
-    for (i = 0; i < cnt; i++) {
-      var ang = Math.random() * Math.PI * 2, spd = R * (1.4 + 2.2 * Math.random()) * (wet ? 0.7 : 1);
-      chunks.push({ x: x, y: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - R * 0.5, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 14,
-        age: 0, life: 1.6 + Math.random() * 1.0, size: W * (0.012 + 0.014 * Math.random()) * (0.8 + 0.25 * blast), col: pc[(Math.random() * pc.length) | 0] });
-    }
-    boomSound(blast);
-    try { if (navigator.vibrate) navigator.vibrate(12 + 10 * blast); } catch (e) {}
-  }
-  function updFx(dt) {
-    var i, s, k = Math.exp(-2.2 * dt);
-    for (i = 0; i < sparks.length; i++) {
-      s = sparks[i]; s.age += dt;
-      s.vx *= k; s.vy = s.vy * k + 500 * dt;
-      s.x += s.vx * dt; s.y += s.vy * dt;
-    }
-    sparks = sparks.filter(function (o) { return o.age < o.life; });
-    for (i = 0; i < chunks.length; i++) {
-      s = chunks[i]; s.age += dt;
-      var inW = s.y > H * 0.08, kc = Math.exp(-(inW ? 3.5 : 0.6) * dt);
-      s.vx *= kc; s.vy = s.vy * kc + (inW ? 600 : 2200) * dt;   // heavy: falls fast in air, sinks slowly in water
-      s.x += s.vx * dt; s.y += s.vy * dt; s.rot += s.vr * dt;
-      var bi = Math.max(0, Math.min(47, Math.floor(s.x / W * 48))), fy = H * 0.78 - hm[bi];
-      if (s.y + s.size * 0.5 >= fy) {   // landed: it stays and piles up
-        s.dead = true;
-        pile.push({ x: Math.max(0, Math.min(W, s.x)), y: fy - s.size * 0.4 + (Math.random() - 0.5) * s.size * 0.3, rot: s.rot, size: s.size, col: s.col });
-        hm[bi] = Math.min(W * 0.15, hm[bi] + s.size * 0.7);
-        if (pile.length > 500) pile.shift();
-      }
-    }
-    chunks = chunks.filter(function (o) { return !o.dead; });
-    for (i = 0; i < ripples.length; i++) ripples[i].age += dt;
-    ripples = ripples.filter(function (o) { return o.age < 2.5; });
-    for (i = 0; i < rings.length; i++) rings[i].age += dt;
-    rings = rings.filter(function (o) { return o.age < o.life; });
-    if (shakeT > 0) shakeT -= dt;
-  }
-  function step(dt) {
-    updFx(dt);
-    var i, j;
-    for (i = 0; i < poops.length; i++) integrate(poops[i], dt);
-    for (i = 0; i < poops.length; i++)
-      for (j = i + 1; j < poops.length; j++) collide(poops[i], poops[j]);
-    var top = 1e9;
-    poops.forEach(function (b) {
-      top = Math.min(top, b.y);
-      var inW = b.y > H * 0.08;   // crossing the surface fast makes a ripple
-      if (b.wasIn !== undefined && b.wasIn !== inW) { var spd = Math.hypot(b.vx, b.vy); if (spd > W * 0.4) addRipple(b.x, Math.min(W * 0.04, spd * 0.012)); }
-      b.wasIn = inW;
-      b.parts.forEach(function (q) {
-        var h = (H * 0.78 - (b.y + q.wy + q.r)) / (W * 1.2);   // metres above the water (1 m = 1.2 widths)
-        if (h > maxHm) maxHm = h;
-      });
-    });
-    if (roundOn) updateMax();
-    if (poops.length) {   // camera follows the highest poop
-      var camTarget = Math.min(0, top - H * 0.3);
-      camY += (camTarget - camY) * (1 - Math.exp(-5 * dt));
-      if (camY > -0.05) camY = 0;
-      endT = 0;
-    } else if (roundOn) { endT += dt; if (endT >= 0.5) endRound(); }   // 0.5 s after the last poop bursts
-  }
-
-  var waveY = [];
-  function draw() {
-    var waterY = H * 0.08;
-    // wavy surface: two sine waves sampled at a few dozen points (cheap)
-    var WN = 36, wt = performance.now() / 1000, wj;
-    for (wj = 0; wj <= WN; wj++) { var wx = wj / WN * W; var wv = waterY + W * 0.007 * Math.sin(wx * 0.035 + wt * 1.6) + W * 0.004 * Math.sin(wx * 0.09 - wt * 2.3);
-      for (var ri = 0; ri < ripples.length; ri++) {   // ripples spread out from where things hit or blast the surface
-        var rp = ripples[ri], rd = Math.abs(wx - rp.x), fr = Math.max(0, Math.min(1, (rp.age * W * 0.9 - rd) / (W * 0.1)));
-        if (fr > 0) wv += rp.amp * fr * Math.exp(-rd / (W * 0.5) - rp.age * 1.4) * Math.sin(rd * 0.08 - rp.age * 9);
-      }
-      waveY[wj] = wv;
-    }
-    function wavePath() {
-      ctx.beginPath(); ctx.moveTo(0, waveY[0]);
-      for (var j = 1; j <= WN; j++) ctx.lineTo(j / WN * W, waveY[j]);
-      ctx.lineTo(W, H + 40); ctx.lineTo(0, H + 40); ctx.closePath();
-    }
-    ctx.save();
-    if (shakeT > 0) { var sa = shakeA * Math.min(1, shakeT / 0.2); ctx.translate((Math.random() - 0.5) * 2 * sa, (Math.random() - 0.5) * 2 * sa); }
-    ctx.translate(0, -camY);   // camera
-    var alt = Math.min(1, -camY / (H * 4));
-    var sky = ctx.createLinearGradient(0, camY, 0, waterY);
-    sky.addColorStop(0, 'rgb(' + Math.round(159 - 139 * alt) + ',' + Math.round(216 - 186 * alt) + ',' + Math.round(255 - 175 * alt) + ')');
-    sky.addColorStop(1, '#e3f4ff');
-    ctx.fillStyle = sky; ctx.fillRect(0, camY - 40, W, waterY - camY + 40 + W * 0.03);
-    var wg = ctx.createLinearGradient(0, waterY, 0, H);
-    wg.addColorStop(0, '#3a9ad9'); wg.addColorStop(1, '#0d4f8b');
-    ctx.fillStyle = wg; wavePath(); ctx.fill();
-    ctx.fillStyle = '#7a6a48'; ctx.fillRect(0, H * 0.78, W, H * 0.22 + 40);
-    ctx.fillStyle = '#9a8860'; ctx.fillRect(0, H * 0.78, W, 3);
-    for (k = 0; k < pile.length; k++) { var pp = pile[k]; ctx.fillStyle = pp.col; ctx.beginPath(); ctx.ellipse(pp.x, pp.y, pp.size, pp.size * 0.72, pp.rot, 0, 6.2832); ctx.fill(); }
-    var i, k, b, q;
-    // height marks every 0.5 m (visible only when the camera is up)
-    if (camY < -1) {
-      var restY = H * 0.78, mpx = W * 1.2;   // pixels per metre
-      var k0 = Math.max(1, Math.ceil((restY - (camY + H)) / mpx / 0.5)), k1 = Math.min(k0 + 40, Math.floor((restY - camY) / mpx / 0.5));
-      ctx.font = 'bold ' + Math.round(Math.min(W, H) * 0.035) + 'px sans-serif';
-      ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-      ctx.lineWidth = 1.5; ctx.setLineDash([6, 8]);
-      for (var hk = k0; hk <= k1; hk++) {
-        var my = restY - hk * 0.5 * mpx;
-        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-        ctx.beginPath(); ctx.moveTo(0, my); ctx.lineTo(W, my); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
-        ctx.fillText((hk * 0.5).toFixed(1) + 'm', 6, my - 3);
-      }
-      ctx.setLineDash([]);
-    }
-    for (i = 0; i < poops.length; i++) {
-      b = poops[i];
-      for (k = 0; k < b.parts.length; k++) {
-        q = b.parts[k];
-        drawShape(ctx, q.shape, b.x + q.wx, b.y + q.wy, q.r, q.rot + b.th);
-      }
-    }
-    for (k = 0; k < chunks.length; k++) {
-      var ch = chunks[k];
-      ctx.globalAlpha = 1;
-      ctx.save(); ctx.translate(ch.x, ch.y); ctx.rotate(ch.rot);
-      ell(ctx, 0, 0, ch.size, ch.size * 0.72, ch.col);
-      ctx.restore();
-    }
-    ctx.fillStyle = 'rgba(30,120,200,0.45)'; wavePath(); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, waveY[0]);
-    for (wj = 1; wj <= WN; wj++) ctx.lineTo(wj / WN * W, waveY[wj]);
-    ctx.stroke();
-    if (maxHm > 0.02) {   // record line
-      var by = H * 0.78 - maxHm * W * 1.2, lb = maxHm.toFixed(2) + 'm';
-      ctx.lineWidth = 2; ctx.setLineDash([8, 6]); ctx.strokeStyle = '#ffd43b';
-      ctx.beginPath(); ctx.moveTo(0, by); ctx.lineTo(W, by); ctx.stroke(); ctx.setLineDash([]);
-      ctx.font = 'bold ' + Math.round(W * 0.05) + 'px sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.lineWidth = 3;
-      ctx.strokeStyle = '#7a4a00'; ctx.strokeText(lb, W - 8, by - 4);
-      ctx.fillStyle = '#ffd43b'; ctx.fillText(lb, W - 8, by - 4);
-    }
-    ctx.globalAlpha = 1;
-    // firework effects
-    ctx.globalCompositeOperation = 'lighter';
-    for (k = 0; k < rings.length; k++) {
-      var rg = rings[k], t = rg.age / rg.life;
-      ctx.globalAlpha = Math.max(0, 1 - t) * 0.5;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.rMax * 0.35 * (1 - t * 0.5), 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = Math.max(0, 1 - t);
-      ctx.strokeStyle = rg.col; ctx.lineWidth = Math.max(2, W * 0.012 * (1 - t));
-      ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.rMax * (0.2 + 0.8 * t), 0, Math.PI * 2); ctx.stroke();
-    }
-    for (k = 0; k < sparks.length; k++) {
-      var sp2 = sparks[k], al = 1 - sp2.age / sp2.life;
-      ctx.globalAlpha = al; ctx.fillStyle = sp2.col;
-      ctx.beginPath(); ctx.arc(sp2.x, sp2.y, sp2.size * (0.5 + 0.5 * al), 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1;
-    ctx.restore();
-  }
-
-  var last = 0, acc = 0;
-  function loop(now) {
-    if (!running) return;
-    var dt = Math.min(0.05, (now - last) / 1000);
-    last = now;
-    if (paused) { acc = 0; } else { acc += dt; }
-    var FIXED = 1 / 120;
-    while (acc >= FIXED) { step(FIXED); acc -= FIXED; }
-    draw();
-    requestAnimationFrame(loop);
-  }
-})();
+}
+function text(s,x,y,size,col,al){g.font=`700 ${size}px "Trebuchet MS",system-ui,sans-serif`;g.textAlign=al||'left';g.lineWidth=5;g.strokeStyle='rgba(30,14,2,.85)';g.strokeText(s,x,y);g.fillStyle=col;g.fillText(s,x,y)}
+function render(){
+  g.setTransform(1,0,0,1,0,0);g.fillStyle='#1b1209';g.fillRect(0,0,cv.width,cv.height);
+  g.setTransform(sc,0,0,sc,ox+(Math.random()-.5)*shake*sc,oy+(Math.random()-.5)*shake*sc);
+  g.save();g.beginPath();g.rect(-30,-30,W+60,H+60);g.clip();
+  drawBG();nails.forEach(drawNail);drawHammer();
+  for(const p of parts){g.globalAlpha=Math.max(0,p.l*2);g.fillStyle=p.c;g.fillRect(p.x-2,p.y-2,4,4)}g.globalAlpha=1;
+  for(const q of texts){g.globalAlpha=Math.min(1,q.l*2);text(q.s,q.x,q.y-(1-q.l)*40,34,q.c,'center')}g.globalAlpha=1;
+  const left=nails.filter(n=>!n.done).length;
+  text(`${T.nails} ${nails.length-left}/${nails.length}`,24,90,30,'#fff');
+  text(`${T.time} ${t.toFixed(1)}s`,24,126,22,'#ffe0a8');
+  if(hint&&state==='play')text(T.hint,W/2,150,34,'#fff','center');
+  g.restore();
+}
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(.033,(now-last)/1000);last=now;
+  if(state==='play'){t+=dt;const n=Math.ceil(dt/DT);for(let i=0;i<n&&state==='play';i++)step(dt/n)}
+  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=900*dt;p.l-=dt}parts=parts.filter(p=>p.l>0);
+  for(const q of texts)q.l-=dt;texts=texts.filter(q=>q.l>0);
+  shake*=.88;
+  render();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
 </script>
-</body>
-</html>
+</body></html>
