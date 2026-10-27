@@ -31,13 +31,13 @@ const ja=/^ja/.test(navigator.language);
 const T=ja?{desc:'ハンマーをドラッグして、釘に振り下ろそう。勢いが強いほど深く刺さる。でも面を斜めに当てると釘が曲がってしまう！',play:'あそぶ',hint:'ハンマーをドラッグして振り下ろそう！',clear:'クリア！',again:'もう一回',nails:'釘',time:'タイム',hits:'打数',perfect:'パーフェクト！',bent:'曲がった！'}
 :{desc:'Drag the hammer and swing it down on the nails. The harder you hit, the deeper they go — but hit with a tilted face and the nail bends!',play:'Play',hint:'Drag the hammer, then swing it down!',clear:'Cleared!',again:'Play again',nails:'Nails',time:'Time',hits:'Swings',perfect:'PERFECT!',bent:'BENT!'};
 const $=id=>document.getElementById(id);
-Object.assign(T,ja?{desc:'ピッケルを掴んで振り、丸太の釘を打ち込もう。勢いが強いほど深く刺さる。判定は両端の黄色い先端の一点だけ。まっすぐ突き立てるのがコツ。斜めに当てると釘が曲がる！',hint:'ピッケルをドラッグして、釘に振り下ろそう！'}:{desc:'Grab the pickaxe and swing it to drive the nails into the log. Harder hits sink them deeper. Only the yellow pick tips count — hit squarely with one — a tilted hit bends the nail!',hint:'Drag the pickaxe, then swing it down on the nails!'});$('desc').textContent=T.desc;$('play').textContent=T.play;$('ct').textContent=T.clear;$('again').textContent=T.again;
+Object.assign(T,ja?{desc:'ピッケルを掴んで振り、丸太の釘を打ち込もう。勢いが強いほど深く刺さる。判定は両端の黄色い先端の一点だけ。まっすぐ突き立てるのがコツ。斜めに当てると刺さりにくくなる！',hint:'ピッケルをドラッグして、釘に振り下ろそう！'}:{desc:'Grab the pickaxe and swing it to drive the nails into the log. Harder hits sink them deeper. Only the yellow pick tips count — hit squarely with one — a tilted hit sinks the nail less!',hint:'Drag the pickaxe, then swing it down on the nails!'});$('desc').textContent=T.desc;$('play').textContent=T.play;$('ct').textContent=T.clear;$('again').textContent=T.again;
 
 // ---------- Canvas ----------
-const W=854,H=480,GY=333,LX=598,PX=W+1000,PY=GY-67;
+const W=854,H=480,GY=333,NS=3,LX=758,PX=W+800,PY=60,HX=862,HY=-250,Z=.5,VW=W/Z,VH=H/Z,VX0=-100,VY0=-560;
 const cv=$('c'),g=cv.getContext('2d');
 let sc=1,ox=0,oy=0,dpr=1;
-function fit(){dpr=devicePixelRatio||1;cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';sc=Math.min(cv.width/W,cv.height/H);ox=(cv.width-W*sc)/2;oy=(cv.height-H*sc)/2}
+function fit(){dpr=devicePixelRatio||1;cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';sc=Math.min(cv.width/VW,cv.height/VH);ox=(cv.width-VW*sc)/2;oy=(cv.height-VH*sc)/2}
 addEventListener('resize',fit);fit();
 
 // ---------- Audio ----------
@@ -47,24 +47,24 @@ function snd(k,f,d,type,v,sl){const now=performance.now();if(userMute||adMute||n
 $('mute').onclick=()=>{userMute=!userMute;$('mute').textContent=userMute?'🔇':'🔊'};
 
 // ---------- Game state ----------
-const M=1,I=22000,KA=1800000,KW=185000,GR=1500,DT=1/480,KP=45,KD=8,FMAX=7000;
+const S=3,VMIN=700,DK=30,DMAX=60*NS,M=1,I=22000*S*S,KA=1800000*S*S,KW=185000*S*S,GR=1500,DT=1/480,KP=45,KD=8,FMAX=7000;
 // local collision points: [x,y,radius]  (handle runs along local x, head faces are local ±y)
 // kind: 0 = handle/side, 1 = flat face (adze), 2 = pick tip
-const PTS=[];for(let x=-77;x<=387;x+=22)PTS.push([x,0,8,0]);
-for(let y=-60;y<=60;y+=30)PTS.push([-83,y,11,0]);
-PTS.push([-78,114,0,2],[-78,-114,0,2]);
+const PTS=[];for(let x=-77*S;x<=387*S;x+=22)PTS.push([x,0,8*S,0]);
+for(let y=-60*S;y<=60*S;y+=30)PTS.push([-83*S,y,11*S,0]);
+PTS.push([-78*S,114*S,0,2],[-78*S,-114*S,0,2]);
 let hm,nails,parts,texts,shake,t,hits,hint,grab,frozen,state='menu';
 const mouse={x:0,y:0};
 function reset(){
-  hm={x:W-10,y:200,a:Math.atan2(PY-200,PX-W),vx:0,vy:0,w:0};frozen=true;
-  nails=[[518,84]].map(a=>({x:a[0],h:a[1],bent:0,done:false}));
+  hm={x:HX,y:HY,a:Math.atan2(PY-HY,PX-HX),vx:0,vy:0,w:0};frozen=true;
+  nails=[[518,84*NS]].map(a=>({x:a[0],h:a[1],bent:0,done:false}));
   parts=[];texts=[];shake=0;t=0;hits=0;hint=true;grab=null;
 }
 reset();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const wrapA=x=>((x+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
 function wp(p){const c=Math.cos(hm.a),s=Math.sin(hm.a),rx=c*p[0]-s*p[1],ry=s*p[0]+c*p[1];return[hm.x+rx,hm.y+ry,rx,ry]}
-function surf(x,tp){if(tp)for(const n of nails)if(!n.done&&Math.abs(x-n.x)<6)return[GY-n.h,n];return[x<=LX?GY:1e9,null]}
+function surf(x,tp){if(tp)for(const n of nails)if(!n.done&&Math.abs(x-n.x)<6*NS)return[GY-n.h,n];return[x<=LX?GY:1e9,null]}
 function burst(x,y,n,col,sp){for(let i=0;i<n;i++){const a=-Math.PI*Math.random();parts.push({x,y,vx:Math.cos(a)*sp*Math.random(),vy:Math.sin(a)*sp*Math.random(),l:.5+Math.random()*.4,c:col})}}
 function say(x,y,s,c){texts.push({x,y,s,c,l:1})}
 
@@ -84,7 +84,7 @@ function step(dt){
   let maxPen=0;
   for(const p of PTS){
     const[X,Y,rx,ry]=wp(p),[sy,n]=surf(X,p[3]==2),pen=Y+p[2]-sy;
-    if(X<LX&&X>LX-30&&Y>GY+10&&Y<GY+150&&hm.vx<0){hm.x+=LX-X;hm.vx*=-.1;continue}
+    if(X<LX&&X>LX-30*NS&&Y>GY+10&&Y<GY+150*NS&&hm.vx<0){hm.x+=LX-X;hm.vx*=-.1;continue}
     if(pen<=0||pen>60)continue;
     maxPen=Math.max(maxPen,pen);
     const vy=hm.vy+hm.w*rx;
@@ -93,19 +93,19 @@ function step(dt){
     hm.vy-=j/M;hm.w-=rx*j/I;
     const vt=hm.vx-hm.w*ry,jt=clamp(-vt/(1/M+ry*ry/I),-.6*j,.6*j);
     hm.vx+=jt/M;hm.w-=ry*jt/I;
-    if(n&&vy>150){
+    if(n&&vy>VMIN){
       // flatness of the hitting surface: 1 = face parallel to the nail head
       const tl=Math.abs(wrapA(hm.a-(p[1]<0?Math.PI:0))),fl=Math.cos(tl*1.6);
       let eff=clamp((fl-.5)/.5,.12,1);
-      if(fl<.8&&vy>700&&!n.bent){n.bent=1;say(n.x,sy-30,T.bent,'#ff6b5a');snd('b',300,.2,'sawtooth',.15,120)}
-      if(n.bent)eff*=.55;
-      const d=(vy-150)*.03*eff;
+      
+      
+      const d=Math.min(DMAX,DK*eff*NS*((vy-VMIN)/500)**2);
       n.h-=d;hits++;hint=false;
       if(eff>.9&&vy>1300)say(n.x,sy-40,T.perfect,'#ffe27a');
       shake=Math.max(shake,Math.min(14,vy/130));
       burst(n.x,sy,Math.min(14,4+vy/200|0),'#d9d9e0',Math.min(500,vy/3));
       snd('n',1500+Math.min(1500,vy),.14,'triangle',.28,700);snd('nl',180,.1,'square',.18,60);
-      if(n.h<=4){n.h=4;n.done=true;snd('d',520,.25,'sine',.25,1040);if(nails.every(q=>q.done))win()}
+      if(n.h<=4*NS){n.h=4*NS;n.done=true;snd('d',520,.25,'sine',.25,1040);if(nails.every(q=>q.done))win()}
     }else if(!n&&vy>250){
       shake=Math.max(shake,Math.min(8,vy/250));burst(X,GY,5,'#c98a4b',260);snd('g',120,.14,'sine',Math.min(.4,vy/1500),50);
     }
@@ -113,8 +113,8 @@ function step(dt){
   hm.y-=maxPen;
   if(hm.x<-200){hm.x=-200;hm.vx=Math.abs(hm.vx)*.3}
   if(hm.x>W+900){hm.x=W+900;hm.vx=-Math.abs(hm.vx)*.3}
-  if(hm.y<-500){hm.y=-500;hm.vy=0}
-  if(hm.y>H+700){hm.x=W-10;hm.y=200;hm.a=Math.atan2(PY-200,PX-W);hm.vx=hm.vy=hm.w=0;frozen=true;grab=null}
+  
+  if(hm.y>H+700){hm.x=HX;hm.y=HY;hm.a=Math.atan2(PY-HY,PX-HX);hm.vx=hm.vy=hm.w=0;frozen=true;grab=null}
 }
 
 // ---------- Flow ----------
@@ -134,13 +134,13 @@ $('again').onclick=()=>{
 };
 
 // ---------- Input ----------
-function pos(e){return{x:(e.clientX*dpr-ox)/sc,y:(e.clientY*dpr-oy)/sc}}
+function pos(e){return{x:(e.clientX*dpr-ox)/sc+VX0,y:(e.clientY*dpr-oy)/sc+VY0}}
 cv.addEventListener('pointerdown',e=>{
   const m=pos(e);mouse.x=m.x;mouse.y=m.y;
   if(state!=='play')return;
   const c=Math.cos(hm.a),s=Math.sin(hm.a),dx=m.x-hm.x,dy=m.y-hm.y,lx=c*dx+s*dy,ly=-s*dx+c*dy;
-  const gx=clamp(lx,-100,387),gy=gx<-60?clamp(ly,-114,114):clamp(ly,-8,8);
-  if(Math.hypot(lx-gx,ly-gy)<56){frozen=false;grab=[gx,gy];cv.setPointerCapture(e.pointerId)}
+  const gx=clamp(lx,-100*S,387*S),gy=gx<-60*S?clamp(ly,-114*S,114*S):clamp(ly,-8*S,8*S);
+  if(Math.hypot(lx-gx,ly-gy)<90){frozen=false;grab=[gx,gy];cv.setPointerCapture(e.pointerId)}
 });
 cv.addEventListener('pointermove',e=>{const m=pos(e);mouse.x=m.x;mouse.y=m.y});
 ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{grab=null}));
@@ -153,30 +153,29 @@ function drawSky(){
   g.fillStyle=gr;g.fillRect(-4000,-4000,W+8000,H+8000);
   g.fillStyle='rgba(255,255,255,.85)';
   [[150,100,1],[400,55,.7],[650,120,1.2],[800,50,.8]].forEach(c=>{g.beginPath();[[0,0,50],[45,10,40],[-45,12,36],[10,-18,36]].forEach(b=>{const x=c[0]+b[0]*c[2],y=c[1]+b[1]*c[2],r=b[2]*c[2];g.moveTo(x+r,y);g.arc(x,y,r,0,7)});g.fill()});
-  const lg=g.createLinearGradient(0,GY,0,GY+150);lg.addColorStop(0,'#d9a05a');lg.addColorStop(.5,'#b57a3a');lg.addColorStop(1,'#7a4c22');
-  g.fillStyle=lg;g.beginPath();g.roundRect?g.roundRect(-4000,GY,LX+4000,150,[0,34,34,0]):g.rect(-4000,GY,LX+4000,150);g.fill();
-  g.fillStyle='rgba(255,230,170,.4)';g.fillRect(-4000,GY,LX+4000-30,4);
-  g.strokeStyle='rgba(70,36,10,.35)';g.lineWidth=2;
-  for(let k=0;k<6;k++){g.beginPath();for(let x=-60;x<=LX-24;x+=20){const y=GY+18+k*22+Math.sin(x*.012+k*2)*4;x==-60?g.moveTo(x,y):g.lineTo(x,y)}g.stroke()}
-  g.fillStyle='rgba(70,36,10,.45)';[[150,GY+50],[420,GY+85]].forEach(k=>{g.beginPath();g.ellipse(k[0],k[1],16,9,0,0,7);g.fill()});
+  const lg=g.createLinearGradient(0,GY,0,GY+150*NS);lg.addColorStop(0,'#d9a05a');lg.addColorStop(.5,'#b57a3a');lg.addColorStop(1,'#7a4c22');
+  g.fillStyle=lg;g.beginPath();g.roundRect?g.roundRect(-4000,GY,LX+4000,150*NS,[0,34*NS,34*NS,0]):g.rect(-4000,GY,LX+4000,150*NS);g.fill();
+  g.fillStyle='rgba(255,230,170,.4)';g.fillRect(-4000,GY,LX+4000-30*NS,4*NS);
+  g.strokeStyle='rgba(70,36,10,.35)';g.lineWidth=2*NS;
+  for(let k=0;k<6;k++){g.beginPath();for(let x=-60;x<=LX-24*NS;x+=20){const y=GY+(18+k*22)*NS+Math.sin(x*.012+k*2)*4*NS;x==-60?g.moveTo(x,y):g.lineTo(x,y)}g.stroke()}
+  g.fillStyle='rgba(70,36,10,.45)';[[150,GY+50*NS],[420,GY+85*NS]].forEach(k=>{g.beginPath();g.ellipse(k[0],k[1],16*NS,9*NS,0,0,7);g.fill()});
 }
 function drawNail(n){
   const top=GY-n.h;g.save();
-  g.fillStyle='#9ea3ad';g.fillRect(n.x-2.5,GY-n.h*.5,5,n.h*.5);
+  g.fillStyle='#9ea3ad';g.fillRect(n.x-2.5*NS,GY-n.h*.5,5*NS,n.h*.5);
   g.translate(n.x,GY-n.h*.5);g.rotate(n.bent*.45);
-  g.fillRect(-2.5,-(n.h*.5),5,n.h*.5+1);
-  g.fillStyle='#d6dae2';g.fillRect(-11,-(n.h*.5),22,4.5);
+  g.fillRect(-2.5*NS,-(n.h*.5),5*NS,n.h*.5+1);
+  g.fillStyle='#d6dae2';g.fillRect(-11*NS,-(n.h*.5),22*NS,4.5*NS);
   g.restore();
 }
 function drawHammer(){
-  g.save();g.translate(hm.x,hm.y);g.rotate(hm.a);
+  g.save();g.translate(hm.x,hm.y);g.rotate(hm.a);g.scale(S,S);
   g.fillStyle='#8a5526';g.fillRect(-84,-8,471,16);
   g.fillStyle='#b97a3a';g.fillRect(-84,-8,471,5);
   const ir=g.createLinearGradient(-78,0,-102,0);ir.addColorStop(0,'#c3cad6');ir.addColorStop(1,'#6c7685');
-  g.fillStyle=ir;g.strokeStyle='#323946';g.lineWidth=3;g.lineJoin='round';
+  g.fillStyle=ir;g.strokeStyle='#323946';g.lineWidth=2;g.lineJoin='round';
   g.beginPath();g.moveTo(-78,-114);g.quadraticCurveTo(-120,0,-78,114);g.quadraticCurveTo(-84,0,-78,-114);g.closePath();g.fill();g.stroke();
-  g.fillStyle='#4a5160';g.fillRect(-94,-11,18,22);
-  g.fillStyle='#ffe27a';[-114,114].forEach(y=>{g.beginPath();g.arc(-78,y,4,0,7);g.fill()});
+  g.fillStyle='#ffe27a';[-114,114].forEach(y=>{g.beginPath();g.arc(-78,y,3,0,7);g.fill()});
   g.restore();
   if(grab){
     const c=Math.cos(hm.a),s=Math.sin(hm.a),gx=hm.x+c*grab[0]-s*grab[1],gy=hm.y+s*grab[0]+c*grab[1];
@@ -188,11 +187,12 @@ function drawHammer(){
 function text(s,x,y,size,col,al){g.font=`700 ${size}px "Trebuchet MS",system-ui,sans-serif`;g.textAlign=al||'left';g.lineWidth=5;g.strokeStyle='rgba(30,14,2,.85)';g.strokeText(s,x,y);g.fillStyle=col;g.fillText(s,x,y)}
 function render(){
   g.setTransform(1,0,0,1,0,0);g.fillStyle='#1b1209';g.fillRect(0,0,cv.width,cv.height);
-  g.setTransform(sc,0,0,sc,ox+(Math.random()-.5)*shake*sc,oy+(Math.random()-.5)*shake*sc);
+  const shx=(Math.random()-.5)*shake*sc,shy=(Math.random()-.5)*shake*sc;g.setTransform(sc,0,0,sc,ox-VX0*sc+shx,oy-VY0*sc+shy);
   g.save();
   drawSky();nails.forEach(drawNail);drawHammer();
   for(const p of parts){g.globalAlpha=Math.max(0,p.l*2);g.fillStyle=p.c;g.fillRect(p.x-2,p.y-2,4,4)}g.globalAlpha=1;
-  for(const q of texts){g.globalAlpha=Math.min(1,q.l*2);text(q.s,q.x,q.y-(1-q.l)*40,34,q.c,'center')}g.globalAlpha=1;
+  for(const q of texts){g.globalAlpha=Math.min(1,q.l*2);text(q.s,q.x,q.y-(1-q.l)*60,56,q.c,'center')}g.globalAlpha=1;
+  g.setTransform(sc/Z,0,0,sc/Z,ox+shx,oy+shy);
   const left=nails.filter(n=>!n.done).length;
   text(`${T.nails} ${nails.length-left}/${nails.length}`,24,90,30,'#fff');
   text(`${T.time} ${t.toFixed(1)}s`,24,126,22,'#ffe0a8');
