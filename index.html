@@ -34,7 +34,7 @@ const $=id=>document.getElementById(id);
 Object.assign(T,ja?{desc:'ピッケルを掴んで振り、丸太の釘を打ち込もう。勢いが強いほど深く刺さる。黄色い平らな面で、まっすぐ当てるのがコツ。斜めに当てると釘が曲がる！',hint:'ピッケルをドラッグして、釘に振り下ろそう！'}:{desc:'Grab the pickaxe and swing it to drive the nails into the log. Harder hits sink them deeper. Hit squarely with the flat yellow face — a tilted hit bends the nail!',hint:'Drag the pickaxe, then swing it down on the nails!'});$('desc').textContent=T.desc;$('play').textContent=T.play;$('ct').textContent=T.clear;$('again').textContent=T.again;
 
 // ---------- Canvas ----------
-const W=1280,H=720,GY=500,LX=620;
+const W=1280,H=720,GY=500,LX=896,PX=W+1500,PY=GY-100;
 const cv=$('c'),g=cv.getContext('2d');
 let sc=1,ox=0,oy=0,dpr=1;
 function fit(){dpr=devicePixelRatio||1;cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';sc=Math.min(cv.width/W,cv.height/H);ox=(cv.width-W*sc)/2;oy=(cv.height-H*sc)/2}
@@ -47,23 +47,24 @@ function snd(k,f,d,type,v,sl){const now=performance.now();if(userMute||adMute||n
 $('mute').onclick=()=>{userMute=!userMute;$('mute').textContent=userMute?'🔇':'🔊'};
 
 // ---------- Game state ----------
-const M=1,I=22000,GR=1500,DT=1/480,KP=45,KD=8,FMAX=7000;
+const M=1,I=22000,KA=550000,KW=88000,GR=1500,DT=1/480,KP=45,KD=8,FMAX=7000;
 // local collision points: [x,y,radius]  (handle runs along local x, head faces are local ±y)
 // kind: 0 = handle/side, 1 = flat face (adze), 2 = pick tip
-const PTS=[];for(let x=-387;x<=77;x+=22)PTS.push([x,0,8,0]);
-for(let y=-60;y<=60;y+=30)PTS.push([83,y,11,0]);
-[[63,96],[83,96],[105,96]].forEach(p=>PTS.push([p[0],p[1],0,1]));PTS.push([92,-106,0,2]);
+const PTS=[];for(let x=-77;x<=387;x+=22)PTS.push([x,0,8,0]);
+for(let y=-60;y<=60;y+=30)PTS.push([-83,y,11,0]);
+[[-63,96],[-83,96],[-105,96]].forEach(p=>PTS.push([p[0],p[1],0,1]));PTS.push([-92,-106,0,2]);
 let hm,nails,parts,texts,shake,t,hits,hint,grab,frozen,state='menu';
 const mouse={x:0,y:0};
 function reset(){
-  hm={x:10,y:300,a:0,vx:0,vy:0,w:0};frozen=true;
-  nails=[[700,60],[780,66],[860,72],[940,64],[1020,70]].map(a=>({x:a[0],h:a[1],bent:0,done:false}));
+  hm={x:W-10,y:300,a:Math.atan2(PY-300,PX-W),vx:0,vy:0,w:0};frozen=true;
+  nails=[[816,60],[736,66],[656,72],[576,64],[496,70]].map(a=>({x:a[0],h:a[1],bent:0,done:false}));
   parts=[];texts=[];shake=0;t=0;hits=0;hint=true;grab=null;
 }
 reset();
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const wrapA=x=>((x+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
 function wp(p){const c=Math.cos(hm.a),s=Math.sin(hm.a),rx=c*p[0]-s*p[1],ry=s*p[0]+c*p[1];return[hm.x+rx,hm.y+ry,rx,ry]}
-function surf(x){for(const n of nails)if(!n.done&&Math.abs(x-n.x)<9)return[GY-n.h,n];return[x>=LX?GY:1e9,null]}
+function surf(x){for(const n of nails)if(!n.done&&Math.abs(x-n.x)<9)return[GY-n.h,n];return[x<=LX?GY:1e9,null]}
 function burst(x,y,n,col,sp){for(let i=0;i<n;i++){const a=-Math.PI*Math.random();parts.push({x,y,vx:Math.cos(a)*sp*Math.random(),vy:Math.sin(a)*sp*Math.random(),l:.5+Math.random()*.4,c:col})}}
 function say(x,y,s,c){texts.push({x,y,s,c,l:1})}
 
@@ -77,12 +78,13 @@ function step(dt){
     const f=Math.hypot(fx,fy);if(f>FMAX){fx*=FMAX/f;fy*=FMAX/f}
     hm.vx+=fx/M*dt;hm.vy+=fy/M*dt;hm.w+=(rx*fy-ry*fx)/I*dt;
   }
+  {const da=wrapA(Math.atan2(PY-hm.y,PX-hm.x)-hm.a);hm.w+=(KA*da-KW*hm.w)/I*dt} // handle is pulled to point at a far point on the right
   hm.w*=1-1.2*dt;hm.vx*=1-.15*dt;hm.w=clamp(hm.w,-40,40);
   hm.x+=hm.vx*dt;hm.y+=hm.vy*dt;hm.a+=hm.w*dt;
   let maxPen=0;
   for(const p of PTS){
     const[X,Y,rx,ry]=wp(p),[sy,n]=surf(X),pen=Y+p[2]-sy;
-    if(X>LX&&X<LX+30&&Y>GY+10&&Y<GY+150&&hm.vx>0){hm.x-=X-LX;hm.vx*=-.1;continue}
+    if(X<LX&&X>LX-30&&Y>GY+10&&Y<GY+150&&hm.vx<0){hm.x+=LX-X;hm.vx*=-.1;continue}
     if(pen<=0||pen>60)continue;
     maxPen=Math.max(maxPen,pen);
     const vy=hm.vy+hm.w*rx;
@@ -93,7 +95,7 @@ function step(dt){
     hm.vx+=jt/M;hm.w-=ry*jt/I;
     if(n&&vy>150){
       // flatness of the hitting surface: 1 = face parallel to the nail head
-      const cs=Math.cos(hm.a),fl=p[3]==1?cs:p[3]==2?-cs:.2;
+      const tl=Math.abs(wrapA(hm.a-(p[3]==2?Math.PI:0))),fl=p[3]==0?.2:Math.cos(tl*1.6);
       let eff=clamp((fl-.5)/.5,.12,1)*(p[3]==2?.45:1);
       if(fl<.8&&vy>700&&!n.bent){n.bent=1;say(n.x,sy-30,T.bent,'#ff6b5a');snd('b',300,.2,'sawtooth',.15,120)}
       if(n.bent)eff*=.55;
@@ -109,9 +111,10 @@ function step(dt){
     }
   }
   hm.y-=maxPen;
-  if(hm.x>W+300){hm.x=W+300;hm.vx=-Math.abs(hm.vx)*.3}
+  if(hm.x<-200){hm.x=-200;hm.vx=Math.abs(hm.vx)*.3}
+  if(hm.x>W+900){hm.x=W+900;hm.vx=-Math.abs(hm.vx)*.3}
   if(hm.y<-500){hm.y=-500;hm.vy=0}
-  if(hm.y>H+700||hm.x<-1200){hm.x=10;hm.y=300;hm.a=0;hm.vx=hm.vy=hm.w=0;frozen=true;grab=null}
+  if(hm.y>H+700){hm.x=W-10;hm.y=300;hm.a=Math.atan2(PY-300,PX-W);hm.vx=hm.vy=hm.w=0;frozen=true;grab=null}
 }
 
 // ---------- Flow ----------
@@ -136,7 +139,7 @@ cv.addEventListener('pointerdown',e=>{
   const m=pos(e);mouse.x=m.x;mouse.y=m.y;
   if(state!=='play')return;
   const c=Math.cos(hm.a),s=Math.sin(hm.a),dx=m.x-hm.x,dy=m.y-hm.y,lx=c*dx+s*dy,ly=-s*dx+c*dy;
-  const gx=clamp(lx,-387,106),gy=gx>60?clamp(ly,-96,96):clamp(ly,-8,8);
+  const gx=clamp(lx,-106,387),gy=gx<-60?clamp(ly,-96,96):clamp(ly,-8,8);
   if(Math.hypot(lx-gx,ly-gy)<56){frozen=false;grab=[gx,gy];cv.setPointerCapture(e.pointerId)}
 });
 cv.addEventListener('pointermove',e=>{const m=pos(e);mouse.x=m.x;mouse.y=m.y});
@@ -151,11 +154,11 @@ function drawSky(){
   g.fillStyle='rgba(255,255,255,.85)';
   [[200,120,1],[560,70,.7],[980,150,1.2],[1240,60,.8]].forEach(c=>{g.beginPath();[[0,0,50],[45,10,40],[-45,12,36],[10,-18,36]].forEach(b=>{const x=c[0]+b[0]*c[2],y=c[1]+b[1]*c[2],r=b[2]*c[2];g.moveTo(x+r,y);g.arc(x,y,r,0,7)});g.fill()});
   const lg=g.createLinearGradient(0,GY,0,GY+150);lg.addColorStop(0,'#d9a05a');lg.addColorStop(.5,'#b57a3a');lg.addColorStop(1,'#7a4c22');
-  g.fillStyle=lg;g.beginPath();g.roundRect?g.roundRect(LX,GY,W+4000,150,[34,0,0,34]):g.rect(LX,GY,W+4000,150);g.fill();
-  g.fillStyle='rgba(255,230,170,.4)';g.fillRect(LX+30,GY,W+4000,4);
+  g.fillStyle=lg;g.beginPath();g.roundRect?g.roundRect(-4000,GY,LX+4000,150,[0,34,34,0]):g.rect(-4000,GY,LX+4000,150);g.fill();
+  g.fillStyle='rgba(255,230,170,.4)';g.fillRect(-4000,GY,LX+4000-30,4);
   g.strokeStyle='rgba(70,36,10,.35)';g.lineWidth=2;
-  for(let k=0;k<6;k++){g.beginPath();for(let x=LX+24;x<=W+60;x+=20){const y=GY+18+k*22+Math.sin(x*.012+k*2)*4;x==LX+24?g.moveTo(x,y):g.lineTo(x,y)}g.stroke()}
-  g.fillStyle='rgba(70,36,10,.45)';[[860,GY+60],[1150,GY+100]].forEach(k=>{g.beginPath();g.ellipse(k[0],k[1],16,9,0,0,7);g.fill()});
+  for(let k=0;k<6;k++){g.beginPath();for(let x=-60;x<=LX-24;x+=20){const y=GY+18+k*22+Math.sin(x*.012+k*2)*4;x==-60?g.moveTo(x,y):g.lineTo(x,y)}g.stroke()}
+  g.fillStyle='rgba(70,36,10,.45)';[[200,GY+60],[520,GY+100]].forEach(k=>{g.beginPath();g.ellipse(k[0],k[1],16,9,0,0,7);g.fill()});
 }
 function drawNail(n){
   const top=GY-n.h;g.save();
@@ -167,13 +170,13 @@ function drawNail(n){
 }
 function drawHammer(){
   g.save();g.translate(hm.x,hm.y);g.rotate(hm.a);
-  g.fillStyle='#8a5526';g.fillRect(-387,-8,464,16);
-  g.fillStyle='#b97a3a';g.fillRect(-387,-8,464,5);
-  const ir=g.createLinearGradient(72,0,106,0);ir.addColorStop(0,'#c3cad6');ir.addColorStop(1,'#6c7685');
+  g.fillStyle='#8a5526';g.fillRect(-77,-8,464,16);
+  g.fillStyle='#b97a3a';g.fillRect(-77,-8,464,5);
+  const ir=g.createLinearGradient(-72,0,-106,0);ir.addColorStop(0,'#c3cad6');ir.addColorStop(1,'#6c7685');
   g.fillStyle=ir;g.strokeStyle='#323946';g.lineWidth=3;g.lineJoin='round';
-  g.beginPath();g.moveTo(72,-80);g.quadraticCurveTo(74,-98,92,-106);g.quadraticCurveTo(95,-92,94,-80);g.lineTo(94,80);g.lineTo(106,96);g.lineTo(62,96);g.lineTo(72,80);g.closePath();g.fill();g.stroke();
-  g.fillStyle='rgba(255,255,255,.35)';g.fillRect(76,-76,5,150);
-  g.fillStyle='#ffe27a';g.fillRect(62,92,44,4);
+  g.beginPath();g.moveTo(-72,-80);g.quadraticCurveTo(-74,-98,-92,-106);g.quadraticCurveTo(-95,-92,-94,-80);g.lineTo(-94,80);g.lineTo(-106,96);g.lineTo(-62,96);g.lineTo(-72,80);g.closePath();g.fill();g.stroke();
+  g.fillStyle='rgba(255,255,255,.35)';g.fillRect(-81,-76,5,150);
+  g.fillStyle='#ffe27a';g.fillRect(-106,92,44,4);
   g.restore();
   if(grab){
     const c=Math.cos(hm.a),s=Math.sin(hm.a),gx=hm.x+c*grab[0]-s*grab[1],gy=hm.y+s*grab[0]+c*grab[1];
