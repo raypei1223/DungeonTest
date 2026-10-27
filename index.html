@@ -34,7 +34,7 @@ const $=id=>document.getElementById(id);
 Object.assign(T,ja?{desc:'ピッケルを掴んで振り、丸太の釘を打ち込もう。勢いが強いほど深く刺さる。黄色い平らな面で、まっすぐ当てるのがコツ。斜めに当てると釘が曲がる！',hint:'ピッケルをドラッグして、釘に振り下ろそう！'}:{desc:'Grab the pickaxe and swing it to drive the nails into the log. Harder hits sink them deeper. Hit squarely with the flat yellow face — a tilted hit bends the nail!',hint:'Drag the pickaxe, then swing it down on the nails!'});$('desc').textContent=T.desc;$('play').textContent=T.play;$('ct').textContent=T.clear;$('again').textContent=T.again;
 
 // ---------- Canvas ----------
-const W=1280,H=720,GY=500,LX=896,PX=W+1500,PY=GY-100;
+const W=854,H=480,GY=333,LX=598,PX=W+1000,PY=GY-67;
 const cv=$('c'),g=cv.getContext('2d');
 let sc=1,ox=0,oy=0,dpr=1;
 function fit(){dpr=devicePixelRatio||1;cv.width=innerWidth*dpr;cv.height=innerHeight*dpr;cv.style.width=innerWidth+'px';cv.style.height=innerHeight+'px';sc=Math.min(cv.width/W,cv.height/H);ox=(cv.width-W*sc)/2;oy=(cv.height-H*sc)/2}
@@ -56,8 +56,8 @@ for(let y=-60;y<=60;y+=30)PTS.push([-83,y,11,0]);
 let hm,nails,parts,texts,shake,t,hits,hint,grab,frozen,state='menu';
 const mouse={x:0,y:0};
 function reset(){
-  hm={x:W-10,y:300,a:Math.atan2(PY-300,PX-W),vx:0,vy:0,w:0};frozen=true;
-  nails=[[816,60],[736,66],[656,72],[576,64],[496,70]].map(a=>({x:a[0],h:a[1],bent:0,done:false}));
+  hm={x:W-10,y:200,a:Math.atan2(PY-200,PX-W),vx:0,vy:0,w:0};frozen=true;
+  nails=[[518,84]].map(a=>({x:a[0],h:a[1],bent:0,done:false}));
   parts=[];texts=[];shake=0;t=0;hits=0;hint=true;grab=null;
 }
 reset();
@@ -114,7 +114,7 @@ function step(dt){
   if(hm.x<-200){hm.x=-200;hm.vx=Math.abs(hm.vx)*.3}
   if(hm.x>W+900){hm.x=W+900;hm.vx=-Math.abs(hm.vx)*.3}
   if(hm.y<-500){hm.y=-500;hm.vy=0}
-  if(hm.y>H+700){hm.x=W-10;hm.y=300;hm.a=Math.atan2(PY-300,PX-W);hm.vx=hm.vy=hm.w=0;frozen=true;grab=null}
+  if(hm.y>H+700){hm.x=W-10;hm.y=200;hm.a=Math.atan2(PY-200,PX-W);hm.vx=hm.vy=hm.w=0;frozen=true;grab=null}
 }
 
 // ---------- Flow ----------
@@ -152,13 +152,13 @@ function drawSky(){
   const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#4aa3e8');gr.addColorStop(1,'#bfe6fb');
   g.fillStyle=gr;g.fillRect(-4000,-4000,W+8000,H+8000);
   g.fillStyle='rgba(255,255,255,.85)';
-  [[200,120,1],[560,70,.7],[980,150,1.2],[1240,60,.8]].forEach(c=>{g.beginPath();[[0,0,50],[45,10,40],[-45,12,36],[10,-18,36]].forEach(b=>{const x=c[0]+b[0]*c[2],y=c[1]+b[1]*c[2],r=b[2]*c[2];g.moveTo(x+r,y);g.arc(x,y,r,0,7)});g.fill()});
+  [[150,100,1],[400,55,.7],[650,120,1.2],[800,50,.8]].forEach(c=>{g.beginPath();[[0,0,50],[45,10,40],[-45,12,36],[10,-18,36]].forEach(b=>{const x=c[0]+b[0]*c[2],y=c[1]+b[1]*c[2],r=b[2]*c[2];g.moveTo(x+r,y);g.arc(x,y,r,0,7)});g.fill()});
   const lg=g.createLinearGradient(0,GY,0,GY+150);lg.addColorStop(0,'#d9a05a');lg.addColorStop(.5,'#b57a3a');lg.addColorStop(1,'#7a4c22');
   g.fillStyle=lg;g.beginPath();g.roundRect?g.roundRect(-4000,GY,LX+4000,150,[0,34,34,0]):g.rect(-4000,GY,LX+4000,150);g.fill();
   g.fillStyle='rgba(255,230,170,.4)';g.fillRect(-4000,GY,LX+4000-30,4);
   g.strokeStyle='rgba(70,36,10,.35)';g.lineWidth=2;
   for(let k=0;k<6;k++){g.beginPath();for(let x=-60;x<=LX-24;x+=20){const y=GY+18+k*22+Math.sin(x*.012+k*2)*4;x==-60?g.moveTo(x,y):g.lineTo(x,y)}g.stroke()}
-  g.fillStyle='rgba(70,36,10,.45)';[[200,GY+60],[520,GY+100]].forEach(k=>{g.beginPath();g.ellipse(k[0],k[1],16,9,0,0,7);g.fill()});
+  g.fillStyle='rgba(70,36,10,.45)';[[150,GY+50],[420,GY+85]].forEach(k=>{g.beginPath();g.ellipse(k[0],k[1],16,9,0,0,7);g.fill()});
 }
 function drawNail(n){
   const top=GY-n.h;g.save();
