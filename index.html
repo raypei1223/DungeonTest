@@ -15081,7 +15081,7 @@ class GameScene extends Phaser.Scene {
         wingPasses = [{ col: 0xff1428, al: (0.32 + 0.18 * pu) * rr, ex: 22 }, { col: 0xff0000, al: rr, ex: 11 }, { col: (Math.round(255 * rr) << 16) | (Math.round(rr * (24 + 56 * pu)) << 8) | Math.round(rr * (24 + 36 * pu)), al: 1, ex: 0 }];
       } else if (W.glowFull && soul) { // 🌟 2回目の進化（40000体）：上の「根の全体が真っ赤に輝く」と同じ作りで、赤の代わりに魂の色。どくどく明るさが脈打つ
         const pu = 0.5 + 0.5 * Math.sin(this.time.now / 90);
-        wingPasses = [{ col: soul.glow, al: 0.32 + 0.18 * pu, ex: 22 }, { col: 0x000000, al: 1, ex: 11 }, { col: mixColor(soul.spike, 0xffffff, 0.15 + 0.3 * pu), al: 1, ex: 0 }]; // 外から2番目の層（ex 11）は黒
+        wingPasses = [{ col: soul.glow, al: 0.32 + 0.18 * pu, ex: 22 }, { col: 0x000000, al: 1, ex: 17 }, { col: mixColor(soul.spike, 0xffffff, 0.15 + 0.3 * pu), al: 1, ex: 0 }]; // 外から2番目の層（ex 17）は黒。体を半分の細さにした分、ex を11→17にして、この黒いふちだけ元の太さ（23px）のまま
       }
       let LA = 0, BA = 1, lc = 0xffffff, lc2 = 0xffffff;
       if (rvOn) { // ✨ 復活の最中：根は、天使の金／悪魔の紫の光（根ごとに交互）として現れ、光が薄れるのと入れ替わりに、黒い体と赤いふちが現れて、根の形になる
