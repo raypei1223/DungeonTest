@@ -31,7 +31,7 @@ const ja=/^ja/.test(navigator.language);
 const T=ja?{desc:'ハンマーをドラッグして、釘に振り下ろそう。勢いが強いほど深く刺さる。でも面を斜めに当てると釘が曲がってしまう！',play:'あそぶ',hint:'ハンマーをドラッグして振り下ろそう！',clear:'クリア！',again:'もう一回',nails:'釘',time:'タイム',hits:'打数',perfect:'パーフェクト！',bent:'曲がった！'}
 :{desc:'Drag the hammer and swing it down on the nails. The harder you hit, the deeper they go — but hit with a tilted face and the nail bends!',play:'Play',hint:'Drag the hammer, then swing it down!',clear:'Cleared!',again:'Play again',nails:'Nails',time:'Time',hits:'Swings',perfect:'PERFECT!',bent:'BENT!'};
 const $=id=>document.getElementById(id);
-Object.assign(T,ja?{desc:'ピッケルを掴んで振り、丸太の釘を打ち込もう。勢いが強いほど深く刺さる。黄色い平らな面で、まっすぐ当てるのがコツ。斜めに当てると釘が曲がる！',hint:'ピッケルをドラッグして、釘に振り下ろそう！'}:{desc:'Grab the pickaxe and swing it to drive the nails into the log. Harder hits sink them deeper. Hit squarely with the flat yellow face — a tilted hit bends the nail!',hint:'Drag the pickaxe, then swing it down on the nails!'});$('desc').textContent=T.desc;$('play').textContent=T.play;$('ct').textContent=T.clear;$('again').textContent=T.again;
+Object.assign(T,ja?{desc:'ピッケルを掴んで振り、丸太の釘を打ち込もう。勢いが強いほど深く刺さる。黄色い尖った先端で、まっすぐ突き立てるのがコツ。斜めに当てると釘が曲がる！',hint:'ピッケルをドラッグして、釘に振り下ろそう！'}:{desc:'Grab the pickaxe and swing it to drive the nails into the log. Harder hits sink them deeper. Hit squarely with the sharp yellow tip — a tilted hit bends the nail!',hint:'Drag the pickaxe, then swing it down on the nails!'});$('desc').textContent=T.desc;$('play').textContent=T.play;$('ct').textContent=T.clear;$('again').textContent=T.again;
 
 // ---------- Canvas ----------
 const W=854,H=480,GY=333,LX=598,PX=W+1000,PY=GY-67;
@@ -47,12 +47,12 @@ function snd(k,f,d,type,v,sl){const now=performance.now();if(userMute||adMute||n
 $('mute').onclick=()=>{userMute=!userMute;$('mute').textContent=userMute?'🔇':'🔊'};
 
 // ---------- Game state ----------
-const M=1,I=22000,KA=550000,KW=88000,GR=1500,DT=1/480,KP=45,KD=8,FMAX=7000;
+const M=1,I=22000,KA=1800000,KW=185000,GR=1500,DT=1/480,KP=45,KD=8,FMAX=7000;
 // local collision points: [x,y,radius]  (handle runs along local x, head faces are local ±y)
 // kind: 0 = handle/side, 1 = flat face (adze), 2 = pick tip
 const PTS=[];for(let x=-77;x<=387;x+=22)PTS.push([x,0,8,0]);
 for(let y=-60;y<=60;y+=30)PTS.push([-83,y,11,0]);
-[[-63,96],[-83,96],[-105,96]].forEach(p=>PTS.push([p[0],p[1],0,1]));PTS.push([-92,-106,0,2]);
+[[-63,-96],[-83,-96],[-105,-96]].forEach(p=>PTS.push([p[0],p[1],0,0]));PTS.push([-92,106,0,2]);
 let hm,nails,parts,texts,shake,t,hits,hint,grab,frozen,state='menu';
 const mouse={x:0,y:0};
 function reset(){
@@ -95,8 +95,8 @@ function step(dt){
     hm.vx+=jt/M;hm.w-=ry*jt/I;
     if(n&&vy>150){
       // flatness of the hitting surface: 1 = face parallel to the nail head
-      const tl=Math.abs(wrapA(hm.a-(p[3]==2?Math.PI:0))),fl=p[3]==0?.2:Math.cos(tl*1.6);
-      let eff=clamp((fl-.5)/.5,.12,1)*(p[3]==2?.45:1);
+      const tl=Math.abs(wrapA(hm.a)),fl=p[3]==2?Math.cos(tl*1.6):.2;
+      let eff=clamp((fl-.5)/.5,.12,1);
       if(fl<.8&&vy>700&&!n.bent){n.bent=1;say(n.x,sy-30,T.bent,'#ff6b5a');snd('b',300,.2,'sawtooth',.15,120)}
       if(n.bent)eff*=.55;
       const d=(vy-150)*.03*eff;
@@ -169,14 +169,14 @@ function drawNail(n){
   g.restore();
 }
 function drawHammer(){
-  g.save();g.translate(hm.x,hm.y);g.rotate(hm.a);
+  g.save();g.translate(hm.x,hm.y);g.rotate(hm.a);g.scale(1,-1);
   g.fillStyle='#8a5526';g.fillRect(-77,-8,464,16);
   g.fillStyle='#b97a3a';g.fillRect(-77,-8,464,5);
   const ir=g.createLinearGradient(-72,0,-106,0);ir.addColorStop(0,'#c3cad6');ir.addColorStop(1,'#6c7685');
   g.fillStyle=ir;g.strokeStyle='#323946';g.lineWidth=3;g.lineJoin='round';
   g.beginPath();g.moveTo(-72,-80);g.quadraticCurveTo(-74,-98,-92,-106);g.quadraticCurveTo(-95,-92,-94,-80);g.lineTo(-94,80);g.lineTo(-106,96);g.lineTo(-62,96);g.lineTo(-72,80);g.closePath();g.fill();g.stroke();
   g.fillStyle='rgba(255,255,255,.35)';g.fillRect(-81,-76,5,150);
-  g.fillStyle='#ffe27a';g.fillRect(-106,92,44,4);
+  g.fillStyle='#ffe27a';g.beginPath();g.moveTo(-92,-106);g.lineTo(-99,-94);g.lineTo(-86,-94);g.closePath();g.fill();
   g.restore();
   if(grab){
     const c=Math.cos(hm.a),s=Math.sin(hm.a),gx=hm.x+c*grab[0]-s*grab[1],gy=hm.y+s*grab[0]+c*grab[1];
