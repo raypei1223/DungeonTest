@@ -1370,7 +1370,7 @@ function openLibrary(onClose, playerColor, accIcon, visits, countReach) { // cou
     ctx.fillStyle = '#6b4a2b'; ctx.fillRect(desk.x, desk.y, desk.w, desk.h); ctx.fillStyle = '#7d5a37'; ctx.fillRect(desk.x + 2, desk.y + 2, desk.w - 4, desk.h - 8); // 机
     ctx.fillStyle = '#d9cfae'; ctx.fillRect(238, desk.y + 14, 4, 10); ctx.fillStyle = '#ffc861'; ctx.beginPath(); ctx.arc(240, desk.y + 11, 2.5 + Math.sin(t * 9) * 0.5, 0, 6.3); ctx.fill(); // 蝋燭
     ctx.save(); ctx.translate(216, 166); ctx.rotate(-0.12); ctx.fillStyle = '#e9e0c4'; ctx.fillRect(-9, -7, 18, 14); ctx.fillStyle = '#8a7a58'; ctx.fillRect(-6, -4, 12, 1); ctx.fillRect(-6, -1, 12, 1); ctx.fillRect(-6, 2, 8, 1); ctx.restore(); // 机の上の紙（案内書き）
-    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(pl.x, pl.y, T * 0.32, 0, 6.3); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 2; ctx.stroke(); // 自分（外と同じ：半径 TILE*0.32・白い縁）
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(pl.x, pl.y, T * 0.32, 0, 6.3); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,1)'; ctx.lineWidth = 2; ctx.stroke(); // 自分（外と同じ：半径 TILE*0.32・白い縁）
     ctx.save(); ctx.translate(pl.x + Math.cos(pl.a) * 20, pl.y + Math.sin(pl.a) * 20); ctx.rotate(pl.a); ctx.fillStyle = '#fff'; ctx.fillRect(-7, -1.5, 14, 3); ctx.restore(); // 向きの棒（外と同じ：14x3・20px先）
     if (accIcon) { ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(accIcon, pl.x, pl.y - 13); } // 頭上の装飾品（新芽・王冠）
     const open = Math.min(1, (t - t0) / 3.2), e = open * open * (3 - 2 * open); // 暗闇の層：自分の周りと蝋燭の周りだけ明るい。最初は光が小さく、だんだん広がる
@@ -1416,7 +1416,7 @@ function openLibrary(onClose, playerColor, accIcon, visits, countReach) { // cou
   raf = requestAnimationFrame(frame);
 }
 // 🎉 パーティールーム：クリア後のおまけの部屋（広めで明るい、陽気な部屋）。入れるのはエンディングを見た人（endingDone）だけ。メモを読んでおまけ情報が分かる。
-//   入り方：ロビーのダンジョン番号の欄に、Firebase の library/partyroom/number と同じ文字・数字を入れて「ダンジョン」を押す。
+//   入り方：ロビーのダンジョン番号の欄に、Firebase の library/partyroom/number と同じ文字・数字を入れて「ダンジョン」を押す。（マルチプレイの同期は無し：通信なしの偽Net＝OfflineNet で、一人だけで入る）
 //   メモは Firebase の library/partyroom/memos から読み込む（HTMLには本文を持たない）。1枚目（memos/0）は、机の上の案内書きとして置かれ、2枚目以降が壁に貼られる。
 //   形式：library/partyroom/memos/0 = { title: 'メモの題名', text: '本文' }, library/partyroom/memos/1 = …（最大20枚。本文は \n・¥n・￥n で改行）
 //   セキュリティルール：library は「読み取りのみ許可」にすること（書庫と同じ）。入れる元データは partyroom.json。
@@ -1719,6 +1719,20 @@ const createDungeon = (env) => {
 // 迷路・化物・心拍音・捕まった時の演出は createDungeon が持つ。ここは「画面・操作・仲間の姿の同期・出入り」だけを受け持つ。
 // 開くとすぐ暗転した状態でダンジョンへ入る（dun.warp）。緑の光の出口に入るか、化物に捕まると、暗転して部屋に戻る。
 // 操作：WASD／矢印（↑↓＝前後・←→＝向き）・ドラッグ＝見回す・Esc／右上の「もどる」＝出る。スマホは左のスティックで移動、ほかの所をスワイプして見回す。
+// 👑 ホスト印：自分がホスト（Net の isHost）の間だけ、3D画面（ダンジョン・草原・交流ルームの広場）の「もどる」ボタンの左隣に王冠を出す。ホストは入れ替わることがあるので、0.5秒ごとに見直す（画面が閉じると止まる）
+function addHostCrown(root, btn, getNet) {
+  const c = document.createElement('div'); c.textContent = '👑';
+  c.style.cssText = 'position:absolute;top:12px;padding:7px 4px;font-size:22px;line-height:1.2;pointer-events:none;display:none;';
+  root.appendChild(c);
+  let seen = false;
+  const t = setInterval(() => {
+    if (!c.isConnected) { if (seen) clearInterval(t); return; } // 画面に出る前は待つ。出たあとで消えたら（画面が閉じたら）止める
+    seen = true;
+    let host = false; try { const n = getNet(); host = !!(n && n.enabled && n.isHost); } catch (e) { /* 通信が無ければ、出さない */ }
+    c.style.display = host ? 'block' : 'none';
+    if (host) c.style.right = (12 + btn.offsetWidth + 6) + 'px';
+  }, 500);
+}
 function openDungeon(onClose, opt) {
   opt = opt || {};
   if (typeof THREE === 'undefined') { if (onClose) onClose(); return; }
@@ -1761,7 +1775,7 @@ function openDungeon(onClose, opt) {
   const look = createLookControl(cv, P, touch); // 視点操作（ドラッグ・すべり・矢印キー・右スティック）は全部共通の処理
   const btn = document.createElement('div'); btn.textContent = '✕ もどる';
   btn.style.cssText = 'position:absolute;top:12px;right:12px;padding:9px 14px;font-size:16px;font-weight:bold;color:#fff;background:rgba(0,0,0,0.38);border:2px solid rgba(255,255,255,0.7);border-radius:10px;cursor:pointer;';
-  btn.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); exit(); }; root.appendChild(btn);
+  btn.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); exit(); }; root.appendChild(btn); addHostCrown(root, btn, () => opt.net); // 👑 自分がホストなら、もどるボタンの左隣に王冠
   const hint = document.createElement('div'); // 文は、入った時（dun.warp）にダンジョン側が入れる
   hint.style.cssText = 'position:absolute;left:50%;bottom:4vh;transform:translateX(-50%);padding:8px 16px;font-size:15px;color:#fff;background:rgba(0,0,0,0.35);border-radius:999px;white-space:nowrap;transition:opacity 1.5s;pointer-events:none;';
   root.appendChild(hint);
@@ -2153,7 +2167,7 @@ function openGrassland(onClose, opt) {
   const look = createLookControl(cv, P, touch); // 視点操作（ドラッグ・すべり・矢印キー・右スティック）は全部共通の処理
   const btn = document.createElement('div'); btn.textContent = '✕ もどる';
   btn.style.cssText = 'position:absolute;top:12px;right:12px;padding:9px 14px;font-size:16px;font-weight:bold;color:#fff;background:rgba(0,0,0,0.38);border:2px solid rgba(255,255,255,0.7);border-radius:10px;cursor:pointer;';
-  btn.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); exit(); }; root.appendChild(btn);
+  btn.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); exit(); }; root.appendChild(btn); addHostCrown(root, btn, () => opt.net); // 👑 自分がホストなら、もどるボタンの左隣に王冠
   const hint = document.createElement('div'); hint.textContent = touch ? '🌿 左スティック：移動　画面スワイプ：見回す　石を拾って「積む」　深い水では下を向くと潜る' : '🌿 WASD・矢印：移動　画面ドラッグ：見回す　石に近づくと拾う／E：石を積む　Space：水に潜る　Esc：もどる';
   hint.style.cssText = 'position:absolute;left:50%;bottom:4vh;transform:translateX(-50%);padding:8px 16px;font-size:15px;color:#fff;background:rgba(0,0,0,0.35);border-radius:999px;white-space:nowrap;transition:opacity 1.5s;pointer-events:none;';
   root.appendChild(hint); setTimeout(() => { hint.style.opacity = '0'; }, 7000);
@@ -3799,7 +3813,7 @@ function openPartyHall(onClose, opt) {
   const look = createLookControl(cv, P, touch); // 視点操作（ドラッグ・すべり・矢印キー・右スティック）は全部共通の処理
   const btn = document.createElement('div'); btn.textContent = '✕ もどる';
   btn.style.cssText = 'position:absolute;top:12px;right:12px;padding:9px 14px;font-size:16px;font-weight:bold;color:#fff;background:rgba(0,0,0,0.38);border:2px solid rgba(255,255,255,0.7);border-radius:10px;cursor:pointer;';
-  btn.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); exit(); }; root.appendChild(btn);
+  btn.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); exit(); }; root.appendChild(btn); addHostCrown(root, btn, () => opt.net); // 👑 自分がホストなら、もどるボタンの左隣に王冠
   const hint = document.createElement('div'); hint.textContent = touch ? '🎙 左スティック：移動　画面スワイプ：見回す　🎤：マイク' : '🎙 WASD・矢印：移動　Shift：走る　ドラッグ：見回す　🎤：マイク　Esc：もどる';
   hint.style.cssText = 'position:absolute;left:50%;bottom:4vh;transform:translateX(-50%);padding:8px 16px;font-size:15px;color:#fff;background:rgba(0,0,0,0.35);border-radius:999px;white-space:nowrap;transition:opacity 1.5s;pointer-events:none;';
   root.appendChild(hint); setTimeout(() => { hint.style.opacity = '0'; }, 7000);
@@ -6128,9 +6142,10 @@ function getSoulHue() {
   _soulHueCache = hue; _soulHueAt = now;
   return hue;
 }
-function soulColorsFromHue(hue) { // 光る縁（glow）・濃い縁（edge）・とげ（spike）の3色
-  const mk = (sat, l) => Phaser.Display.Color.HSLToColor(((hue % 360) + 360) % 360 / 360, sat, l).color;
-  return { glow: mk(1, 0.55), edge: mk(0.9, 0.38), spike: mk(1, 0.66) };
+function soulColorsFromHue(hue) { // 光る縁（glow）・濃い縁（edge）・とげ（spike）の3色＋第二のソウルカラー（rim）
+  const mk = (sat, l, dh) => Phaser.Display.Color.HSLToColor((((hue + (dh || 0)) % 360) + 360) % 360 / 360, sat, l).color;
+  // rim＝第二のソウルカラー：魂の色（色相）をそのまま少しだけ暗くした色（明度0.45。glow は0.55）。魂の色が人ごとに決まっているので、これも人ごとに決まる（他のプレイヤーにも、同じ色相から同じ色で見える）。進化した翼の最も外側の縁に使う
+  return { glow: mk(1, 0.55), edge: mk(0.9, 0.38), spike: mk(1, 0.66), rim: mk(1, 0.45) };
 }
 const ACC_UNDEAD = { delay: 0.2 }; // 不死の紋章：ダメージを受けてから、何秒後に受けたぶんを回復するか（1回ごとに数える）
 const ACC_GOLDSILVER = { count: 6, radius: 70 }; // 金銀のネックレス：階層を移動した時に、回復と宝箱を合わせて何個／自分からの距離（px。円形に並ぶ）
@@ -7220,9 +7235,9 @@ class GameScene extends Phaser.Scene {
   }
 
   setupMpPanel() {
-    document.getElementById('mpPanel').style.display = 'block';
+    document.getElementById('mpPanel').style.display = (this.party && !this.lounge) ? 'none' : 'block'; // パーティールーム（交流ルームではない方）は、右上のルーム名・退出ボタン・人の一覧は出さない（出口は部屋の下の扉）
     // 近接ボイスチャット：ルームごとに1つ。シーンが作り直されても、接続とマイクの状態は引き継ぐ
-    if (this.net.enabled && typeof VoiceChat !== 'undefined') {
+    if (this.net.enabled && !(this.party && !this.lounge) && typeof VoiceChat !== 'undefined') { // パーティールーム（交流ルームではない方）は、一人なのでボイスチャットは起こさない
       let v = this.net._voice;
       if (v && (v.stopped || v.roomId !== this.net.roomId)) { v.stop(); v = this.net._voice = null; }
       if (!v) { v = this.net._voice = new VoiceChat(this.net, this); v.start(); } else { v.attachScene(this); }
@@ -7302,7 +7317,7 @@ class GameScene extends Phaser.Scene {
       let rp = this.remotePlayers[uid];
       if (!rp) {
         const gfx = this.add.circle(p.x || 0, p.y || 0, TILE * 0.32, (typeof p.color === 'number') ? p.color : 0xffffff).setDepth(5).setAlpha(0.85);
-        gfx.setStrokeStyle(2, 0xffffff, 0.5);
+        gfx.setStrokeStyle(2, 0xffffff, 1);
         const facing = this.add.rectangle(p.x || 0, p.y || 0, 14, 3, 0xffffff).setDepth(5);
         const label = this.add.text(p.x || 0, (p.y || 0) - 28, clipName(p.name || '?', 16), { fontSize: '11px', color: '#fff', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(5);
         const titleLabel = this.add.text(p.x || 0, (p.y || 0) - 40, '', { fontSize: '10px', color: '#fff', fontFamily: 'sans-serif', fontStyle: 'bold', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(5).setVisible(false); // 🏷 称号（名前の上）
@@ -7392,7 +7407,7 @@ class GameScene extends Phaser.Scene {
       if (rp._downedStroke !== isDowned) {
         rp._downedStroke = isDowned;
         if (isDowned) rp.gfx.setStrokeStyle(4, 0xff3b3b, 1);
-        else rp.gfx.setStrokeStyle(2, 0xffffff, 0.5);
+        else rp.gfx.setStrokeStyle(2, 0xffffff, 1);
       }
       rp.facing.setAlpha(hideGhost ? 0 : (isGhost ? 0.3 : (isDowned ? 0.92 : 1)));
       rp.hpBarBg.setVisible(!isGhost && !isDowned);
@@ -7817,7 +7832,7 @@ class GameScene extends Phaser.Scene {
     const px = (warpDoor ? warpDoor.x : dungeon.playerStart.x) * TILE + TILE / 2;
     const py = (warpDoor ? warpDoor.y : dungeon.playerStart.y) * TILE + TILE / 2;
     this.player = this.add.circle(px, py, TILE * 0.32, this.playerColor);
-    this.player.setStrokeStyle(2, 0xffffff, 0.6);
+    this.player.setStrokeStyle(2, 0xffffff, 1);
     this.player.setDepth(5);
     this.facing = this.add.rectangle(px, py, 14, 3, 0xffffff).setDepth(5);
     this.accText = (this.accKey && accHeadIcon(this.accKey)) ? this.add.text(px, py - 13, accHeadIcon(this.accKey), { fontSize: '13px', fontFamily: 'sans-serif' }).setOrigin(0.5).setResolution(2).setDepth(6) : null; // 装飾品（頭の上）
@@ -15053,6 +15068,7 @@ class GameScene extends Phaser.Scene {
     bigK = bigK || 0;
     const rvOn = !!this._rootReviveOn && this._rootRevive < 1, rv = rvOn ? this._rootRevive : 1; // rvOn＝根が復活している最中（光が広がって根の形になる）
     const g = W.gfx; g.clear(); g.setAlpha((rvOn ? 1 : Math.max(this._godAccK(), this._rootReviveOn ? this._rootRevive : 0)) * (this._wingA == null ? 1 : this._wingA)); /* 🌹 復活中は _rootRevive の分だけ見える */ // ✨ エンディング：悪魔の爆発のあと、薄くなって消える／影でワープする時は、身体と一緒に薄れる（_wingA）
+    const RD = []; // 根ごとの形（点・層の一覧など）。先に全部の根の形を作ってから、層ごとにまとめて描く
     for (let ri = 0; ri < W.roots.length; ri++) {
       const r = W.roots[ri];
       const sx = px + Math.cos(W.face + Math.PI) * 8, sy = py + Math.sin(W.face + Math.PI) * 8; // 背中の付け根
@@ -15081,7 +15097,7 @@ class GameScene extends Phaser.Scene {
         wingPasses = [{ col: 0xff1428, al: (0.32 + 0.18 * pu) * rr, ex: 22 }, { col: 0xff0000, al: rr, ex: 11 }, { col: (Math.round(255 * rr) << 16) | (Math.round(rr * (24 + 56 * pu)) << 8) | Math.round(rr * (24 + 36 * pu)), al: 1, ex: 0 }];
       } else if (W.glowFull && soul) { // 🌟 2回目の進化（40000体）：上の「根の全体が真っ赤に輝く」と同じ作りで、赤の代わりに魂の色。どくどく明るさが脈打つ
         const pu = 0.5 + 0.5 * Math.sin(this.time.now / 90);
-        wingPasses = [{ col: soul.glow, al: 0.32 + 0.18 * pu, ex: 22 }, { col: 0x000000, al: 1, ex: 5.5 }, { col: mixColor(soul.spike, 0xffffff, 0.15 + 0.3 * pu), al: 1, ex: 0 }]; // 外から2番目の層（ex 5.5）は黒。この黒いふちだけ、元（ex 11）の半分の細さ
+        wingPasses = [{ col: soul.rim, al: 0.32 + 0.18 * pu, ex: 22 }, { col: soul.rim, al: 1, ex: 11 }, { col: mixColor(soul.spike, 0xffffff, 0.15 + 0.3 * pu), al: 1, ex: 0 }]; // 外から2番目の層（ex 11）は縁。黒ではなく、縁と、いちばん外側の光（ex 22）は、第二のソウルカラー（soul.rim。人ごとに決まる）
       }
       let LA = 0, BA = 1, lc = 0xffffff, lc2 = 0xffffff;
       if (rvOn) { // ✨ 復活の最中：根は、天使の金／悪魔の紫の光（根ごとに交互）として現れ、光が薄れるのと入れ替わりに、黒い体と赤いふちが現れて、根の形になる
@@ -15090,7 +15106,30 @@ class GameScene extends Phaser.Scene {
         const gold = ri % 2 === 0; lc = gold ? 0xffffff : 0x0c0710; lc2 = gold ? 0xffffff : 0x1e1826; // 天使側（根ごとに交互）は白／悪魔側は紫
         wingPasses = [{ col: lc, al: 0.28 * LA, ex: 30 }, { col: lc, al: 0.7 * LA, ex: 14 }, { col: lc2, al: 0.95 * LA, ex: 3 }].concat(wingPasses.map(ps => ({ col: ps.col, al: ps.al * BA, ex: ps.ex })));
       }
-      for (const pass of wingPasses) {
+      RD.push({ ri, pts, N2, wingPasses, LA, BA, lc2, soul });
+    }
+    // 🖌 外側の光と縁は、全部の根の本体（中心の黒い部分）より下に描く：根ごとに「光→縁→本体」と描くと、あとの根の縁・光が、先に描いた根の本体に重なってしまう。
+    //    そこで、層ごとに全部の根をまとめて描く（外側の光 → 縁 → 本体の順）。縁が、根全体の輪郭のように見える。
+    const nPass = RD.length ? RD[0].wingPasses.length : 0;
+    for (let pi = 0; pi < nPass; pi++) {
+      if (pi === nPass - 1) { // 🔺 とげ：縁より上、本体（いちばん最後の層）より下。全部の根の縁を描いたあと、本体を描く前に、全部の根のとげをまとめて描く
+        for (const rd of RD) {
+          const { pts, N2, BA, soul } = rd;
+        if (bigK > 0.3) { // とげ：体の左右から、後ろ向きにとがった赤いとげ（悪魔の根と同じ形）
+          g.fillStyle(soul ? soul.spike : 0xff2a3c, BA);
+          for (let k = 2; k < N2 - 1; k += 2) {
+            const p0 = pts[k - 1], p1 = pts[k + 1]; let ddx = p1.x - p0.x, ddy = p1.y - p0.y; const dl = Math.hypot(ddx, ddy) || 1; ddx /= dl; ddy /= dl;
+            const nx2 = -ddy, ny2 = ddx, hw = pts[k].th / 2, len = (6 + hw * 0.9) * Math.min(1, bigK), c = pts[k];
+            for (const sg of [1, -1]) {
+              const bx = c.x + nx2 * sg * hw * 0.8, by = c.y + ny2 * sg * hw * 0.8;
+              g.fillTriangle(bx + ddx * 5, by + ddy * 5, bx - ddx * 5, by - ddy * 5, c.x + nx2 * sg * (hw + len) - ddx * len * 0.7, c.y + ny2 * sg * (hw + len) - ddy * len * 0.7);
+            }
+          }
+        }
+        }
+      }
+      for (const rd of RD) {
+        const pass = rd.wingPasses[pi], pts = rd.pts, N2 = rd.N2;
         g.fillStyle(pass.col, pass.al);
         const Lp = [], Rp = [];
         for (let k = 0; k <= N2; k++) {
@@ -15121,20 +15160,12 @@ class GameScene extends Phaser.Scene {
           cap(pts[N2], ex1 / el1, ey1 / el1, (pts[N2].th + pass.ex) / 2);
         }
       }
+    }
+    for (const rd of RD) { // 光の粒：本体の上
+      const { ri, pts, N2, LA, lc2 } = rd;
       if (rvOn && LA > 0.02) { // ✨ 光の粒：根のまわりで、金・紫の粒がきらきら舞う
         g.fillStyle(lc2, LA);
         for (let j = 0; j < 3; j++) { const kk = Math.floor(((this.time.now / 600 + ri * 0.37 + j * 0.33) % 1) * N2), c = pts[Math.min(N2, kk)]; g.fillCircle(c.x + Math.sin(this.time.now / 130 + j + ri) * 7, c.y + Math.cos(this.time.now / 110 + j * 2 + ri) * 7, 2 + 2 * ((j + ri) % 2)); }
-      }
-      if (bigK > 0.3) { // とげ：体の左右から、後ろ向きにとがった赤いとげ（悪魔の根と同じ形）
-        g.fillStyle(soul ? soul.spike : 0xff2a3c, BA);
-        for (let k = 2; k < N2 - 1; k += 2) {
-          const p0 = pts[k - 1], p1 = pts[k + 1]; let ddx = p1.x - p0.x, ddy = p1.y - p0.y; const dl = Math.hypot(ddx, ddy) || 1; ddx /= dl; ddy /= dl;
-          const nx2 = -ddy, ny2 = ddx, hw = pts[k].th / 2, len = (6 + hw * 0.9) * Math.min(1, bigK), c = pts[k];
-          for (const sg of [1, -1]) {
-            const bx = c.x + nx2 * sg * hw * 0.8, by = c.y + ny2 * sg * hw * 0.8;
-            g.fillTriangle(bx + ddx * 5, by + ddy * 5, bx - ddx * 5, by - ddy * 5, c.x + nx2 * sg * (hw + len) - ddx * len * 0.7, c.y + ny2 * sg * (hw + len) - ddy * len * 0.7);
-          }
-        }
       }
     }
   }
@@ -20631,7 +20662,7 @@ class GameScene extends Phaser.Scene {
     const icon = (this.accKey && accHeadIcon(this.accKey)) || null;
     for (const o of tr.ghosts) {
       if (!o.objs) {
-        const body = this.add.circle(o.x, o.y, R, this.playerColor).setStrokeStyle(2, 0xffffff, 0.6);
+        const body = this.add.circle(o.x, o.y, R, this.playerColor).setStrokeStyle(2, 0xffffff, 1);
         const face = this.add.rectangle(o.x, o.y - 20, 14, 3, 0xffffff).setRotation(-Math.PI / 2);
         o.objs = [body, face];
         if (icon) o.objs.push(this.add.text(o.x, o.y - 13, icon, { fontSize: '13px', fontFamily: 'sans-serif' }).setOrigin(0.5).setResolution(2));
@@ -30141,7 +30172,7 @@ class GameScene extends Phaser.Scene {
   // ダウン状態を抜ける（蘇生/ゴースト化どちらでも）時の見た目の後片付け。
   clearDownedVisual() {
     if (this._downedPulseTween) { this._downedPulseTween.stop(); this._downedPulseTween = null; }
-    if (this.player) { this.player.setStrokeStyle(2, 0xffffff, 0.6); this.player.setAlpha(1); }
+    if (this.player) { this.player.setStrokeStyle(2, 0xffffff, 1); this.player.setAlpha(1); }
     if (this.downedTimerLabel) this.downedTimerLabel.setVisible(false);
     if (this.reviveRadiusGfx) this.reviveRadiusGfx.setVisible(false);
   }
@@ -32866,6 +32897,11 @@ async function enterPartyRoom(lounge) { // 💬 lounge＝true：交流ルーム�
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   setLobbyBusy(true); setLobbyStatus(lounge ? '交流ルームに入室中...' : 'パーティールームに入室中...');
   try {
+    if (!lounge) { // 🎉 パーティールーム：マルチプレイの同期は無し。Firebaseのルーム（PARTYLIVE）には入らず、通信なしの偽Net（OfflineNet）で、一人だけで始める（メモは library/partyroom/memos から読むだけ）
+      setLobbyBusy(false); setLobbyStatus('');
+      startGame('mp', { net: new OfflineNet(), roomId: 'PARTYLIVE', baseSeed: (Math.random() * 1e9) | 0, floor: 1, mode: 'party', party: true, lounge: false });
+      return;
+    }
     if (typeof netInstance === 'undefined' || !netInstance || !netInstance.enabled) throw new Error('通信（Firebase）に接続できません');
     const info = await netInstance.enterPartyRoom(!!lounge);
     setLobbyBusy(false); setLobbyStatus('');
@@ -33080,6 +33116,11 @@ document.getElementById('joinRoomBtn').addEventListener('click', async () => {
 // 縦方向に見えるダンジョンの範囲がどの端末でもほぼ同じになるようにする
 // （横方向は画面のアスペクト比なりに広く/狭く見える＝横長端末ほど左右が広く見える）。
 const REF_VIEW_H = 400;
+// 🖼 描画する画素数（高さ）：どの端末でも、Phaser の画面はこの高さの画素数で描き、画面の大きさに合わせて拡大・縮小して表示する（画質と負荷が端末によらず一定になる）。
+//   大きくするほどくっきりするが重くなる（例：720＝標準／1080＝スマホでもっときれい）。見える世界の範囲は変わらない。
+const RENDER_H = 720;
+// 描く画素数（w×h）と、画面に合わせて縮める倍率（zoom）。横は画面の縦横比に合わせる
+function renderSizeNow() { const H = Math.max(1, window.innerHeight), K = RENDER_H / H; return { w: Math.max(1, Math.round(window.innerWidth * K)), h: RENDER_H, zoom: 1 / K }; }
 
 // 【省電力の設定】カクつきの原因を切り分けられるよう、URLの末尾に付けて個別にオフにできる（例: index.html?nofps=1&nobake=1）。
 //   ?nofps=1  … フレームレート制限をやめる／ ?nobake=1 … 床の焼き付けをやめる（従来どおりGraphicsで描く）／ ?msaa=1 … 図形の縁のギザギザ除去を戻す
@@ -33090,7 +33131,8 @@ window.POWER_SAVE = (function () {
 
 function launchGame() {
   // 画面の高さを基準に「見えるエリア」の比率を揃えるための係数。起動時の画面サイズから算出。
-  window.GAME_VIEW_ZOOM = window.innerHeight / REF_VIEW_H;
+  window.GAME_VIEW_ZOOM = RENDER_H / REF_VIEW_H; // 描く高さが固定なので、見える世界の範囲（高さREF_VIEW_H）もいつも同じ
+  const RS0 = renderSizeNow();
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -33098,14 +33140,16 @@ function launchGame() {
     antialias: true, // テクスチャの拡大縮小を滑らかにする設定（文字や画像用。ここをfalseにするとカクカクになる）
     // 【省電力】WebGL本体のMSAA（図形の縁のギザギザ除去）を切る。画面全体の描画負荷が下がる。
     // 図形の縁が気になる場合は true に戻す。
-    render: { antialiasGL: window.POWER_SAVE.antialiasGL },
+    render: { antialiasGL: window.POWER_SAVE.antialiasGL, pixelArt: true }, // pixelArt：画像の拡大をドット絵向けのくっきり表示（補間なし）にする。不要なら false
     scale: {
       // スマホはアドレスバーの出し引きなどで innerHeight が細かく変動し、その都度
       // RESIZEモードが追従してガタつく（レイアウトが「いい感じにならない」）原因になる。
       // スマホでは起動時点の画面サイズに一度だけ固定し、以後は自動追従させない。
-      mode: IS_TOUCH_DEVICE ? Phaser.Scale.NONE : Phaser.Scale.RESIZE,
-      width: window.innerWidth,
-      height: window.innerHeight,
+      // 描く画素数を固定するため、PCもスマホも NONE。画面の大きさが変わった時は、下の fitRender で合わせ直す
+      mode: Phaser.Scale.NONE,
+      width: RS0.w,
+      height: RS0.h,
+      zoom: RS0.zoom, // 描いた画素数を画面の大きさ（CSSピクセル）に縮める／広げる倍率
     },
     backgroundColor: '#0d0d12',
     // 起動直後などの重いフレーム後に、Phaserが数秒間deltaを16.7msに頭打ちにして
@@ -33120,15 +33164,17 @@ function launchGame() {
   // 全画面にした／解除した時は、ブラウザの画面サイズが落ち着いてから（少し待って、念のためもう一度）画面サイズを合わせ直す。
   // これが無いと、スマホ（Scale.NONE）では途中から全画面にしても元のサイズのままで、画面の下が黒く余ってしまう。
   // （PCは今まで通りズームは変えず、画面サイズだけ合わせる。スマホは回転した時と同じく、ズームも含めて合わせ直す）
-  const refit = () => { if (IS_TOUCH_DEVICE) fixToScreen(); else game.scale.resize(window.innerWidth, window.innerHeight); };
+  // pixelArt をオンにすると、Phaser はキャンバスの引き伸ばしも補間なし（角ばる）にする。描く画素数を固定して拡大縮小するので、ここでなめらかな補間に戻す
+  try { game.canvas.style.imageRendering = 'auto'; } catch (e) {}
+  // 画面の大きさに合わせて、描く画素数（高さ固定）と表示の倍率を合わせ直す
+  const fitRender = () => { const r = renderSizeNow(); game.scale.setZoom(r.zoom); game.scale.resize(r.w, r.h); };
+  const refit = () => { if (IS_TOUCH_DEVICE) fixToScreen(); else fitRender(); };
   const onFsChange = () => { setTimeout(refit, 300); setTimeout(refit, 900); };
   document.addEventListener('fullscreenchange', onFsChange);
   document.addEventListener('webkitfullscreenchange', onFsChange);
 
   if (!IS_TOUCH_DEVICE) {
-    window.addEventListener('resize', () => {
-      game.scale.resize(window.innerWidth, window.innerHeight);
-    });
+    window.addEventListener('resize', fitRender);
     return;
   }
 
@@ -33137,8 +33183,8 @@ function launchGame() {
   // 画面サイズだけでなく、GAME_VIEW_ZOOM（見えるエリアの比率を揃える係数）と
   // カメラズームもその時点の高さで再計算する。
   function fixToScreen() {
-    window.GAME_VIEW_ZOOM = window.innerHeight / REF_VIEW_H;
-    game.scale.resize(window.innerWidth, window.innerHeight);
+    window.GAME_VIEW_ZOOM = RENDER_H / REF_VIEW_H;
+    fitRender();
     const scene = game.scene.getScene('game');
     if (scene && scene.cameras && scene.cameras.main) {
       scene.cameras.main.setZoom(window.GAME_VIEW_ZOOM);
