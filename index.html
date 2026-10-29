@@ -312,6 +312,49 @@
   }
   #lobbyStats > button#resetSaveBtn:active, #lobbyStats > button#syncBtn:active { background: rgba(255, 217, 128, 0.3); }
   .challengeBtn { font-size: 1.9vh; padding: 1.8vh 1vh; margin-top: 0; }
+  /* 📺 ボスラッシュのボタンが、ごくまれにグリッチ（ノイズが走る）状態になる */
+  .challengeBtn.glitchBtn { position: relative; overflow: hidden; isolation: isolate; animation: glitchShake 2.6s infinite steps(1, end); }
+  .challengeBtn.glitchBtn::before, .challengeBtn.glitchBtn::after {
+    content: attr(data-text); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: inherit; pointer-events: none; mix-blend-mode: normal;
+  }
+  .challengeBtn.glitchBtn::before { color: #ff2a55; text-shadow: -2px 0 #ff2a55; animation: glitchSliceA 1.7s infinite steps(1, end); }
+  .challengeBtn.glitchBtn::after { color: #2af0ff; text-shadow: 2px 0 #2af0ff; animation: glitchSliceB 2.1s infinite steps(1, end); }
+  .challengeBtn.glitchBtn .glitchNoise {
+    position: absolute; inset: 0; pointer-events: none; z-index: 3; opacity: 0.55; mix-blend-mode: overlay;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.35) 0 1px, transparent 1px 3px);
+    animation: glitchScan 0.35s infinite steps(3, end);
+  }
+  .challengeBtn.glitchBtn .glitchBar {
+    position: absolute; left: 0; right: 0; height: 22%; top: -30%; pointer-events: none; z-index: 4;
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.75), transparent); mix-blend-mode: overlay;
+    animation: glitchBar 1.9s infinite linear;
+  }
+  @keyframes glitchShake {
+    0%, 100% { transform: translate(0, 0) skewX(0); filter: none; }
+    6% { transform: translate(-3px, 1px) skewX(-6deg); filter: hue-rotate(40deg) saturate(2); }
+    8% { transform: translate(3px, -1px) skewX(5deg); }
+    10% { transform: translate(0, 0) skewX(0); filter: none; }
+    47% { transform: translate(2px, 0) skewX(3deg); filter: invert(0.85); }
+    49% { transform: translate(-4px, 1px) skewX(-8deg); filter: hue-rotate(-60deg); }
+    51% { transform: translate(0, 0) skewX(0); filter: none; }
+    83% { transform: translate(-2px, -1px); filter: contrast(2.2) saturate(0); }
+    85% { transform: translate(0, 0); filter: none; }
+  }
+  @keyframes glitchSliceA {
+    0% { clip-path: inset(0 0 85% 0); transform: translateX(-5px); } 12% { clip-path: inset(40% 0 38% 0); transform: translateX(6px); }
+    25% { clip-path: inset(70% 0 8% 0); transform: translateX(-4px); } 38% { clip-path: inset(10% 0 72% 0); transform: translateX(5px); }
+    52% { clip-path: inset(55% 0 25% 0); transform: translateX(-7px); } 66% { clip-path: inset(0 0 95% 0); transform: translateX(0); }
+    80% { clip-path: inset(25% 0 55% 0); transform: translateX(4px); } 100% { clip-path: inset(85% 0 0 0); transform: translateX(-3px); }
+  }
+  @keyframes glitchSliceB {
+    0% { clip-path: inset(60% 0 20% 0); transform: translateX(5px); } 15% { clip-path: inset(5% 0 80% 0); transform: translateX(-6px); }
+    30% { clip-path: inset(80% 0 4% 0); transform: translateX(4px); } 45% { clip-path: inset(30% 0 50% 0); transform: translateX(-5px); }
+    60% { clip-path: inset(0 0 95% 0); transform: translateX(0); } 75% { clip-path: inset(48% 0 35% 0); transform: translateX(7px); }
+    100% { clip-path: inset(15% 0 70% 0); transform: translateX(-4px); }
+  }
+  @keyframes glitchScan { 0% { background-position: 0 0; } 100% { background-position: 0 3px; } }
+  @keyframes glitchBar { 0% { top: -30%; } 100% { top: 130%; } }
   .lobbyBox h1 { font-size: 20px; margin: 0 0 4px; }
   .lobbyBox h2 { font-size: 14px; color: #b388ff; margin: 18px 0 8px; }
   .lobbyBox label { display: block; font-size: 12px; color: #a0a0b0; margin-bottom: 14px; }
@@ -1049,6 +1092,7 @@ const DEMON_SENSOR_RATIO = 1 / 3;
 // 🔧 確認用のURLパラメータ（URLの末尾に付ける。例: index.html?library=1&demon=1）
 //   ?library=1 … 隠し書庫の扉が、確率に関係なく毎階（扉を置ける階なら）出る
 //   ?test=1    … テスト用ボタン（PvP一人テスト・小屋ワープ・エンディング・地獄）を出す。ただし、下の TEST_BUTTONS_SHOWN が true の時だけ（普段は false なので、?test=1 を付けても何も出ない。出したい時だけ true にする）
+//   ?glitch=1 … タイトル画面のボスラッシュのボタンが、5％の確率に関係なく必ずグリッチ（ノイズが走る）状態になる
 //   ?demon=1   … 25階（ソロ）に着いたら、全滅の記録やDEMON_ENABLEDに関係なく悪魔が出る（デベロッパーモードでも出る。デベロッパーモードは、?demon=1 が無い時だけ悪魔が出ない）
 const TEST_BUTTONS_SHOWN = false; // 🛠 テスト用ボタンを出せるようにするか。普段は false（?test=1 を付けても何も出ない）。出したい時だけ true にする（true の間も、URLに ?test=1 を付けた時だけ出る）
 const DEBUG_URL = (function () {
@@ -3936,7 +3980,7 @@ const PARTY_STATS_LIST = [ // 🖤 黒いメモに出す項目 [セーブのkey,
   ['arms4RitualClears', '天使・調伏の儀の成功回数'], ['angelTamedLobby', 'ホームのボタンからの調伏の儀の成功回数'],
   ['bossRushBestBosses', 'ボスラッシュの最高撃破ボス数'], ['demonKills', '悪魔を倒した回数'], ['demonMeets', '25階の悪魔に会った回数'],
   ['frontlineBestSec', '最北戦線の最長生存時間'], ['libraryVisits', '隠し書庫に来た回数'], ['nightmareClears', 'ナイトメアのクリア回数'],
-  ['pvpWins', 'PvPの勝利数'], ['soloClearBestSec', 'ダンジョン（ソロ）の最短クリア時間（0は未クリア）'], ['soloClears', 'ダンジョン（ソロ）の全クリア回数'],
+  ['pvpWins', 'PvPの勝利数'], ['soloClearBestSecRandom', 'ダンジョン（ソロ）のランダムシードの最短クリア時間'], ['soloClearBestSecSet', 'ダンジョン（ソロ）のセットシードの最短クリア時間'], ['floor10BestSecRandom', 'ダンジョン（ソロ）の10階層のランダムシードの最短クリア時間'], ['floor10BestSecSet', 'ダンジョン（ソロ）の10階層のセットシードの最短クリア時間'], ['soloClears', 'ダンジョン（ソロ）の全クリア回数'],
   ['totalBossKills', 'ボスの累計撃破数'], ['soloTotalKills', '雑魚敵の累計撃破数']];
 const PARTY_PORTAL = { i: -2, portal: true, x: 320, y: 118 }; // 🌿 草原への入口（メモと同じ要領で、近づいて E／タップ）
 const VS_HERO = { // ⚔ 斬り合いの調整値
@@ -5967,7 +6011,10 @@ const DEFAULT_SAVE = {
   soloClears: 0,        // ダンジョン（ソロ）を全クリア（25階オールクリア）した回数（デベロッパーモード・ボスラッシュを除く）。1回で装飾品「時計」を入手
   demonKills: 0,        // 😈 悪魔を倒した回数（デベロッパーモード・?demon=1・エンディング演出は数えない）。大きいほうを同期
   totalBossKills: 0,    // 👑 ボスの累計撃破数（全モード：ソロ・協力プレイ・ボスラッシュ・ナイトメア・最北戦線。デベロッパーモード・PvPは除く）。soloTotalBosses とは別（あちらは通常ダンジョンだけ）
-  soloClearBestSec: 0,  // ⏱ ダンジョン（ソロ）をオールクリアした最短時間（秒。0＝まだクリアしていない）。小さいほうを同期
+  soloClearBestSecRandom: 0, // ⏱ 25階オールクリアの最短時間（秒）のうち、シード欄を空にして（ランダムのダンジョンで）クリアした記録。0＝記録なし。ルーレットの色の効果・悪魔の装飾品なしの記録だけ。小さいほうを同期
+  soloClearBestSecSet: 0,    // ⏱ 同じく、シードを指定してクリアした記録。0＝記録なし。ルーレットの色の効果・悪魔の装飾品なしの記録だけ。小さいほうを同期
+  floor10BestSecRandom: 0, // ⏱ ダンジョン（ソロ）の10階層のボスを倒した時点の最短時間（秒）のうち、シード欄を空にして（ランダムのダンジョンで）始めた記録。0＝記録なし。ルーレットの色の効果・悪魔の装飾品なしの記録だけ。デベロッパーモード・ナイトメア・協力プレイは除く。小さいほうを同期
+  floor10BestSecSet: 0,    // ⏱ 同じく、シードを指定して始めた記録。0＝記録なし。ルーレットの色の効果・悪魔の装飾品なしの記録だけ。小さいほうを同期
   angelTamed: 0,        // 🪽 天使（四つ腕）の調伏の儀に成功した回数（ダンジョン・ホームのボタン。デベロッパーモード・エンディング演出は除く）
   angelTamedLobby: 0,   // 🪽 そのうち、ホーム画面の「四つ腕の調伏の儀」ボタンから成功した回数
   titles: {},           // 🏷 入手済みの称号 { key: true }（PLAYER_TITLES）。引き継ぎ（クラウド同期）の対象
@@ -5995,7 +6042,10 @@ function normalizeSave(s) {
   s.titles = (s.titles && typeof s.titles === 'object' && !Array.isArray(s.titles)) ? Object.assign({}, s.titles) : {};
   if (typeof s.titleEquipped !== 'string') s.titleEquipped = '';
   ['demonKills', 'totalBossKills', 'angelTamed', 'angelTamedLobby'].forEach(k => { s[k] = Math.max(0, Math.floor(Number(s[k]) || 0)); });
-  s.soloClearBestSec = Math.max(0, Number(s.soloClearBestSec) || 0);
+  s.floor10BestSecRandom = Math.max(0, Number(s.floor10BestSecRandom) || 0);
+  s.floor10BestSecSet = Math.max(0, Number(s.floor10BestSecSet) || 0);
+  s.soloClearBestSecRandom = Math.max(0, Number(s.soloClearBestSecRandom) || 0);
+  s.soloClearBestSecSet = Math.max(0, Number(s.soloClearBestSecSet) || 0);
   if (s.soulSold && s.demonMeets < 1) s.demonMeets = 1; // 昔のセーブにあった「魂を売った印」は、1回会った扱いに引き継いでから消す
   delete s.soulSold;
   return s;
@@ -6065,6 +6115,7 @@ const PLAYER_TITLES = [
   { key: 'deadline',     name: '死線',       color: '#e03c3c', desc: 'ルーレット：赤でダンジョンをクリアする' },
   { key: 'judge',        name: '審判者',     color: '#e8e8ff', desc: 'ボスを累計1000体倒す' },
   { key: 'end',          name: '終焉',       color: '#ff7a1a', desc: '敵を累計10万体倒す' },
+  { key: 'gale',         name: '疾風',       color: '#5fe3a1', desc: '10階層を2分以内にクリアする（悪魔装飾・ルーレットなし）' }, // シードは問わない（固定シードでも、ランダムでも取れる）
   { key: 'soulslash',    name: '離魂斬り',   color: '#ffffff', outline: '#ff2030', desc: '斬り合いで主人公を倒す' }, // 白い字＋赤いふち（主人公の赤い目の色）
 ];
 function playerTitleByKey(k) { return (typeof k === 'string' && PLAYER_TITLES.find(t => t.key === k)) || null; }
@@ -6093,6 +6144,7 @@ function checkStateTitles(save) {
   if (kills >= WING_FULLGLOW_KILLS) give('fallenwing');
   if ((Number(save.totalBossKills) || 0) >= 1000) give('judge'); // ボスの累計撃破数（totalBossKills：全モード）
   if (kills >= 100000) give('end'); // 敵の累計撃破数（雑魚敵＋ボス）
+  { const g1 = Number(save.floor10BestSecRandom) || 0, g2 = Number(save.floor10BestSecSet) || 0; if ((g1 > 0 && g1 <= 120) || (g2 > 0 && g2 <= 120)) give('gale'); } // 疾風：10階層の最短記録（ルーレットの色の効果なし・悪魔の装飾品なしの挑戦だけが残る）が2分以内
   return added;
 }
 function currentTitleKey() { // 付けている称号のkey（入手済みのものだけ。エンディング演出中は付けない）
@@ -6557,7 +6609,7 @@ class GameScene extends Phaser.Scene {
     this.playerColor = (typeof app.color === 'number') ? app.color : 0x5bd1ff;
     this._bh = null; // ブラックホールのビームの状態（毎回作り直す）
     this.vsHero = !this.mp && !!app.vsHero; // ⚔ 斬り合い（ボス部屋。装飾品は全部持っていけない）
-    this.accKey = (!this.vsHero && (!app.arms4Ritual || app.endingRitual) && accessoryByKey(app.acc)) ? app.acc : ''; // 付けている装飾品のkey（無ければ''）。四つ腕の調伏の儀は装飾品なし
+    this.accKey = (!this.vsHero && !app.glitchBoss && (!app.arms4Ritual || app.endingRitual) && accessoryByKey(app.acc)) ? app.acc : ''; // 付けている装飾品のkey（無ければ''）。四つ腕の調伏の儀は装飾品なし
     this._usedAccKeys = this.accKey ? [this.accKey] : []; // リザルト用：このゲーム中に付けた装飾品のkey（最初から付けていたものも含む。付けた順）
     this._skFx = []; this._skG = null; this._skT = 0; // 🔪 シリアルキラーの斬撃線
     this._clkOn = false; this._clkMine = false; this._clkCd = 0; this._clkLeft = 0; // 🕒 時計：発動中か／次に使えるまでの秒数（最初は使える）
@@ -6660,6 +6712,7 @@ class GameScene extends Phaser.Scene {
       app.hellTest = false;
       if (!this.mp && !this.pvp && !this.frontline && !this.bossRush) { this.hell = true; this._hellDest = this.floor; this._hellT0 = performance.now(); }
     }
+    this.glitchBoss = !this.mp && !!app.bossRush && !!app.glitchBoss; this._glitchWon = false; // 📺 グリッチのボスの挑戦（装飾品なし。倒すとリザルト）
     this.rushWeaponKey = ((!this.mp && (app.bossRush || app.arms4Ritual || app.vsHero)) || app.frontline || app.pvp) ? (app.rushWeaponKey || null) : null;
     // ボスラッシュでは選んだ武器のLv.5でスタートする（デベロッパーモードの開始武器と同じ仕組みを流用）
     this.devWeaponKey = this.rushWeaponKey || app.devWeaponKey || null;
@@ -8202,6 +8255,7 @@ class GameScene extends Phaser.Scene {
   // 次の一巡の最初が直前のボスと同じにならないようにする）。撃破するごとに少しずつ強くなる。
   spawnBossRushBoss() {
     if (this.vsHero) { this.spawnVsHero(); return; }
+    if (this.floor === 1 && window.APP && window.APP.glitchBoss) { this.spawnGlitchBoss(); return; } // 📺 グリッチのボタンから始めた時の最初のボスだけ、グリッチの塊
     // 【テスト用】ここにボスのkeyを入れると、ボスラッシュで毎回そのボスだけが出る（出現率100%）。
     // 通常の抽選（全ボスをシャッフルして順番に）に戻すときは null にする。
     const TEST_FORCE_BOSS = null;
@@ -8253,6 +8307,73 @@ class GameScene extends Phaser.Scene {
       this.enemies[0].chargeLock = bossType.initialChargeDelay;
       this.enemies[0].chargeLockMax = bossType.initialChargeDelay;
     }
+  }
+
+  // 📺 グリッチのボス：色とりどりの四角いブロックの塊が、ノイズのようにちらつき、ずれながら動き回る。
+  //   動きはランダムに揺れながら追いかける（erratic）。遅く歩く時と急に速くなる時を交互に繰り返す。体当たりでダメージ。
+  //   当たり判定は普通のボスと同じ円（gfx）で、その円は隠して、上に重ねたブロックの絵（Graphics）だけを毎フレーム描き直す。
+  spawnGlitchBoss() {
+    const sl = ENEMY_TYPES.find(t => t.key === 'slime');
+    const type = Object.assign({}, sl, { key: 'glitch', isBoss: true, bossLabel: '', displayName: 'GLITCH', color: 0x00ffd5, radius: 34, hp: 900, speed: 100, damage: 22, behavior: 'erratic', aggroRange: 1200 });
+    const room = this.dungeon.rooms[0];
+    const bx = (room.x + room.w - 6 + 0.5) * TILE, by = (room.y + room.h / 2) * TILE;
+    const gfx = this.add.circle(bx, by, type.radius, type.color).setDepth(4).setAlpha(0); // 当たり判定用（見えない）
+    const hpBar = this.add.rectangle(bx, by - type.radius - 10, type.radius * 2, 6, 0xff5b5b).setDepth(4);
+    const label = this.add.text(bx, by - type.radius - 22, '', { fontSize: '12px', color: '#ffd54c', fontStyle: 'bold', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(4).setVisible(false);
+    const bossId = this.floor + '_boss';
+    this.bossGroupCounts = this.bossGroupCounts || {};
+    this.bossGroupCounts[bossId] = 1;
+    const e = { id: bossId, type, gfx, hpBar, label, hp: type.hp, maxHp: type.hp, damage: type.damage, state: 'idle', timer: 0, dirX: 0, dirY: 0, hitCooldown: 0, bossGroupId: bossId, _bossScale: 1 };
+    this.enemies = [e];
+    this.showBossUi(type, bossId);
+
+    // ---- 見た目：ブロックの塊 ----
+    const g = this.add.graphics().setDepth(4.2);
+    const PAL = [0x00ffd5, 0xff2a6d, 0xffffff, 0x7a5cff, 0x39ff14, 0x111122, 0xffe600];
+    const CELL = 9, R = type.radius * 1.25;
+    let cells = [], bars = [], regenT = 0, flashT = 0, blinkT = 0, speedT = 0, lastHp = e.hp, tNow = 0;
+    const regen = () => {
+      cells = [];
+      for (let cx = -R; cx < R; cx += CELL) for (let cy = -R; cy < R; cy += CELL) {
+        if (Math.hypot(cx + CELL / 2, cy + CELL / 2) > R * (0.7 + Math.random() * 0.45)) continue; // 縁はギザギザに欠ける
+        if (Math.random() < 0.28) continue; // 所々、穴があく
+        cells.push({ x: cx + (Math.random() < 0.15 ? (Math.random() - 0.5) * CELL * 2 : 0), y: cy, w: CELL * (Math.random() < 0.2 ? 2 : 1), h: CELL, c: PAL[Math.floor(Math.random() * PAL.length)] });
+      }
+      bars = [];
+      const n = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) bars.push({ x: -R * (1 + Math.random() * 0.6), y: (Math.random() * 2 - 1) * R, w: R * (1.2 + Math.random() * 1.6), h: 2 + Math.random() * 5, c: PAL[Math.floor(Math.random() * 4)] }); // 横に走るノイズの線
+      if (this._bossUiGroup === bossId) { // ボス名もノイズでちらつく
+        const el = document.getElementById('bossNameBanner');
+        if (el) el.textContent = Math.random() < 0.35 ? 'GLITCH'.split('').map(ch => Math.random() < 0.4 ? '█▓▒░#@%&01?'[Math.floor(Math.random() * 11)] : ch).join('') : 'GLITCH';
+      }
+    };
+    regen();
+    const stop = () => { this.events.off('update', upd); if (g && g.scene) g.destroy(); };
+    const upd = (time, delta) => {
+      const dt = delta / 1000;
+      if (!this.enemies || !this.enemies.includes(e) || e.hp <= 0 || !gfx.scene) { stop(); return; }
+      tNow += dt;
+      if (e.hp < lastHp) flashT = 0.12; // 攻撃を受けた：一瞬、真っ白
+      lastHp = e.hp;
+      if (flashT > 0) flashT -= dt;
+      regenT -= dt; if (regenT <= 0) { regen(); regenT = 0.05 + Math.random() * 0.1; }
+      blinkT -= dt; // たまに1コマだけ消える
+      let hidden = false; if (blinkT <= 0) { hidden = Math.random() < 0.5; blinkT = hidden ? 0.04 : 0.3 + Math.random() * 1.2; }
+      speedT -= dt; if (speedT <= 0) { type.speed = type.speed < 150 ? 230 : 90; speedT = type.speed > 150 ? 0.35 : 0.8; } // 急に速くなる
+      g.clear();
+      if (hidden) return;
+      const x = gfx.x, y = gfx.y;
+      for (const c of cells) {
+        g.fillStyle(flashT > 0 ? 0xffffff : c.c, 1);
+        g.fillRect(x + c.x, y + c.y, c.w, c.h);
+      }
+      for (const b of bars) {
+        g.fillStyle(flashT > 0 ? 0xffffff : b.c, 0.85);
+        g.fillRect(x + b.x, y + b.y, b.w, b.h);
+      }
+    };
+    this.events.on('update', upd);
+    this.events.once('shutdown', stop);
   }
 
   // ⚔ 斬り合い：ボス部屋に、エンディングの主人公と同じ見た目（青い体＋シリアルキラーの赤い目）の敵が1体立っている。
@@ -13616,6 +13737,7 @@ class GameScene extends Phaser.Scene {
       s2Unlocked: s2u,
       demonRun: !!this._demonRun, demonRedOn: !!this._demonRedOn, demonSeen: !!this._demonSeenEnemy, demonMet: !!(this._demonMetCounted || this._demonMetResumed), // 😈 25階の悪魔に会う条件（1階から全滅で来ているか）と、会った回数を数え済みか
       runStats: { time: +rs.time || 0, kills: +rs.kills || 0, bosses: +rs.bosses || 0 },
+      floor10Sec: (this._floor10Sec != null ? Math.max(0, Math.floor(this._floor10Sec)) : null), // ⏱ 10階層突破タイムも中断データに入れる（再開してもリザルトに出る）
       world: this._snapshotWorld(),
     };
     return writeSuspend(d) ? '' : 'この環境ではセーブできませんでした（ブラウザの保存が使えません）';
@@ -13661,6 +13783,7 @@ class GameScene extends Phaser.Scene {
       if (d.s2Unlocked && typeof d.s2Unlocked === 'object') { const u = this.s2Unlocked || (this.s2Unlocked = {}); Object.keys(d.s2Unlocked).forEach(k => { if (d.s2Unlocked[k] === true) u[k] = true; }); }
       const r = d.runStats || {};
       this.runStats = { time: Math.max(0, +r.time || 0), kills: Math.max(0, Math.floor(+r.kills) || 0), bosses: Math.max(0, Math.floor(+r.bosses) || 0) };
+      { const f10 = Number(d.floor10Sec); if (d.floor10Sec != null && Number.isFinite(f10) && f10 >= 0) this._floor10Sec = Math.floor(f10); } // ⏱ 10階層突破タイムを引き継ぐ
       this._resumedNote = '💾 ' + this.floor + '階から再開';
     } catch (err) { console.error('中断データの復元中にエラーが発生しました:', err); }
   }
@@ -27254,7 +27377,7 @@ class GameScene extends Phaser.Scene {
   // 最高到達階層・ボス撃破数・クリア回数は、ダンジョン／最北戦線だけ。PvP・デベロッパーは何も足さない。
   // 今回新しく入手した装飾品の配列を返す。同じ挑戦で二度足さないよう、runStatsの同一性で判定する。
   commitRunStats() {
-    if (this.pvp || this.isDevMode || this.vsHero) return []; // 斬り合いは、どの記録にも足さない
+    if (this.pvp || this.isDevMode || this.vsHero || this.glitchBoss) return []; // 斬り合い・グリッチのボスは、どの記録にも足さない
     if (this._committedStats === this.runStats) return [];
     this._committedStats = this.runStats;
     // 協力プレイでは、倒した数は自分の分（mpStats）を使う（runStats.kills/bosses はソロ専用の集計のため）
@@ -27283,9 +27406,10 @@ class GameScene extends Phaser.Scene {
       if (this._allClear) {
         save.soloClears = (save.soloClears || 0) + 1; // 🕒 ダンジョン（ソロ）クリア
         if (this._rlEffect === 'red' && !this.mp && !this._endingRun && save.titles.deadline !== true) { save.titles.deadline = true; this.queueTitleBanners([playerTitleByKey('deadline')], 1200); } // 🏷 ルーレット赤でクリア
-        if (!this.mp && !this._endingRun) { // ⏱ 最短クリア時間（ソロのみ。エンディング演出は除く）
+        if (!this.mp && !this._endingRun && !this._rlEffect && !SPECIAL_ACCS.some(a => this.hasSpecial(a.key))) { // ⏱ 最短クリア時間（ソロのみ。エンディング演出は除く。ルーレットの色の効果が付いている／悪魔の装飾品を付けている時は、RTAの記録に残さない）
           const tm = Math.round((st.time || 0) * 100) / 100;
-          if (tm > 0 && (!save.soloClearBestSec || tm < save.soloClearBestSec)) save.soloClearBestSec = tm;
+          const seedKey = this.fixedSeed != null ? 'soloClearBestSecSet' : 'soloClearBestSecRandom'; // シードを指定して始めたか（fixedSeed）で、記録を分ける
+          if (tm > 0 && (!save[seedKey] || tm < save[seedKey])) save[seedKey] = tm;
         }
       }
     }
@@ -27306,6 +27430,16 @@ class GameScene extends Phaser.Scene {
 
   // 🪖 鎧の入手条件：ダンジョンを始めてから ARMOR_UNLOCK.sec 秒以内に、ARMOR_UNLOCK.floor 階のボスを倒す（ソロ・協力プレイとも）。デベロッパーモードなどでは記録しない
   recordArmorClear() {
+    // ⏱ リザルト用：10階層のボスを倒した時点の経過時間（秒）を記録する（鎧の判定とは別。最初の1回だけ。雪原・書庫・地獄にいた時間は runStats.time に含まれない）
+    if (this.floor === 10 && this._floor10Sec == null && !this.pvp && !this.bossRush && !this.frontline && !this.arms4Ritual) {
+      this._floor10Sec = Math.floor(this.runStats.time);
+      if (!this.mp && !this.nightmare && !this.isDevMode && !this._endingRun) { // ⏱ 10階層の最短時間（ソロの通常ダンジョンのみ）をセーブに残す（クラウド同期の対象）
+        const tm10 = Math.round(this.runStats.time * 100) / 100, sv10 = loadSave();
+        const clean10 = !this._rlEffect && !SPECIAL_ACCS.some(a => this.hasSpecial(a.key)); // ルーレットの色の効果なし・悪魔の装飾品なし（RTAの記録に残してよい挑戦）
+        if (tm10 > 0 && clean10) { const k10 = this.fixedSeed != null ? 'floor10BestSecSet' : 'floor10BestSecRandom'; if (!sv10[k10] || tm10 < sv10[k10]) { sv10[k10] = tm10; writeSave(sv10); } } // シードを指定して始めたか（fixedSeed）で、記録を分ける
+        if (tm10 > 0 && tm10 <= 120 && clean10) this.earnTitle('gale', 3400); // 🏷 疾風：10階層を2分以内にクリア（シードは問わない。ルーレットの色の効果が付いていないこと。悪魔の装飾品を1つも付けていないこと。鎧のバナーと重ならないよう、少し遅らせる）
+      }
+    }
     if (this.pvp || this.bossRush || this.frontline || this.arms4Ritual || this.nightmare || this.isDevMode) return; // ナイトメアは対象外
     if (this.floor !== ARMOR_UNLOCK.floor) return;
     if (this.runStats.time > ARMOR_UNLOCK.sec) return;
@@ -29809,6 +29943,9 @@ class GameScene extends Phaser.Scene {
     } else if (this.arms4Ritual) {
       rows.push(['結果', this._ritualWon ? '調伏成功' : '調伏失敗']);
       rows.push(['経過時間', timeText]);
+    } else if (this.glitchBoss) {
+      rows.push(['結果', this._glitchWon ? '撃破成功' : '撃破失敗']);
+      rows.push(['経過時間', timeText]);
     } else if (this.bossRush) {
       rows.push(['到達ボス', this.floor + '体目']);
       rows.push(['経過時間', timeText]);
@@ -29816,11 +29953,12 @@ class GameScene extends Phaser.Scene {
     } else {
       rows.push(['到達階層', this.floor + '階']);
       rows.push(['経過時間', timeText]);
+      if (this._floor10Sec != null) rows.push(['10階層突破タイム', Math.floor(this._floor10Sec / 60) + '分' + String(this._floor10Sec % 60).padStart(2, '0') + '秒']); // 10階層のボスを倒した時点の経過時間
       rows.push(['倒した雑魚敵', st.kills + '体']);
       rows.push(['倒したボス', st.bosses + '体']);
     }
     if (newAcc.length) rows.push(['🎁 新しい装飾品', newAcc.map(a => a.icon + a.name).join(' ')]);
-    document.getElementById('resultMode').textContent = this.arms4Ritual ? 'ANGEL' : (this.nightmare ? 'NIGHTMARE' : this.isDevMode ? 'DEVELOPER' : (this.vsHero ? 'VS HERO' : this.bossRush ? 'BOSS RUSH' : (this.frontline ? 'NORTHERN FRONT' : 'DUNGEON')));
+    document.getElementById('resultMode').textContent = this.arms4Ritual ? 'ANGEL' : this.glitchBoss ? 'GLITCH' : (this.nightmare ? 'NIGHTMARE' : this.isDevMode ? 'DEVELOPER' : (this.vsHero ? 'VS HERO' : this.bossRush ? 'BOSS RUSH' : (this.frontline ? 'NORTHERN FRONT' : 'DUNGEON')));
     document.getElementById('resultStats').innerHTML = rows.map(r =>
       '<div class="resultRow"><span>' + escapeHtml(r[0]) + '</span><b>' + escapeHtml(r[1]) + '</b></div>').join('');
     const weapons = Object.entries(this.weaponLevels).map(([key, lv]) => {
@@ -30007,7 +30145,8 @@ class GameScene extends Phaser.Scene {
       ? '<div class="mpTopItem"><span>生存時間</span><b>' + escapeHtml(timeText) + '</b></div>' +
         '<div class="mpTopItem"><span>みんなで倒した敵</span><b>' + escapeHtml(list.reduce((a, x) => a + num(x.st.kills), 0) + '体') + '</b></div>'
       : '<div class="mpTopItem"><span>経過時間</span><b>' + escapeHtml(timeText) + '</b></div>' +
-        '<div class="mpTopItem"><span>到達階層</span><b>' + escapeHtml(reached + '階') + '</b></div>';
+        '<div class="mpTopItem"><span>到達階層</span><b>' + escapeHtml(reached + '階') + '</b></div>' +
+        (this._floor10Sec != null ? '<div class="mpTopItem"><span>10階層突破タイム</span><b>' + escapeHtml(Math.floor(this._floor10Sec / 60) + '分' + String(this._floor10Sec % 60).padStart(2, '0') + '秒') + '</b></div>' : '');
 
     const cssColor = c => '#' + ((typeof c === 'number' ? c : 0x5bd1ff) & 0xffffff).toString(16).padStart(6, '0');
     const cards = list.map(x => {
@@ -30088,6 +30227,7 @@ class GameScene extends Phaser.Scene {
       { const o = document.getElementById('clockOverlay'); if (o) o.style.display = 'none'; }
       this._ritualNewAcc = []; // 前回の挑戦で入手した装飾品を、次のリザルトに引きずらない
       this.runStats = { time: 0, kills: 0, bosses: 0 };
+      this._floor10Sec = null; // 10階層突破タイムも最初から
       this.playerInvuln = 0; this.isDowned = false; this.isGhost = false;
       this.bossGroupCounts = {}; this._rushCleared = false; this._vsHeroWon = false; this._snakeRage = {}; this._lootClaimed = {};
       this.hideBossUi();
@@ -30119,7 +30259,7 @@ class GameScene extends Phaser.Scene {
       this.baseSeed = this.fixedSeed != null ? this.fixedSeed : ((Math.random() * 1e9) | 0); // シード指定ありなら、やり直しても同じダンジョン
       this.bossBag = []; this.lastBossKey = null; // ボスラッシュ：抽選をリセット
       this.buildFloor();
-      this._ritualWon = false;
+      this._ritualWon = false; this._glitchWon = false;
       this.autoStartArms4Ritual();
     } catch (err) {
       console.error('restartRun中にエラーが発生しました:', err);
@@ -30372,6 +30512,15 @@ class GameScene extends Phaser.Scene {
         // 協力プレイ：力尽きた仲間（ゴースト）だけが発信機のそばで復活する
         const t = this.tx;
         this.net.broadcastRevive(t ? { x: t.x, y: t.y - 50 } : pos);
+      }
+      return;
+    }
+    if (this.bossRush && this.glitchBoss) { // 📺 グリッチのボスを倒したら、そのままリザルト画面（GLITCH）へ
+      if (!this._glitchWon) {
+        this._glitchWon = true; this.transitioning = true; this.hideBossUi();
+        this.showBanner('GLITCH 撃破', 1500);
+        this.cameras.main.fadeOut(1200, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => { this.cameras.main.resetFX(); this.showResult(); });
       }
       return;
     }
@@ -32348,7 +32497,7 @@ function askConfirm(message, opts) {
 const SYNC_CODE_KEY = 'zomikasudungeon_synccode';
 const SYNC_MAX = ['soloBestFloor', 'nightmareBestFloor', 'nightmareClears', 'soloTotalKills', 'soloTotalBosses', 'frontlineBestSec', 'pvpWins', 'bossRushBestBosses', 'armorFloor10Fast', 'arms4RitualClears', 'libraryVisits', 'demonMeets', 'soloClears', 'demonKills', 'totalBossKills', 'angelTamed', 'angelTamedLobby']; // 大きいほうを採用
 const SYNC_REMOTE = ['soulColor']; // 🎨 クラウドに値（1〜360）があれば、クラウドの値を優先（データベースで書き換えると、その人の色が変わる）。クラウドに値が無ければ、これまで通りこの端末の値を採用してクラウドに送る
-const SYNC_MIN = ['soloClearBestSec']; // 0（記録なし）を除いて、小さいほうを採用
+const SYNC_MIN = ['soloClearBestSecRandom', 'soloClearBestSecSet', 'floor10BestSecRandom', 'floor10BestSecSet']; // 0（記録なし）を除いて、小さいほうを採用
 const SYNC_OR = ['arms4RitualPlayed', 'arms4RitualCounted', 'libraryReported', 'hutVisited', 'endingDone']; // どちらかが true なら true
 const SYNC_UNION = ['accUnlocked', 'specialAccs', 'titles']; // 両方の合計
 const SYNC_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; // 0/1/O/I/L は使わない（読み間違い防止）
@@ -32388,7 +32537,7 @@ function syncView(s) {
 function syncMerge(a, b) {
   const o = {};
   SYNC_MAX.forEach(k => { o[k] = Math.max(a[k], b[k]); });
-  SYNC_MIN.forEach(k => { o[k] = (a[k] > 0 && b[k] > 0) ? Math.min(a[k], b[k]) : (a[k] || b[k] || 0); });
+  SYNC_MIN.forEach(k => { const av = a[k], bv = b[k]; o[k] = (av > 0 && bv > 0) ? Math.min(av, bv) : (av || bv || 0); });
   SYNC_REMOTE.forEach(k => { o[k] = b[k] > 0 ? b[k] : a[k]; }); // a＝この端末／b＝クラウド。クラウドに値があればそちら、無ければこの端末
   SYNC_OR.forEach(k => { o[k] = a[k] || b[k]; });
   SYNC_UNION.forEach(k => { const m = Object.assign({}, a[k], b[k]), s = {}; Object.keys(m).sort().forEach(x => { s[x] = true; }); o[k] = s; });
@@ -32802,6 +32951,7 @@ function startGame(mode, extra) {
     devWeaponLevel: devMode ? Math.max(1, parseInt(document.getElementById('devWeaponLevelInput').value, 10) || 5) : null,
     devMode, // リザルト画面の表示（DEVELOPER）切り替え用
     bossRush: !!(extra && extra.bossRush),
+    glitchBoss: !!(extra && extra.glitchBoss), // 📺 グリッチ状態のボスラッシュのボタンから始めた：最初のボスが、ブロック状のグリッチの塊になる
     vsHero: !!(extra && extra.vsHero), // ⚔ パーティールームの「斬り合い」：ボス部屋で主人公と戦う（ソロ。装飾品なし）
     arms4Ritual: !!(extra && extra.arms4Ritual), // 【期間限定】四つ腕の調伏の儀：始まったらすぐ調伏の儀に入る
     endingRitual: !!(extra && extra.endingRitual), // エンディング演出の調伏の儀：装飾品はシリアルキラー＋悪魔の装飾3つ、天使は動かず、翼が大きくなる
@@ -33001,8 +33151,25 @@ let askWeapon = null;
   });
   // ボスラッシュ／最北戦線（ひとり）：まず武器選択画面を出して、選んだ武器のLv.5でスタートする。
   document.getElementById('bossRushBtn').addEventListener('click', () => {
+    // 📺 グリッチ状態のボタンを押すと、武器選択なし（剣）で、グリッチのボスがいるボス部屋へ直行する
+    if (document.getElementById('bossRushBtn').classList.contains('glitchBtn')) { startGame('solo', { bossRush: true, weaponKey: 'sword', glitchBoss: true }); return; }
     askWeapon('ボスラッシュ', w => startGame('solo', { bossRush: true, weaponKey: w.key }));
   });
+  // 📺 タイトル画面を開いた時、5％の確率でボスラッシュのボタンがグリッチ（ノイズが走る）状態になる。
+  //   URLに ?glitch=1（すでに ? がある時は &glitch=1）を付けると、確率に関係なく必ずなる（確認用）。見た目だけで、押した時の動作は変わらない。
+  (function () {
+    const GLITCH_CHANCE = 0.05;
+    let force = false;
+    try { force = new URLSearchParams(location.search).get('glitch') === '1'; } catch (e) { /* 取れなければ通常の確率 */ }
+    if (!force && !(Math.random() < GLITCH_CHANCE)) return;
+    const btn = document.getElementById('bossRushBtn');
+    if (!btn) return;
+    btn.classList.add('glitchBtn');
+    btn.setAttribute('data-text', btn.textContent.trim());
+    const noise = document.createElement('span'); noise.className = 'glitchNoise';
+    const bar = document.createElement('span'); bar.className = 'glitchBar';
+    btn.appendChild(noise); btn.appendChild(bar);
+  })();
   // 【期間限定】天使・調伏の儀：武器選択なしで、降魔術（四つ腕の調伏の儀に挑めるLv）で始まり、すぐ四つ腕との調伏の儀に入る
   updateArms4RitualBtn(); // 起動時：未解放なら灰色にする
   refreshArms4RitualCount(); // 起動時：調伏成功者数をボタンの上に出す
@@ -33116,23 +33283,34 @@ document.getElementById('joinRoomBtn').addEventListener('click', async () => {
 // 縦方向に見えるダンジョンの範囲がどの端末でもほぼ同じになるようにする
 // （横方向は画面のアスペクト比なりに広く/狭く見える＝横長端末ほど左右が広く見える）。
 const REF_VIEW_H = 400;
-// 🖼 描画する画素数（高さ）：どの端末でも、Phaser の画面はこの高さの画素数で描き、画面の大きさに合わせて拡大・縮小して表示する（画質と負荷が端末によらず一定になる）。
-//   大きくするほどくっきりするが重くなる（例：720＝標準／1080＝スマホでもっときれい）。見える世界の範囲は変わらない。
-const RENDER_H = 720;
-// 描く画素数（w×h）と、画面に合わせて縮める倍率（zoom）。横は画面の縦横比に合わせる
-function renderSizeNow() { const H = Math.max(1, window.innerHeight), K = RENDER_H / H; return { w: Math.max(1, Math.round(window.innerWidth * K)), h: RENDER_H, zoom: 1 / K }; }
+// 🖼 描画する画素数（高さ）：その端末の画面の物理画素の高さ（innerHeight × devicePixelRatio）に合わせる。
+//   画面と1:1で描くので、スマホでも細かい字がくっきり見え、画面に出せない分は描かないので無駄がない。横は画面の縦横比に合わせる。
+//   見える世界の範囲（高さ REF_VIEW_H）は変わらない。
+const RENDER_H_MAX = 1080; // 上限（高解像度の画面で重くなりすぎないように）
+const RENDER_H_MIN = 400;  // 下限
+// 重い時に自動で下げる段階（1＝画面と同じ細かさ。0番目から始める）。下げる／戻す処理は launchGame の「自動で画質を下げる」を参照。
+const RENDER_LEVELS = [1, 0.75, 0.56];
+window.RENDER_LEVEL = 0;
+// 描く画素数（w×h）と、画面に合わせて縮める倍率（zoom）
+function renderSizeNow() {
+  const H = Math.max(1, window.innerHeight), dpr = window.devicePixelRatio || 1;
+  const phys = Math.min(RENDER_H_MAX, Math.max(RENDER_H_MIN, Math.round(H * dpr)));
+  const h = Math.max(RENDER_H_MIN, Math.round(phys * RENDER_LEVELS[window.RENDER_LEVEL || 0]));
+  const K = h / H;
+  return { w: Math.max(1, Math.round(window.innerWidth * K)), h, zoom: 1 / K };
+}
 
 // 【省電力の設定】カクつきの原因を切り分けられるよう、URLの末尾に付けて個別にオフにできる（例: index.html?nofps=1&nobake=1）。
-//   ?nofps=1  … フレームレート制限をやめる／ ?nobake=1 … 床の焼き付けをやめる（従来どおりGraphicsで描く）／ ?msaa=1 … 図形の縁のギザギザ除去を戻す
+//   ?noadapt=1 … 重い時に描く画素数を自動で下げる機能をやめる／ ?nofps=1  … フレームレート制限をやめる／ ?nobake=1 … 床の焼き付けをやめる（従来どおりGraphicsで描く）／ ?msaa=1 … 図形の縁のギザギザ除去を戻す
 window.POWER_SAVE = (function () {
   const q = new URLSearchParams(location.search);
-  return { fpsLimit: q.get('nofps') === '1' ? 0 : 70, floorBake: q.get('nobake') !== '1', antialiasGL: q.get('msaa') === '1' };
+  return { fpsLimit: q.get('nofps') === '1' ? 0 : 70, floorBake: q.get('nobake') !== '1', antialiasGL: q.get('msaa') === '1', adaptiveRes: q.get('noadapt') !== '1' };
 })();
 
 function launchGame() {
   // 画面の高さを基準に「見えるエリア」の比率を揃えるための係数。起動時の画面サイズから算出。
-  window.GAME_VIEW_ZOOM = RENDER_H / REF_VIEW_H; // 描く高さが固定なので、見える世界の範囲（高さREF_VIEW_H）もいつも同じ
   const RS0 = renderSizeNow();
+  window.GAME_VIEW_ZOOM = RS0.h / REF_VIEW_H; // 描く高さに合わせて、見える世界の範囲（高さREF_VIEW_H）はいつも同じにする
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -33140,7 +33318,7 @@ function launchGame() {
     antialias: true, // テクスチャの拡大縮小を滑らかにする設定（文字や画像用。ここをfalseにするとカクカクになる）
     // 【省電力】WebGL本体のMSAA（図形の縁のギザギザ除去）を切る。画面全体の描画負荷が下がる。
     // 図形の縁が気になる場合は true に戻す。
-    render: { antialiasGL: window.POWER_SAVE.antialiasGL, pixelArt: true }, // pixelArt：画像の拡大をドット絵向けのくっきり表示（補間なし）にする。不要なら false
+    render: { antialiasGL: window.POWER_SAVE.antialiasGL, pixelArt: false }, // pixelArt：true だと画像の拡大が補間なし（角ばる）。カメラの倍率が割り切れない値（画面の物理画素に合わせるため）だと細い線や点が欠けるので false。ドット絵風にしたい時は true
     scale: {
       // スマホはアドレスバーの出し引きなどで innerHeight が細かく変動し、その都度
       // RESIZEモードが追従してガタつく（レイアウトが「いい感じにならない」）原因になる。
@@ -33161,17 +33339,112 @@ function launchGame() {
     scene: [GameScene],
   });
 
+  // 🧪【テスト用】画面の揺れの測定パネルと、補正の切り替え。確認が終わったら、このブロックを丸ごと消す（元の動作に戻る）。
+  //   補正：揺れの強さに (画面に縮める倍率) の n乗 を掛ける。 n=0 で補正なし（Latest と同じ）、1 で 1/K、2 で 1/K²。
+  (function () {
+    window.__shakeExp = 0;
+    const camProto = Phaser.Cameras.Scene2D.Camera.prototype;
+    if (!camProto._shakeTest) {
+      camProto._shakeTest = true;
+      const origShake = camProto.shake;
+      camProto.shake = function (duration, intensity, force, callback, context) {
+        let i = intensity;
+        try { if (typeof i === 'number') i = i * Math.pow((this.scaleManager && this.scaleManager.zoom) || 1, window.__shakeExp || 0); } catch (e) { /* そのまま */ }
+        return origShake.call(this, duration, i, force, callback, context);
+      };
+    }
+    if (document.getElementById('shakeTestPanel')) return;
+    const css = 'position:fixed;left:6px;top:6px;z-index:2147483647;background:rgba(0,0,0,0.82);color:#fff;font:12px/1.5 sans-serif;padding:8px;border-radius:8px;max-width:300px;';
+    const panel = document.createElement('div'); panel.id = 'shakeTestPanel'; panel.style.cssText = css;
+    const out = document.createElement('div'); out.style.cssText = 'white-space:pre-wrap;margin:6px 0;';
+    out.textContent = 'ゲームを始めてから、「1. 測定」を押してください。';
+    const mk = (label, fn) => { const b = document.createElement('button'); b.textContent = label; b.tabIndex = -1; b.style.cssText = 'margin:2px;padding:6px 8px;font-size:12px;border-radius:6px;border:1px solid #888;background:#333;color:#fff;'; b.addEventListener('click', () => { b.blur(); fn(); }); return b; };
+    const cam = () => { const sc = game.scene.getScene('game'); return sc && sc.cameras && sc.cameras.main; };
+    const modeBtns = [];
+    const setMode = (n) => { window.__shakeExp = n; modeBtns.forEach((b, i) => { b.style.background = i === n ? '#1a7f37' : '#333'; }); };
+    const measure = () => {
+      const c = cam();
+      if (!c) { out.textContent = 'カメラが見つかりません。ゲームを始めてから押してください。'; return; }
+      if (c.shakeEffect.isRunning) { out.textContent = '別の揺れが動いています。少し待ってからもう一度押してください。'; return; }
+      const z = c.zoom, base = c.matrix.matrix[4], samples = [], t0 = performance.now();
+      out.textContent = '測定中…（約1.5秒、画面が揺れます）';
+      c.shake(1500, 0.01, true);
+      const step = () => {
+        const ox = c.shakeEffect._offsetX;
+        if (Math.abs(ox) > 2) samples.push((c.matrix.matrix[4] - base) / ox);
+        if (performance.now() - t0 < 1500) { requestAnimationFrame(step); return; }
+        samples.sort((a, b) => a - b);
+        const r = samples.length ? samples[samples.length >> 1] : NaN;
+        const K = 1 / ((c.scaleManager && c.scaleManager.zoom) || 1);
+        const dpr = window.devicePixelRatio || 1;
+        let p = NaN, verdict = '判定できませんでした（もう一度押してください）';
+        if (samples.length >= 10 && isFinite(r) && r > 0 && Math.abs(z - 1) > 0.05) {
+          p = 1 + Math.log(r) / Math.log(z);
+          verdict = p < 1.5 ? '→ 揺れはズーム1回分。補正は「モード1（1/K）」が正解です。' : '→ 揺れはズーム2回分。補正は「モード2（1/K²）」が必要です。';
+        }
+        out.textContent = 'dpr ' + dpr + ' ／ 画面の高さ ' + innerHeight + '\n描く画素 ' + c.width + '×' + c.height + ' ／ K ' + K.toFixed(3) + '\nカメラのズーム ' + z.toFixed(3) + '\nratio ' + (isFinite(r) ? r.toFixed(3) : '-') + '（1に近い＝1乗、ズームに近い＝2乗）\n指数 p ' + (isFinite(p) ? p.toFixed(2) : '-') + '（標本 ' + samples.length + '）\n' + verdict;
+      };
+      requestAnimationFrame(step);
+    };
+    const spear = () => { const c = cam(); if (c) c.shake(180, 0.012, true); };
+    const spear4 = () => { [0, 260, 520, 780].forEach((t) => setTimeout(spear, t)); };
+    const title = document.createElement('div'); title.textContent = '🧪 揺れのテスト'; title.style.cssText = 'font-weight:bold;';
+    const close = mk('✕', () => panel.remove()); close.style.cssText += 'float:right;';
+    panel.appendChild(close); panel.appendChild(title);
+    panel.appendChild(mk('1. 測定', measure));
+    panel.appendChild(document.createElement('br'));
+    ['モード0 補正なし', 'モード1 ×1/K', 'モード2 ×1/K²'].forEach((t, i) => { const b = mk(t, () => setMode(i)); modeBtns.push(b); panel.appendChild(b); });
+    panel.appendChild(document.createElement('br'));
+    panel.appendChild(mk('2. 槍が刺さる揺れ', spear)); panel.appendChild(mk('四本槍（4連続）', spear4));
+    panel.appendChild(out);
+    document.body.appendChild(panel);
+    setMode(0);
+  })();
+
   // 全画面にした／解除した時は、ブラウザの画面サイズが落ち着いてから（少し待って、念のためもう一度）画面サイズを合わせ直す。
   // これが無いと、スマホ（Scale.NONE）では途中から全画面にしても元のサイズのままで、画面の下が黒く余ってしまう。
   // （PCは今まで通りズームは変えず、画面サイズだけ合わせる。スマホは回転した時と同じく、ズームも含めて合わせ直す）
-  // pixelArt をオンにすると、Phaser はキャンバスの引き伸ばしも補間なし（角ばる）にする。描く画素数を固定して拡大縮小するので、ここでなめらかな補間に戻す
-  try { game.canvas.style.imageRendering = 'auto'; } catch (e) {}
-  // 画面の大きさに合わせて、描く画素数（高さ固定）と表示の倍率を合わせ直す
-  const fitRender = () => { const r = renderSizeNow(); game.scale.setZoom(r.zoom); game.scale.resize(r.w, r.h); };
+  // 画面の大きさ・向き・画質の段階が変わった時に、描く画素数と表示の倍率を合わせ直す。カメラの倍率も同じ比率で変えて、見える世界の範囲を保つ
+  let adaptReset = () => {};
+  const fitRender = () => {
+    const r = renderSizeNow(), oldZ = window.GAME_VIEW_ZOOM || 1, newZ = r.h / REF_VIEW_H;
+    game.scale.setZoom(r.zoom); game.scale.resize(r.w, r.h);
+    window.GAME_VIEW_ZOOM = newZ;
+    const sc = game.scene.getScene('game');
+    if (sc && sc.cameras && sc.cameras.main && Math.abs(newZ - oldZ) > 1e-6) sc.cameras.main.setZoom(sc.cameras.main.zoom * newZ / oldZ);
+    if (sc && sc.player && sc.cameras && sc.cameras.main && sc.cameras.main._follow === sc.player) sc.cameras.main.centerOn(sc.player.x, sc.player.y); // 画質の段階や画面サイズが変わった瞬間にカメラが中心からずれ、追従で戻る動き（グンと飛んで戻る）を防ぐため、追従中は即プレイヤーを中央に据える
+    adaptReset(3000);
+  };
   const refit = () => { if (IS_TOUCH_DEVICE) fixToScreen(); else fitRender(); };
   const onFsChange = () => { setTimeout(refit, 300); setTimeout(refit, 900); };
   document.addEventListener('fullscreenchange', onFsChange);
   document.addEventListener('webkitfullscreenchange', onFsChange);
+
+  // 🔧 自動で画質を下げる（下げる一方）：描くのが重くてカクつく時、描く画素数を RENDER_LEVELS の段階で1つずつ下げる（?noadapt=1 でやめられる）。
+  //   ・フレーム間隔の「中央値」で見る（通信の受信やGCで一瞬止まるだけなら中央値は動かない）。200ms以上の間隔は捨てる。
+  //   ・タブが裏の時、画面サイズが変わった直後、段階を変えた直後は計らない。
+  //   ・一度下げたら戻さない（切り替えのたびに画面が変わらないよう、効果の確認や画質の引き上げはしない）。
+  if (window.POWER_SAVE.adaptiveRes) {
+    const SLOW_MS = 22, NEED = 90, WIN = 240, ring = new Float32Array(WIN);
+    let n = 0, idx = 0, last = 0, quietUntil = 0, lastEval = 0;
+    const clear = (settle) => { n = 0; idx = 0; last = 0; quietUntil = performance.now() + settle; };
+    adaptReset = clear;
+    const median = () => { const a = Array.from(ring.subarray(0, Math.min(n, WIN))).sort((x, y) => x - y); return a.length ? a[a.length >> 1] : 0; };
+    // カメラが通常の倍率の時だけ段階を変える（演出中などで倍率が特別な間は待つ。演出が元の倍率を覚えているため）
+    const camNormal = () => { const sc = game.scene.getScene('game'), c = sc && sc.cameras && sc.cameras.main; return !!c && Math.abs(c.zoom - window.GAME_VIEW_ZOOM) < 0.02 * window.GAME_VIEW_ZOOM; };
+    const setLevel = (lv, why, m) => { console.info('[画質] 段階 ' + window.RENDER_LEVEL + ' → ' + lv + '（' + why + '、中央値 ' + m.toFixed(1) + 'ms）'); window.RENDER_LEVEL = lv; fitRender(); };
+    document.addEventListener('visibilitychange', () => clear(3000));
+    game.events.on('prerender', () => {
+      const t = performance.now();
+      if (document.hidden || t < quietUntil) { last = 0; return; }
+      if (last) { const d = t - last; if (d < 200) { ring[idx] = d; idx = (idx + 1) % WIN; if (n < WIN) n++; } }
+      last = t;
+      if (n < NEED || t - lastEval < 500) return;
+      lastEval = t;
+      const m = median(), lv = window.RENDER_LEVEL;
+      if (m > SLOW_MS && lv < RENDER_LEVELS.length - 1 && camNormal()) setLevel(lv + 1, '重い', m);
+    });
+  }
 
   if (!IS_TOUCH_DEVICE) {
     window.addEventListener('resize', fitRender);
@@ -33182,14 +33455,7 @@ function launchGame() {
   // その時点のサイズに合わせて固定し直す（ブラウザUIが落ち着くのを少し待つ）。
   // 画面サイズだけでなく、GAME_VIEW_ZOOM（見えるエリアの比率を揃える係数）と
   // カメラズームもその時点の高さで再計算する。
-  function fixToScreen() {
-    window.GAME_VIEW_ZOOM = RENDER_H / REF_VIEW_H;
-    fitRender();
-    const scene = game.scene.getScene('game');
-    if (scene && scene.cameras && scene.cameras.main) {
-      scene.cameras.main.setZoom(window.GAME_VIEW_ZOOM);
-    }
-  }
+  function fixToScreen() { fitRender(); } // 画面サイズ・見える範囲の係数・カメラ倍率をまとめて合わせ直す
   if (window.screen && window.screen.orientation) {
     window.screen.orientation.addEventListener('change', () => setTimeout(fixToScreen, 300));
   } else {
