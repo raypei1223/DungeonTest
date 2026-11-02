@@ -6015,7 +6015,7 @@ function applyWeaponLevel(base, level) {
 // ============== Phaserシーン ==============
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
-const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
+const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
 const GLITCH_TEST_ATK = 'warp'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
 const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
@@ -6026,11 +6026,12 @@ const GLITCH_RANSOM = { t: 8, castT: 1.6 };
 const GLITCH_WARP = {
   castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 40,
   zoneW: 48, zoneH: 40, // 転送先の部屋を作れる領域の大きさ（マス）。ボス部屋（36×24）より広めに余裕を持たせてある。パターンの部屋はこの中の真ん中に作る
-  patterns: ['chargers', 'hell', 'lounge', 'angel', 'holy'],
+  patterns: ['chargers', 'hell', 'lounge', 'angel', 'holy', 'wolf'],
   hell: { stay: 15, demonDy: TILE * 4.5, hp: 999999 }, // 🔥 地獄（実際の地獄マップと同じ見た目・作りの部屋）：stay＝転送されてから戻るまで(秒)／demonDy＝悪魔がプレイヤーの何px上にいるか(画面の上の端に収まる位置)／hp＝悪魔のHP(倒せない)
   lounge: { stay: 20, hp: 999999, firstBomb: 2, detonator: [9.5, 2.5] }, // 💬 交流ルーム：stay＝戻るまでの上限(秒。ふつうは爆弾が全部起爆したら戻る)／hp＝デトネーターのHP(倒せない)／firstBomb＝最初に爆弾をまくまでの秒／detonator＝デトネーターの位置(部屋の左上からのマス)
   angel: { stay: 60, hp: 999999, openCount: 3, angel: [18.5, 5] }, // 🪽 天使の調伏の儀：stay＝戻るまでの上限(秒)／hp＝天使のHP(倒せない)／openCount＝天使が最初の技（A4_OPENING の頭から）を何回出したら戻るか／angel＝天使の位置(部屋の左上からのマス。本物の儀式部屋と同じ)
-  holy: { stay: 15, hp: 999999, snakes: [[6.5, 4.5], [16.5, 3.5], [26.5, 4.5]] }, // ✨ 聖域：stay＝戻るまでの秒（時間で戻る）／hp＝ウロボロスの頭のHP(倒せない)／snakes＝3匹のウロボロスの位置(部屋の左上からのマス)
+  wolf: { stay: 20, hp: 999999, simahar: [19.5, 11.5] }, // 🐺 人狼広場（人狼ゲームの元のマップの広場。左に転送され、右にシマハルがいる）：stay＝戻るまでの秒（時間で戻る）／hp＝シマハルのHP(倒せない)／simahar＝シマハルの位置(部屋の左上からのマス)
+  holy: { stay: 15, hp: 999999, snakes: [[9.5, 4.5], [23.5, 4.5]] }, // ✨ 聖域：stay＝戻るまでの秒（時間で戻る）／hp＝ウロボロスの頭のHP(倒せない)／snakes＝2匹のウロボロスの位置(部屋の左上からのマス)
   chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
 };
 // 🌊 グリッチの攻撃「波」の調整値（秒・px。_sharkWaveMove／_sharkWaveUpdate の流れの順）
@@ -9003,7 +9004,7 @@ class GameScene extends Phaser.Scene {
     const dg = this.dungeon;
     if (dg) {
       const back = []; // 描き直すマス
-      for (const k of ['glitchHell', 'glitchLounge', 'glitchHoly']) if (dg[k]) { for (const t of this._gwLookRect(k)) back.push(t); delete dg[k]; if (k === 'glitchHell') delete dg.torches; } // 🔥💬 地獄・交流ルームの見た目（と松明）を元へ
+      for (const k of ['glitchHell', 'glitchLounge', 'glitchHoly', 'glitchWolf']) if (dg[k]) { for (const t of this._gwLookRect(k)) back.push(t); delete dg[k]; if (k === 'glitchHell') delete dg.torches; } // 🔥💬 地獄・交流ルームの見た目（と松明）を元へ
       const Zc = dg.glitchZone;
       if (Zc && gw && gw.A) { // 転送先を作っていた時だけ：爆弾が壊した壁も含め、領域は全部、元の岩へ戻す。領域に残った爆弾も消す
         for (let y = Zc.y; y < Zc.y + Zc.h; y++) for (let x = Zc.x; x < Zc.x + Zc.w; x++) if (dg.grid[y] && dg.grid[y][x] !== 0) { dg.grid[y][x] = 0; back.push([x, y]); }
@@ -9154,6 +9155,27 @@ class GameScene extends Phaser.Scene {
     if (n > 0) gw.bombSeen = true;
     return !!gw.bombSeen && n === 0;
   }
+  // 🐺 パターン 'wolf'：人狼ゲームの元のマップ（版1）の広場（草地・半径 PVP.werewolf.plazaR のまるい広場。まわりは岩）の左あたりへ転送される。右にシマハルがいる。stay 秒（20秒）たつと戻る。
+  //   まわりの岩は壊せる（シマハルのビームなど）。壊れた所は、人狼マップの「道」と同じ茶色い土の地面になる（_gwWolfFloor）。戻る時は領域ぜんぶ岩へ戻る（_warpClear）。
+  _gwPat_wolf_room() { return { w: 27, h: 23, spawn: [7.5, 11.5], look: 'glitchWolf' }; } // 広場の中心は部屋の真ん中 (13.5, 11.5)。転送先は広場の左寄り（中心から6マス左）
+  _gwPat_wolf_terrain(gw, rx, ry, w, h) { // 広場のまるい形の外は、岩のまま（壊せる）
+    const grid = this.dungeon.grid, R = PVP.werewolf.plazaR;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (Math.hypot(x + 0.5 - w / 2, y + 0.5 - h / 2) > R && grid[ry + y]) grid[ry + y][rx + x] = 0;
+  }
+  _gwWolfFloor(x, y, wf) { // 人狼広場の領域の床の色：広場の中＝草地（人狼マップの広場と同じ）／そのほか（壊れた壁）＝茶色い土（人狼マップの道と同じ 0x6b5236）
+    if (Math.hypot(x + 0.5 - (wf.fx + wf.fw / 2), y + 0.5 - (wf.fy + wf.fh / 2)) <= PVP.werewolf.plazaR) {
+      const v = ((x * 73856093) ^ (y * 19349663)) & 7;
+      return (0x30 + v * 2) * 0x10000 + (0x6a + v * 3) * 0x100 + (0x2c + v);
+    }
+    return 0x6b5236;
+  }
+  _gwPat_wolf_enter(S, A) {
+    const C = GLITCH_WARP.wolf, gw = S.gw;
+    const e = this.s2TrialSpawn('simahar', A.x0 + C.simahar[0] * TILE, A.y0 + C.simahar[1] * TILE, 0); if (!e) return; // ふつうのダンジョンのボスと同じ作り方で、本物のシマハルを出す
+    e.hp = e.maxHp = C.hp; gw.ch.push(e); this.spawnBurst(e.gfx.x, e.gfx.y, 0x8a2be2, 14);
+    this.showBanner('🐺 人狼広場', 1500, '#9bd36a');
+  }
+  _gwPat_wolf_done(S, dt) { return false; } // 倒せない。戻るのは stay 秒たった時（_warpPhase）
   // 🪽 パターン 'angel'：天使の調伏の儀の部屋（ボスラッシュと同じ36×24）へ転送される。ホームの「天使・調伏の儀」ボタンと同じく、導入演出（廊下・逃走・投げ飛ばし）は飛ばして、いきなり戦闘から。天使が最初の技（A4_OPENING の頭から openCount 回）を出し終えたら戻る（天使は倒せない）。
   _gwPat_angel_room() { return { w: 36, h: 24, spawn: [18.5, 17.5] }; } // 本物の儀式部屋の着地点と同じ（部屋の下寄りの真ん中）
   _gwPat_angel_enter(S, A) {
@@ -9167,7 +9189,7 @@ class GameScene extends Phaser.Scene {
     const gw = S.gw, a = gw && gw.a4, T = this._a4A; if (!a || a._removed || a.hp <= 0) return true;
     return !!(T && T.a4 === a && (T.open || 0) >= GLITCH_WARP.angel.openCount && !T.atk);
   }
-  // ✨ パターン 'holy'：聖域（本物と同じ33×25の床）へ転送される。神はいない。柱と祭壇は見た目だけで、当たり判定はない。三匹のウロボロスが襲ってくる。stay 秒（15秒）たつと戻る。
+  // ✨ パターン 'holy'：聖域（本物と同じ33×25の床）へ転送される。神はいない。柱と祭壇は見た目だけで、当たり判定はない。二匹のウロボロスが襲ってくる。stay 秒（15秒）たつと戻る。
   _gwPat_holy_room() { return { w: 33, h: 25, spawn: [16.5, 21.5], look: 'glitchHoly' }; } // 本物の聖域の床（37×29の外周2マスを除いた部分）と、スタート位置も同じ
   _gwPat_holy_enter(S, A) {
     const C = GLITCH_WARP.holy, gw = S.gw;
@@ -15571,13 +15593,14 @@ class GameScene extends Phaser.Scene {
     let any = false;
     const gl = dungeon.glitchLounge; // 💬 グリッチ戦のワープ「交流ルーム」の間だけ、その領域の中を交流ルームの見た目で描く
     const gy = dungeon.glitchHoly; // ✨ グリッチ戦のワープ「聖域」の間だけ、その領域の中を聖域の見た目で描く（床はクリーム色・壁は金色。柱・祭壇は別の飾り）
-    const gh = dungeon.glitchHell; // 🔥 グリッチ戦のワープ「地獄」の間だけ、その領域の中を地獄の見た目で描く
+    const gwf = dungeon.glitchWolf; const gh = dungeon.glitchHell; // 🔥 グリッチ戦のワープ「地獄」の間だけ、その領域の中を地獄の見た目で描く
     for (let y = y0; y < y1; y++) {
       const row = dungeon.grid[y];
       for (let x = x0; x < x1; x++) {
         const t = (dungeon.ghostFloor && dungeon.ghostFloor.tiles[y * dungeon.width + x]) ? 0 : (row[x] === 0 && dungeon.hutFurn && dungeon.hutFurn[y * dungeon.width + x]) ? 1 : row[x]; // 👻 隠し通路・隠し部屋は、歩けるが床としては描かない（見た目は壁） // 小屋の家具は、当たり判定はあるが見た目は床（家具の絵は _drawHut が描く）
         const hy = dungeon.holy || (gy && x >= gy.x && x < gy.x + gy.w && y >= gy.y && y < gy.y + gy.h); // このマスは聖域の見た目か
         const hl = dungeon.hell || (gh && x >= gh.x && x < gh.x + gh.w && y >= gh.y && y < gh.y + gh.h); // このマスは地獄の見た目か
+        const wf = !!(gwf && x >= gwf.x && x < gwf.x + gwf.w && y >= gwf.y && y < gwf.y + gwf.h); // 🐺 このマスは人狼広場の見た目か（広場の中＝草地／それ以外の床＝壊れた壁＝土）
         const lg = dungeon.lounge || (gl && x >= gl.x && x < gl.x + gl.w && y >= gl.y && y < gl.y + gl.h); // このマスは交流ルームの見た目か
         if (t === 1 || t === 3) {
           any = true;
@@ -15590,7 +15613,7 @@ class GameScene extends Phaser.Scene {
           if (t === 3) k = 1;
           const red = this.nextIsBoss; // ボス階への出口は白ではなく赤く染める
           const inHut = dungeon.hut && x >= dungeon.hut.x && x < dungeon.hut.x + dungeon.hut.w && y >= dungeon.hut.y && y < dungeon.hut.y + dungeon.hut.h; // 小屋の中は木の床
-          const base = lg ? 0xe6e6ec : dungeon.party ? (((x + y) & 1) ? 0xf1e6cf : 0xecd5dc) : hl ? [0x7b3b2a, 0x84412e, 0x70352a][((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0) % 3] : hy ? 0xf6ecc8 : dungeon.snow ? (inHut ? 0x9a7650 : 0xc9d6e6) : (dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f); // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
+          const base = wf ? this._gwWolfFloor(x, y, gwf) : lg ? 0xe6e6ec : dungeon.party ? (((x + y) & 1) ? 0xf1e6cf : 0xecd5dc) : hl ? [0x7b3b2a, 0x84412e, 0x70352a][((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0) % 3] : hy ? 0xf6ecc8 : dungeon.snow ? (inHut ? 0x9a7650 : 0xc9d6e6) : (dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f); // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
           g.fillStyle(lerpColor(base, red ? 0xb02a2a : hl ? 0xe0a040 : 0x9a9aaa, k), 1);
           g.fillRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
           g.lineStyle(t === 3 ? 2 : 1, lerpColor(lg ? 0xd0d0d8 : dungeon.party ? 0xdccfba : hl ? 0x5e2a1d : hy ? 0xe3d297 : dungeon.snow ? (inHut ? 0x7d5d3b : 0xb6c5d8) : 0x26262e, red ? 0xff6b6b : hl ? 0xffd070 : 0xdcdce8, k), 1);
