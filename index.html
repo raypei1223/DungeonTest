@@ -17171,7 +17171,7 @@ class GameScene extends Phaser.Scene {
     const on = !!(w && w.type === 'ancient' && pl && !this.isGhost && !this.isDowned && !this.transitioning && !this._ransomLock());
     this._ancGaugeUI(on, A, w); // 🔷 画面下のゲージ／「魔法をえがく」ボタン／シンボル描画の更新
     if (on) {
-      const held = !A.draw && (IS_TOUCH_DEVICE ? !!(window.aimVector && window.aimVector.active) : this.input.activePointer.isDown); let angle = A.angle || this.facingAngle || 0; // 🔷 A.draw＝シンボルを描いている間は、スティックの操作でシールドは張らない
+      const held = IS_TOUCH_DEVICE ? !!(window.aimVector && window.aimVector.active) : (!A.draw && this.input.activePointer.isDown); let angle = A.angle || this.facingAngle || 0; // 🔷 A.draw＝シンボルを描いている間は、スティックの操作でシールドは張らない
       if (IS_TOUCH_DEVICE) { const aim = window.aimVector; if (aim && aim.active && (aim.x !== 0 || aim.y !== 0)) angle = Math.atan2(aim.y, aim.x); }
       else { const pt = this.input.activePointer, wp = this.cameras.main.getWorldPoint(pt.x, pt.y); angle = Phaser.Math.Angle.Between(pl.x, pl.y, wp.x, wp.y); }
       if (held) { A.held = true; A.angle = angle; }
@@ -17221,6 +17221,7 @@ class GameScene extends Phaser.Scene {
   // ================= 🔷 古代魔法：パリィゲージ → シンボルを描いて発動 =================
   // 流れ：パリィ成功でゲージがたまる（_ancientParryFx）→ 満タンで画面下に「魔法をえがく」ボタン → 押すと時間がほぼ止まり、画面に一筆でシンボルを描く → 合っていれば発動（ゲージは0に戻る）／違えば何も起きず描き直せる（ゲージは減らない）。
   // 新しいシンボルを足す時は、この ANC_SYMBOLS に1行足すだけ（pts＝一筆の通過点を 0〜1 の範囲で。上が0、下が1）。効果は _ancientCast(key) の中で key ごとに書く。
+  get ANC_DRAW_SLOW() { return false; } // 描いている間のスローモーション（false＝止めない。スティックで動きながら描く）
   get ANC_SYMBOLS() { return [
     { key: 'thunder', name: '雷', pts: [[0.7, 0], [0, 0.5], [1, 0.5], [0.3, 1]] }, // ⚡ 一番上 → 左の真ん中 → 横へ右の真ん中 → 一番下
   ]; }
@@ -17265,32 +17266,32 @@ class GameScene extends Phaser.Scene {
     el.root.style.display = 'flex'; el.fill.style.width = (fr * 100).toFixed(1) + '%'; el.fill.style.background = '#' + (c >>> 0).toString(16).padStart(6, '0'); // 色はシールドと同じ（溜まるほど水色→紫）
     el.fill.style.boxShadow = full ? '0 0 10px 2px #fff' : 'none'; el.btn.style.display = (full && !A.draw) ? 'block' : 'none';
     if (A.draw) { // 描いている間：時間をほぼ止める（実時間で最大 DRAW_SEC 秒）
-      const d = A.draw, left = d.sec - (performance.now() - d.t0) / 1000; this._gSlowT = 0.7; // 🐌 パリィ後のスローと同じ仕組みを保ち続ける（終わると自然に元の速さへ戻る）
+      const d = A.draw, left = d.sec - (performance.now() - d.t0) / 1000; if (this.ANC_DRAW_SLOW) this._gSlowT = 0.7; // 🐌 true にすると、描いている間は時間がほぼ止まる（パリィ後のスローと同じ仕組み）
       d.bar.style.width = Math.max(0, left / d.sec * 100) + '%'; if (left <= 0) this._ancDrawEnd(A, false);
     }
   }
-  _ancDrawStart(A) { // シンボルを描くモードに入る
+  _ancDrawStart(A) { // シンボルを描くモードに入る。画面の真ん中の帯（左右のスティックの間）にだけ描画エリアを出す。その外は触れるので、スティックで動きながら描ける
     if (A.draw) return; A.held = false;
-    const ov = document.createElement('div'); ov.id = 'ancDraw'; ov.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(10,6,34,0.45);touch-action:none;user-select:none;-webkit-user-select:none;';
-    const cv = document.createElement('canvas'), dpr = Math.min(2, window.devicePixelRatio || 1), W = window.innerWidth, H = window.innerHeight; cv.width = W * dpr; cv.height = H * dpr; cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;touch-action:none;';
-    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
-    const msg = document.createElement('div'); msg.style.cssText = 'position:absolute;top:3vh;left:50%;transform:translateX(-50%);color:#fff;font:bold max(3vh,16px) sans-serif;text-shadow:0 0 8px #9b6bff;white-space:nowrap;pointer-events:none;'; msg.textContent = '一筆でシンボルを描け';
-    const barW = document.createElement('div'); barW.style.cssText = 'position:absolute;top:9vh;left:50%;transform:translateX(-50%);width:min(50vw,360px);height:6px;background:rgba(255,255,255,0.2);border-radius:9px;overflow:hidden;pointer-events:none;'; const bar = document.createElement('div'); bar.style.cssText = 'height:100%;width:100%;background:#c9a8ff;'; barW.appendChild(bar);
-    const x = document.createElement('div'); x.textContent = '✕'; x.style.cssText = 'position:absolute;top:2vh;right:2vh;width:6vh;height:6vh;display:flex;align-items:center;justify-content:center;color:#fff;font:bold 3vh sans-serif;background:rgba(0,0,0,0.5);border:1px solid #fff;border-radius:50%;cursor:pointer;';
-    ov.appendChild(cv); ov.appendChild(msg); ov.appendChild(barW); ov.appendChild(x); document.body.appendChild(ov);
-    const D = A.draw = { ov, cv, ctx, msg, bar, pts: [], id: null, t0: performance.now(), sec: 6, W, H, key: null };
+    const zone = document.createElement('div'); zone.id = 'ancDraw'; zone.style.cssText = 'position:fixed;left:34vw;width:32vw;top:6vh;height:82vh;z-index:60;box-sizing:border-box;background:rgba(40,20,100,0.22);border:2px dashed rgba(201,168,255,0.55);border-radius:2vh;touch-action:none;user-select:none;-webkit-user-select:none;';
+    const cv = document.createElement('canvas'), dpr = Math.min(2, window.devicePixelRatio || 1); cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;touch-action:none;';
+    const msg = document.createElement('div'); msg.style.cssText = 'position:absolute;top:1.2vh;left:0;right:0;text-align:center;color:#fff;font:bold max(2.4vh,13px) sans-serif;text-shadow:0 0 8px #9b6bff;pointer-events:none;'; msg.textContent = '一筆でシンボルを描け';
+    const barW = document.createElement('div'); barW.style.cssText = 'position:absolute;top:5.5vh;left:12%;right:12%;height:5px;background:rgba(255,255,255,0.2);border-radius:9px;overflow:hidden;pointer-events:none;'; const bar = document.createElement('div'); bar.style.cssText = 'height:100%;width:100%;background:#c9a8ff;'; barW.appendChild(bar);
+    const x = document.createElement('div'); x.textContent = '✕'; x.style.cssText = 'position:absolute;bottom:1vh;right:1vh;width:5vh;height:5vh;display:flex;align-items:center;justify-content:center;color:#fff;font:bold 2.4vh sans-serif;background:rgba(0,0,0,0.5);border:1px solid #fff;border-radius:50%;cursor:pointer;';
+    zone.appendChild(cv); zone.appendChild(msg); zone.appendChild(barW); zone.appendChild(x); document.body.appendChild(zone);
+    const R = zone.getBoundingClientRect(), W = R.width, H = R.height; cv.width = W * dpr; cv.height = H * dpr; const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+    const D = A.draw = { ov: zone, cv, ctx, msg, bar, pts: [], id: null, t0: performance.now(), sec: 8, R };
     const guide = () => { // うすい手本（雷）。いらなければ SHOW_GUIDE を false に
       const SHOW_GUIDE = true; ctx.clearRect(0, 0, W, H); if (!SHOW_GUIDE) return;
-      const s = this.ANC_SYMBOLS[0], gh = Math.min(H * 0.6, 340), gw = gh * 0.55, ox = W / 2 - gw / 2, oy = H / 2 - gh / 2 + H * 0.04;
-      ctx.save(); ctx.setLineDash([8, 10]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); s.pts.forEach((p, i) => { const px = ox + p[0] * gw, py = oy + p[1] * gh; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(ox + s.pts[0][0] * gw, oy, 8, 0, 6.2832); ctx.fill(); ctx.restore(); // 始点（上）に丸
-    }; D.guide = guide; guide();
-    const pt = ev => [ev.clientX, ev.clientY];
-    cv.onpointerdown = ev => { ev.preventDefault(); if (D.id !== null) return; D.id = ev.pointerId; D.pts = [pt(ev)]; try { cv.setPointerCapture(ev.pointerId); } catch (e) {} guide(); };
+      const s0 = this.ANC_SYMBOLS[0], gh = H * 0.62, gw = Math.min(W * 0.7, gh * 0.55), ox = W / 2 - gw / 2, oy = H * 0.2;
+      ctx.save(); ctx.setLineDash([8, 10]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); s0.pts.forEach((p, i) => { const px = ox + p[0] * gw, py = oy + p[1] * gh; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(ox + s0.pts[0][0] * gw, oy, 7, 0, 6.2832); ctx.fill(); ctx.restore(); // 始点（上）に丸
+    }; guide();
+    const pt = ev => [ev.clientX - R.left, ev.clientY - R.top];
+    cv.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); if (D.id !== null) return; D.id = ev.pointerId; D.pts = [pt(ev)]; try { cv.setPointerCapture(ev.pointerId); } catch (e) {} guide(); };
     cv.onpointermove = ev => { if (ev.pointerId !== D.id) return; const p = pt(ev), q = D.pts[D.pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) < 2) return; D.pts.push(p);
-      ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(160,120,255,0.55)'; ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); };
+      ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(160,120,255,0.55)'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); };
     const up = ev => { if (ev.pointerId !== D.id) return; D.id = null; const res = this._ancRecognize(D.pts);
       if (res.ok) { this._ancDrawEnd(A, true, res.key); return; }
-      D.msg.textContent = res.why === 'small' || res.why === 'short' ? 'もっと大きく、一筆で' : 'ちがう…もう一度'; D.pts = []; setTimeout(() => { if (A.draw === D) guide(); }, 350); }; // 失敗：少し見せてから消し、描き直せる（制限時間内）
+      D.msg.textContent = res.why === 'small' || res.why === 'short' ? 'もっと大きく、一筆で' : 'ちがう…もう一度'; D.pts = []; setTimeout(() => { if (A.draw === D) { guide(); D.msg.textContent = '一筆でシンボルを描け'; } }, 600); }; // 失敗：少し見せてから消し、描き直せる（制限時間内）
     cv.onpointerup = up; cv.onpointercancel = up;
     x.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); this._ancDrawEnd(A, false); };
     D.onKey = ev => { if (ev.key === 'Escape') this._ancDrawEnd(A, false); }; window.addEventListener('keydown', D.onKey);
