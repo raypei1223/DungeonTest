@@ -6031,7 +6031,7 @@ const GLITCH_WARP = {
   hell: { stay: 15, demonDy: TILE * 4.5, hp: 999999 }, // 🔥 地獄（実際の地獄マップと同じ見た目・作りの部屋）：stay＝転送されてから戻るまで(秒)／demonDy＝悪魔がプレイヤーの何px上にいるか(画面の上の端に収まる位置)／hp＝悪魔のHP(倒せない)
   lounge: { stay: 20, hp: 999999, firstBomb: 2, detonator: [9.5, 2.5] }, // 💬 交流ルーム：stay＝戻るまでの上限(秒。ふつうは爆弾が全部起爆したら戻る)／hp＝デトネーターのHP(倒せない)／firstBomb＝最初に爆弾をまくまでの秒／detonator＝デトネーターの位置(部屋の左上からのマス)
   angel: { stay: 60, hp: 999999, openCount: 3, angel: [18.5, 5] }, // 🪽 天使の調伏の儀：stay＝戻るまでの上限(秒)／hp＝天使のHP(倒せない)／openCount＝天使が最初の技（A4_OPENING の頭から）を何回出したら戻るか／angel＝天使の位置(部屋の左上からのマス。本物の儀式部屋と同じ)
-  wolf: { stay: 20, hp: 999999, simahar: [19.5, 11.5] }, // 🐺 人狼広場（人狼ゲームの元のマップの広場。左に転送され、右にシマハルがいる）：stay＝戻るまでの秒（時間で戻る）／hp＝シマハルのHP(倒せない)／simahar＝シマハルの位置(部屋の左上からのマス)
+  wolf: { stay: 20, hp: 999999, simahar: [26.5, 18.5] }, // 🐺 人狼広場（人狼ゲームの元のマップの広場。左に転送され、右にシマハルがいる）：stay＝戻るまでの秒（時間で戻る）／hp＝シマハルのHP(倒せない)／simahar＝シマハルの位置(部屋の左上からのマス)
   holy: { stay: 15, hp: 999999, snakes: [[9.5, 4.5], [23.5, 4.5]] }, // ✨ 聖域：stay＝戻るまでの秒（時間で戻る）／hp＝ウロボロスの頭のHP(倒せない)／snakes＝2匹のウロボロスの位置(部屋の左上からのマス)
   chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
 };
@@ -9158,10 +9158,16 @@ class GameScene extends Phaser.Scene {
   }
   // 🐺 パターン 'wolf'：人狼ゲームの元のマップ（版1）の広場（草地・半径 PVP.werewolf.plazaR のまるい広場。まわりは岩）の左あたりへ転送される。右にシマハルがいる。stay 秒（20秒）たつと戻る。
   //   まわりの岩は壊せる（シマハルのビームなど）。壊れた所は、人狼マップの「道」と同じ茶色い土の地面になる（_gwWolfFloor）。戻る時は領域ぜんぶ岩へ戻る（_warpClear）。
-  _gwPat_wolf_room() { return { w: 27, h: 23, spawn: [7.5, 11.5], look: 'glitchWolf' }; } // 広場の中心は部屋の真ん中 (13.5, 11.5)。転送先は広場の左寄り（中心から6マス左）
-  _gwPat_wolf_terrain(gw, rx, ry, w, h) { // 広場のまるい形の外は、岩のまま（壊せる）
-    const grid = this.dungeon.grid, R = PVP.werewolf.plazaR;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (Math.hypot(x + 0.5 - w / 2, y + 0.5 - h / 2) > R && grid[ry + y]) grid[ry + y][rx + x] = 0;
+  _gwPat_wolf_room() { return { w: 41, h: 37, spawn: [14.5, 18.5], look: 'glitchWolf' }; } // 広場の中心は部屋の真ん中 (20.5, 18.5)。転送先は広場の左寄り（中心から6マス左）。広場から出る道を作れるよう、広場（直径18）よりひとまわり以上広い
+  _gwPat_wolf_terrain(gw, rx, ry, w, h) { // 広場のまるい形の外は、岩のまま（壊せる）。ただし、広場から家の方向へ放射状に出る道（人狼マップの版1と同じ：幅 roadW・家の数 houses）は残す。道は部屋の端の1マス手前までで行き止まり（まわりは岩）
+    const grid = this.dungeon.grid, Wv = PVP.werewolf, R = Wv.plazaR, N = Wv.houses, rw = Wv.roadW / 2, cx = w / 2, cy = h / 2;
+    const dirs = []; for (let k = 0; k < N; k++) { const a = -Math.PI / 2 + Math.PI * 2 * k / N; dirs.push([Math.cos(a), Math.sin(a)]); } // 0番が真上、時計回り（元のマップと同じ）
+    const inRoad = (px, py) => { const dx = px - cx, dy = py - cy; for (const [ux, uy] of dirs) { const along = dx * ux + dy * uy, perp = Math.abs(dx * uy - dy * ux); if (perp <= rw && along >= R - 2) return true; } return false; };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R || !grid[ry + y]) continue;
+      if (x >= 1 && x <= w - 2 && y >= 1 && y <= h - 2 && inRoad(x + 0.5, y + 0.5)) continue; // 道は床のまま（茶色い土：_gwWolfFloor）
+      grid[ry + y][rx + x] = 0;
+    }
   }
   _gwWolfFloor(x, y, wf) { // 人狼広場の領域の床の色：広場の中＝草地（人狼マップの広場と同じ）／そのほか（壊れた壁）＝茶色い土（人狼マップの道と同じ 0x6b5236）
     if (Math.hypot(x + 0.5 - (wf.fx + wf.fw / 2), y + 0.5 - (wf.fy + wf.fh / 2)) <= PVP.werewolf.plazaR) {
@@ -17268,7 +17274,7 @@ class GameScene extends Phaser.Scene {
   }
   _ancDrawStart(A) { // 真ん中の帯（左右のスティックの間）を、シンボルを描けるエリアにする。使える間は出しっぱなし。帯の外は触れるので、スティックで動きながら描ける
     if (A.draw) return; A.held = false;
-    const zone = document.createElement('div'); zone.id = 'ancDraw'; zone.style.cssText = 'position:fixed;left:34vw;width:32vw;top:6vh;height:82vh;z-index:60;box-sizing:border-box;background:rgba(40,20,100,0.10);border:2px dashed rgba(201,168,255,0.30);border-radius:2vh;user-select:none;-webkit-user-select:none;' + (IS_TOUCH_DEVICE ? 'touch-action:none;' : 'pointer-events:none;'); // PCは左クリックを邪魔しない（右ドラッグで描く）
+    const zone = document.createElement('div'); zone.id = 'ancDraw'; zone.style.cssText = 'position:fixed;left:34vw;width:32vw;top:6vh;height:82vh;z-index:60;box-sizing:border-box;background:rgba(190,150,255,0);border-radius:2vh;transition:background .2s;user-select:none;-webkit-user-select:none;' + (IS_TOUCH_DEVICE ? 'touch-action:none;' : 'pointer-events:none;'); // PCは左クリックを邪魔しない（右ドラッグで描く）
     const dpr = Math.min(2, window.devicePixelRatio || 1), cv = document.createElement('canvas'); cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;touch-action:none;';
     const msg = document.createElement('div'); msg.style.cssText = 'position:absolute;top:1.2vh;left:0;right:0;text-align:center;color:#fff;font:bold max(2.2vh,12px) sans-serif;text-shadow:0 0 8px #9b6bff;pointer-events:none;opacity:0;transition:opacity .25s;';
     zone.appendChild(cv); zone.appendChild(msg); document.body.appendChild(zone);
@@ -17276,10 +17282,10 @@ class GameScene extends Phaser.Scene {
     const D = A.draw = { ov: zone, cv, ctx, msg, pts: [], id: null, R, offs: [] };
     const pt = ev => [ev.clientX - R.left, ev.clientY - R.top], inR = ev => ev.clientX >= R.left && ev.clientX <= R.right && ev.clientY >= R.top && ev.clientY <= R.bottom;
     const say = t => { msg.textContent = t; msg.style.opacity = '1'; clearTimeout(D.mt); D.mt = setTimeout(() => { msg.style.opacity = '0'; }, 900); };
-    const down = ev => { if (D.id !== null) return; D.id = ev.pointerId; D.pts = [pt(ev)]; ctx.clearRect(0, 0, W, H); };
+    const down = ev => { if (D.id !== null) return; D.id = ev.pointerId; D.pts = [pt(ev)]; ctx.clearRect(0, 0, W, H); zone.style.background = 'rgba(190,150,255,0.22)'; }; // 描いている間だけ、描ける部分が淡い紫になる
     const move = ev => { if (ev.pointerId !== D.id) return; const p = pt(ev), q = D.pts[D.pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) < 2) return; D.pts.push(p);
       ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(160,120,255,0.55)'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); };
-    const up = ev => { if (ev.pointerId !== D.id) return; D.id = null; const pts = D.pts; D.pts = []; setTimeout(() => { if (A.draw === D) ctx.clearRect(0, 0, W, H); }, 300);
+    const up = ev => { if (ev.pointerId !== D.id) return; D.id = null; zone.style.background = 'rgba(190,150,255,0)'; const pts = D.pts; D.pts = []; setTimeout(() => { if (A.draw === D) ctx.clearRect(0, 0, W, H); }, 300);
       const res = this._ancRecognize(pts); if (!res.ok) { if (pts.length > 6) say(res.why === 'small' || res.why === 'short' ? 'もっと大きく、一筆で' : 'ちがう…'); return; } // ちょんと触れただけでは何も言わない
       const sy = this.ANC_SYMBOLS.find(q => q.key === res.key), gm = (this.weapon && this.weapon.gaugeMax) || 100;
       if (sy && (A.gauge || 0) < (sy.cost == null ? 1 : sy.cost) * gm - 1e-6) { say('魔力がたりない'); return; }
