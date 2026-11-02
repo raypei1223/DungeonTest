@@ -243,6 +243,40 @@
     background: rgba(255,140,140,0.65); pointer-events: none;
   }
 
+  /* 🔒 ランサムウェア：武器ロック中、右スティックが壊れたように乱れる（JS側 _ransomHud が .ransomGlitch を付け外しする） */
+  @keyframes ransomBase {
+    0%   { transform: translateY(-50%); clip-path: inset(0); filter: none; }
+    8%   { transform: translateY(-50%) translate(-1.4vh, 0.5vh) skewX(10deg); clip-path: inset(0 0 58% 0); filter: hue-rotate(90deg); }
+    16%  { transform: translateY(-50%) translate(1.2vh, -0.4vh); clip-path: inset(42% 0 0 0); filter: invert(1); }
+    24%  { transform: translateY(-50%); clip-path: inset(0); filter: none; }
+    46%  { transform: translateY(-50%) translate(0.6vh, 0.2vh) scaleX(1.08); clip-path: inset(30% 0 30% 0); filter: hue-rotate(200deg) saturate(3); }
+    52%  { transform: translateY(-50%) translate(-0.8vh, 0) skewX(-12deg); clip-path: inset(0); filter: none; }
+    70%  { transform: translateY(-50%); clip-path: inset(0 40% 0 0); opacity: 0.4; }
+    74%  { transform: translateY(-50%) translate(1vh, 0.3vh); clip-path: inset(0); opacity: 1; filter: hue-rotate(300deg); }
+    100% { transform: translateY(-50%); clip-path: inset(0); filter: none; }
+  }
+  @keyframes ransomKnob {
+    0%   { transform: translate(0, 0); opacity: 1; background: rgba(255,140,140,0.65); border-radius: 50%; }
+    12%  { transform: translate(-4vh, 2vh) scale(0.7); background: rgba(0,255,120,0.8); border-radius: 20%; }
+    25%  { transform: translate(5vh, -3vh) scale(1.2, 0.6); opacity: 0.2; }
+    38%  { transform: translate(-2vh, -5vh); opacity: 1; background: rgba(255,0,200,0.8); border-radius: 50% 0 50% 0; }
+    55%  { transform: translate(3vh, 4vh) scale(0.5); opacity: 0; }
+    62%  { transform: translate(-5vh, 0); opacity: 1; background: rgba(0,220,255,0.8); border-radius: 10%; }
+    80%  { transform: translate(1vh, -2vh) scale(1.4, 0.8); background: rgba(255,255,0,0.8); }
+    100% { transform: translate(0, 0); opacity: 1; background: rgba(255,140,140,0.65); border-radius: 50%; }
+  }
+  #aimJoystickBase.ransomGlitch {
+    border-color: rgba(255,40,40,0.9); background: rgba(255,0,0,0.18);
+    box-shadow: -0.7vh 0 0 rgba(255,0,0,0.6), 0.7vh 0 0 rgba(0,255,255,0.6);
+    animation: ransomBase 0.7s steps(1, end) infinite;
+  }
+  #aimJoystickBase.ransomGlitch::after {
+    content: 'ERR'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font: bold 4vh monospace; color: #ff4040; text-shadow: 0.4vh 0 #0ff; opacity: 0.7; pointer-events: none;
+    animation: ransomBase 0.45s steps(1, end) infinite reverse;
+  }
+  #aimJoystickBase.ransomGlitch #aimJoystickKnob { animation: ransomKnob 0.55s steps(1, end) infinite; }
+
   #rotateHint {
     display: none; position: fixed; inset: 0; z-index: 250; /* ロビー(100)や各種オーバーレイ(〜140)より前に出して、縦向きだと必ず見えるようにする */
     background: rgba(10,10,16,0.94); color: #fff;
@@ -1092,7 +1126,7 @@ const DEMON_SENSOR_RATIO = 1 / 3;
 // 🔧 確認用のURLパラメータ（URLの末尾に付ける。例: index.html?library=1&demon=1）
 //   ?library=1 … 隠し書庫の扉が、確率に関係なく毎階（扉を置ける階なら）出る
 //   ?test=1    … テスト用ボタン（PvP一人テスト・小屋ワープ・エンディング・地獄）を出す。ただし、下の TEST_BUTTONS_SHOWN が true の時だけ（普段は false なので、?test=1 を付けても何も出ない。出したい時だけ true にする）
-//   ?glitch=1 … タイトル画面のボスラッシュのボタンが、5％の確率に関係なく必ずグリッチ（ノイズが走る）状態になる
+//   ?glitch=1 … タイトル画面のボスラッシュのボタンが、確率（GLITCH_CHANCE）に関係なく必ずグリッチ（ノイズが走る）状態になる（今は確率が0％なので、これを付けた時だけグリッチになる）
 //   ?demon=1   … 25階（ソロ）に着いたら、全滅の記録やDEMON_ENABLEDに関係なく悪魔が出る（デベロッパーモードでも出る。デベロッパーモードは、?demon=1 が無い時だけ悪魔が出ない）
 const TEST_BUTTONS_SHOWN = false; // 🛠 テスト用ボタンを出せるようにするか。普段は false（?test=1 を付けても何も出ない）。出したい時だけ true にする（true の間も、URLに ?test=1 を付けた時だけ出る）
 const DEBUG_URL = (function () {
@@ -4221,6 +4255,20 @@ function addDemonRooms(d, n) {
   d.height = d.grid.length; d.demonRooms = rooms;
   return d;
 }
+// 🌀 グリッチ戦のワープ攻撃用：ボスの部屋の右の遠く（GLITCH_WARP.arenaGap マス先）に、最北戦線と同じ大きさの廊下を足す（rooms には入れない＝普段は岩に囲まれていて、行き来できない）。
+// d.glitchArena＝廊下の範囲(px)と発信機の位置(txX,txY)と、転送されてくる場所(spawnX,spawnY＝発信機の7マス上)。
+function addGlitchWarpArena(d) {
+  const F = FRONTLINE, wall = F.wallThickness, W0 = d.width, H0 = d.height;
+  const bx = W0 + GLITCH_WARP.arenaGap, W = bx + F.corridorW + wall * 2, H = Math.max(H0, F.corridorH + wall * 2);
+  for (let y = 0; y < H0; y++) { const row = d.grid[y]; for (let x = W0; x < W; x++) row.push(0); }
+  for (let y = H0; y < H; y++) d.grid.push(Array(W).fill(0));
+  const x0 = bx + wall, y0 = wall;
+  for (let y = y0; y < y0 + F.corridorH; y++) for (let x = x0; x < x0 + F.corridorW; x++) d.grid[y][x] = 1;
+  const txX = (x0 + F.corridorW / 2) * TILE, txY = (wall + F.corridorH - 3) * TILE + TILE / 2;
+  d.width = W; d.height = H;
+  d.glitchArena = { x0: x0 * TILE, y0: y0 * TILE, x1: (x0 + F.corridorW) * TILE, y1: (y0 + F.corridorH) * TILE, txX, txY, spawnX: txX, spawnY: txY - TILE * 7 };
+  return d;
+}
 function addRitualRoom(d) {
   const W0 = d.width, H0 = d.height, RW = 36, RH = 24;
   const bx = W0 + RITUAL_GAP, W = bx + RW + 6, H = Math.max(H0, RH + 6);
@@ -5604,6 +5652,8 @@ const WEAPON_TYPES = [
     speedDoubleTime: 1.2, damageDoubleTime: 1.0,
     blastRadius: 50, blastPerSec: 14, wallBreakTime: 2, knockback: 300,
     hidden: true }, // hidden: true＝一旦なし（宝箱・武器選択画面に出ない）。戻す時はこの hidden を消す
+  // 🛡 古代魔法：スティックを離すと、一瞬だけ魔法のシールドが出る。出ている間はサメの攻撃をパリィ（ダメージを受けず攻撃を終わらせる）できる。shieldDur＝シールドが出ている秒数、cooldown＝次に出せるまでの秒数
+  { key: 'ancient', name: '古代魔法', type: 'ancient', damage: 0, cooldown: 0.9, minFloor: 1, shieldDur: 0.2, gaugeMax: 100, gaugePerParry: 5, hidden: true }, // hidden: true＝グリッチ戦専用（宝箱・ドロップ・武器選択には出ない。グリッチ戦は WEAPON_TYPES.find で直接付与する）。 gaugeMax＝パリィゲージの最大値／gaugePerParry＝パリィ成功1回でたまる量（5なら20回で満タン）
 ];
 
 // 召喚された味方の表示名（バナー用）
@@ -5898,7 +5948,7 @@ const ENEMY_JP_NAMES = Object.assign({}, ALLY_NAMES, { mimic: 'ミミック', zo
 // 武器レベルに応じてリーチ・攻撃範囲・攻撃力を強化した「実効ステータス」を返す。
 // 同じ武器を再度拾うと levels[weapon.key] が上がり、このボーナスが積み重なる。
 function applyWeaponLevel(base, level) {
-  const lvl = Math.max(1, level || 1);
+  const lvl = base.type === 'ancient' ? 1 : Math.max(1, level || 1); // 古代魔法は常にLv1（Lv1だと武器名の横にLvが出ない）
   const bonus = lvl - 1;
   const w = Object.assign({}, base);
   w.level = lvl;
@@ -5932,6 +5982,8 @@ function applyWeaponLevel(base, level) {
   } else if (base.type === 'astral') {
     // 幽体離脱：ダメージは共通の伸び（+15%/レベル）。ゴーストの大きさ（当たる範囲）だけ少し広がる。
     w.astralRadius = base.astralRadius + (base.radiusGrowth != null ? base.radiusGrowth : 0) * bonus;
+  } else if (base.type === 'ancient') {
+    // 古代魔法：レベルによる強化はなし（弾を撃たないので、飛び道具の補正も掛けない）
   } else {
     w.projSpeed = base.projSpeed + 25 * bonus;
     w.spreadDeg = base.spreadDeg || 0;
@@ -5965,6 +6017,63 @@ function applyWeaponLevel(base, level) {
 
 // ============== Phaserシーン ==============
 const TILE = 32;
+// 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
+const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
+// 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
+const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
+// 🔀 ランサムウェア：サメが姿を現して「感染」させると、プレイヤーは t 秒のあいだ、移動の操作が上下左右反転する。サメ自身は castT 秒だけその場で止まってから、また泳ぎ回る。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'ransom'。（武器が使えなくなるのは、フォークボム中：_ransomLock）
+const GLITCH_RANSOM = { t: 8, castT: 1.6 };
+// 🌀 ワープ：サメが姿を現したあと、プレイヤーの足元にウィンドウが出て（castT 秒）、最北戦線の発信機の上あたりへ転送される。そこでパターンごとの敵と戦い（今は 'chargers'＝円状に並んだチャージャーが突進）、終わったら（returnDelay 秒後）元の場所へ戻る。maxStay 秒たてば、何があっても戻す。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'warp'。
+//   パターンを増やす時：メソッド _gwPat_<名前>_enter(S, A)（転送された直後に敵などを出す）と _gwPat_<名前>_done(S, dt)（終わったら true を返す）を作って、patterns に名前を足す。転送先の広さ・発信機の位置は dungeon.glitchArena（addGlitchWarpArena）。
+const GLITCH_WARP = {
+  castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 40,
+  patterns: ['chargers'],
+  chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
+};
+// 🌊 グリッチの攻撃「波」の調整値（秒・px。_sharkWaveMove／_sharkWaveUpdate の流れの順）
+// 流れ：姿を出す → 尾をプレイヤーへ向ける(turn) → 尾を振りかぶる(wind) → 扇ぐように振り抜く(swing。途中で尾の先から波が出る) → 少し止まる(recover) → 潜る。
+// 波：尾の先を中心に、前縁が広がりながら進む帯（進むほど厚く・広くなる）。当たっている間は継続ダメージを受けながら、進む向きへ押し流される。古代魔法でパリィすると、ダメージも押し流しもなくなる（波は弱まって消える）。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'wave'。
+const GLITCH_WAVE = {
+  turnT: 1.3,        // 尾をプレイヤーへ向けるまでの最大時間（向き終わったら、すぐ次へ）
+  windT: 0.4,        // 尾を振りかぶる時間
+  swingT: 0.26,      // 尾を振り抜く時間（この途中で、尾の先から波が出る）
+  recoverT: 0.9,     // 振り抜いてから、潜るまで
+  tailRot: 1.3,      // 尾の振れ幅（ラジアン。尾の長さは変えず、付け根から先を、この角度まで左右へぐるっと回す）
+  speed: TILE * 16,  // 波の進む速さ（プレイヤーの歩く速さは約5.3マス/秒）
+  r0: TILE * 0.8,    // 出た時の、波の前縁の距離（尾の先から）
+  thick0: TILE * 1.2, thick1: TILE * 5,   // 波の厚み（出た時 → 最大）
+  ang0: 0.35, ang1: 0.8,   // 波の広がり（半角ラジアン。出た時 → 最大。広げすぎると、横へ走っても逃げ切れない）
+  grow: TILE * 20,   // 最大の大きさになる前縁の距離
+  maxR: TILE * 46,   // ここまで進んだら消える
+  damage: 6, tick: 0.45, // 継続ダメージ：当たっている間、tick 秒ごとに damage（無敵時間はこの長さ）
+  push: TILE * 5.5   // 押し流す速さ（進む向きへ。波の速さより遅く、歩く速さと同じくらい）
+};
+// 🔁 連撃：既存の追撃（'rush'）を、続けて count 回やってくる。1回ごとに、いったん潜って（gap 秒）、ワープせずに、潜ったその場所から姿を現してまた追いかける。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'combo'。
+const GLITCH_COMBO = {
+  count: 3,          // 追撃の回数
+  rushT: 2.0,        // 1回あたりの追いかける時間（秒）。既存の追撃は4.5秒
+  gap: 0.55          // 1回が終わってから、潜って、同じ場所からまた姿を現し始めるまでの時間（秒）
+};
+// 🥤 グリッチの攻撃「シェルゲーム」の調整値（秒・px。_sgUpdate の流れの順）
+const GLITCH_SHELL = {
+  showT: 1.1,        // 姿を現して、両隣にダミーが出ている時間
+  orbitT: 4.2,       // プレイヤーの周りをまわる時間
+  converge: 3.2,     // そのうち、ダミーの背びれが本体と同じ見た目になるまでの時間（これを過ぎると、見分けがつかない）
+  orbitR: TILE * 5.5, // まわる半径
+  omega: 1.4,        // まわる速さ（ラジアン/秒）
+  swaps: 16,         // 入れ替えの回数
+  swapT: 0.17,       // 1回の入れ替えにかかる時間（短いほど速い）
+  settleT: 0.3,      // 入れ替えが終わってから、散らばるまでの間
+  spreadT: 0.9,      // 三方向に距離を取る時間
+  spreadR: TILE * 11, // 散らばる距離（壁際でも縮めない）
+  holdT: 0.5,        // 散らばってから、最初の1体が姿を出すまでの間
+  teleT: 0.35,       // 姿を出してから、突進するまで（向きを合わせる予備動作）
+  gap: 0.32,         // 突進の間隔（1体ずつ、この秒数ずらして突進してくる。短いほど、三体が立て続けに来る）
+  dashK: 6.5,        // 突進の速さ（泳ぐ速さの何倍か。既存の追撃は7倍）
+  homeTurn: 3.2,     // 突進中の追従の旋回速度（ラジアン/秒。大きいほど、横に避けても追ってくる）
+  homeBudget: 1.6,   // 追従で遠回りする分、突進で進める距離を何倍にするか
+  dashOver: TILE * 9 // プレイヤーを通り過ぎてからも進む距離
+};
 const DUNGEON_WALL_VISION = true; // 新モード「ナイトメア」の「壁の裏が見えない」処理の全体スイッチ（人狼ゲームの昼の視界と同じ仕組み）。false にすると、ナイトメアでも視界の制限がなくなる。通常のダンジョンには元々かからない
 const FLOOR_CHUNK = 16; // 床を焼き付ける区画の一辺（タイル数）。16＝512px（倍率1で約1MB／倍率2で約4MB）
 
@@ -6613,10 +6722,10 @@ class GameScene extends Phaser.Scene {
     this._usedAccKeys = this.accKey ? [this.accKey] : []; // リザルト用：このゲーム中に付けた装飾品のkey（最初から付けていたものも含む。付けた順）
     this._skFx = []; this._skG = null; this._skT = 0; // 🔪 シリアルキラーの斬撃線
     this._clkOn = false; this._clkMine = false; this._clkCd = 0; this._clkLeft = 0; // 🕒 時計：発動中か／次に使えるまでの秒数（最初は使える）
-    try { if (this.time) this.time.timeScale = 1; if (this.tweens) this.tweens.timeScale = 1; } catch (e) { /* 初回起動前 */ }
+    try { if (this.time) this.time.timeScale = 1; if (this.tweens) this.tweens.timeScale = 1; } catch (e) { /* 初回起動前 */ } try { if (this.game && this.game.canvas) this.game.canvas.style.filter = ''; this._gSatOn = false; } catch (e) {}
     { const o = document.getElementById('clockOverlay'); if (o) o.style.display = 'none'; const cb = document.getElementById('clockBtn'); if (cb) cb.style.display = 'none'; }
     this._spUndead = undefined; this._spWings = false; this._godAccGone = false; this._rootReviveOn = false; this._rootRevive = 0; this._rootRed = 0; this._godRF = null; this._neckFloor = null; this._spT = 0; // 特別な装飾品を付けているかの記録（1回の挑戦ごとに取り直す）
-    this.limitedKey = (this.vsHero || (app.arms4Ritual && !app.endingRitual)) ? '' : limitedEquippedKey(); /* 通常の天使・調伏の儀は、限定武器の固定もなし */ // 限定武器の装飾品を付けていれば、その装飾品のkey（付けている間、武器はその限定武器で固定される）
+    this.limitedKey = (this.vsHero || (!this.mp && app.glitchBoss) || (app.arms4Ritual && !app.endingRitual)) ? '' : limitedEquippedKey(); /* 通常の天使・調伏の儀は、限定武器の固定もなし */ // 限定武器の装飾品を付けていれば、その装飾品のkey（付けている間、武器はその限定武器で固定される）
     this.skullRevives = this.accKey === 'skull' ? SKULL_WISPS : 0; // ドクロ：残りの鬼火の数＝あと何回生き返れるか（1回の挑戦ごとに SKULL_WISPS 個）
     this._initAccKey = this.accKey; // 「もう一度」でやり直す時に、この状態（ロビーで付けていた装飾品）へ戻すために覚えておく
     this._paused = false; this._pauseAt = 0; this._pbChkAt = null; { const po = document.getElementById('pauseOverlay'); if (po) po.style.display = 'none'; const pb = document.getElementById('pauseBtn'); if (pb) { pb.style.display = 'none'; setPauseIcon(pb, false); } } // ⏸ ポーズは、始めるたびに解除しておく
@@ -6768,7 +6877,7 @@ class GameScene extends Phaser.Scene {
     this.attackCooldown = 0;
     this.playerInvuln = 0;
     this.weaponLevels = {}; // 武器key -> 所持レベル（同じ武器を再度拾うと強化される）
-    const startWeaponType = (this._rlEffect === 'red' && WEAPON_TYPES.find(w => w.key === 'club')) || (this.limitedKey && limitedWeaponBase(this.limitedKey)) || (this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey)) || WEAPON_TYPES[0]; // 限定武器の装飾品を付けていれば、最初からその限定武器（外していれば、ふつうの剣）
+    const startWeaponType = (this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey)) || (this.glitchBoss && WEAPON_TYPES.find(w => w.key === 'ancient')) || (this._rlEffect === 'red' && WEAPON_TYPES.find(w => w.key === 'club')) || (this.limitedKey && limitedWeaponBase(this.limitedKey)) || (this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey)) || WEAPON_TYPES[0]; // 限定武器の装飾品を付けていれば、最初からその限定武器（外していれば、ふつうの剣）
     // デベロッパーモード（とボスラッシュ）では、選んだ武器がいきなり高いレベルからスタートする（通常プレイは常にレベル1から）。
     // 開始時のレベルはデベロッパーモードの「武器レベル」で決める（ボスラッシュや、レベル未指定の場合は5）。
     const startWeaponLevel = (this.devWeaponKey ? Math.max(1, Math.floor(this.devWeaponLevel) || 5) : 1) + (this.accKey === 'trophy' ? ACC_TROPHY.levelBonus : 0); // 🏆 トロフィー：開始時の武器レベル+1
@@ -7861,6 +7970,7 @@ class GameScene extends Phaser.Scene {
     this.bossFloor = !this.snowfield && !this.hell && !this.sanctuary && !this.bossRush && !this.frontline && !this.pvp && !this.party && this.isBossFloor(this.floor); // ダンジョンの5階ごと（10・15・20…）はボス階
     const dungeon = this._snowRestore ? this._snowRestore.dungeon : this.sanctuary ? generateSanctuaryMap() : this.hell ? generateHellMap() : this.snowfield ? generateSnowfieldMap(this._godExiled) : (this.bossRush || this.bossFloor) ? generateBossArena(this.vsHero ? { w: VS_HERO.roomTilesW, h: VS_HERO.roomTilesH } : null) : (this.pvp ? generatePvpMap() : this.party ? generatePartyMap(this.lounge) : (this.frontline ? generateFrontlineMap() : generateDungeon(seed, this.floor, { secretLibrary: !this.mp, whiteDoor: !this.mp && !this.isDevMode && isGodFloorSeed(this.baseSeed) && this.floor === 6, ghostFloor: !this.mp && !!this._ghostFloorOn && this.floor === 1 })));
     if (this.mp && !this.bossRush && !this.pvp && !this.party && !this.frontline) { addRitualRoom(dungeon); if (this.bossFloor && this.floor >= 25) addDemonRooms(dungeon, Math.min(10, Math.max(4, Object.keys(this.latestPlayers || {}).length + 2))); } // 協力プレイ：調伏の儀の部屋を遠くに足す
+    if (this.glitchBoss && !this.mp) addGlitchWarpArena(dungeon); // 🌀 グリッチ戦：ワープ攻撃の転送先（最北戦線の廊下）を遠くに足す
     this.rt = null; if (this._rtGfx && this._rtGfx.scene) this._rtGfx.clear(); // 前の階の調伏の儀の進行は持ち越さない
     this.dungeon = dungeon;
     this._rushCleared = false;
@@ -8255,7 +8365,7 @@ class GameScene extends Phaser.Scene {
   // 次の一巡の最初が直前のボスと同じにならないようにする）。撃破するごとに少しずつ強くなる。
   spawnBossRushBoss() {
     if (this.vsHero) { this.spawnVsHero(); return; }
-    if (this.floor === 1 && window.APP && window.APP.glitchBoss) { this.spawnGlitchBoss(); return; } // 📺 グリッチのボタンから始めた時の最初のボスだけ、グリッチの塊
+    if (this.floor === 1 && window.APP && window.APP.glitchBoss) { this.spawnGlitchBoss(); return; } // 📺 グリッチのボタンから始めた時は、ほかのボスは出さず、グリッチの戦いへ
     // 【テスト用】ここにボスのkeyを入れると、ボスラッシュで毎回そのボスだけが出る（出現率100%）。
     // 通常の抽選（全ボスをシャッフルして順番に）に戻すときは null にする。
     const TEST_FORCE_BOSS = null;
@@ -8309,71 +8419,1014 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  // 📺 グリッチのボス：色とりどりの四角いブロックの塊が、ノイズのようにちらつき、ずれながら動き回る。
-  //   動きはランダムに揺れながら追いかける（erratic）。遅く歩く時と急に速くなる時を交互に繰り返す。体当たりでダメージ。
-  //   当たり判定は普通のボスと同じ円（gfx）で、その円は隠して、上に重ねたブロックの絵（Graphics）だけを毎フレーム描き直す。
+  // 📺 グリッチの戦い：ほかのボスは出さず、ボス名「GLITCH」と、本体（サメ。_sharkInit〜_sharkUpdate）だけが出る。今は本体が泳いで動くだけ。
+  //   （撃破の判定は、ボスグループの残り数が0になった時に既存の処理で進む。敵を足す時は this.enemies に入れ、bossGroupCounts[bossId] に数を入れる）
   spawnGlitchBoss() {
-    const sl = ENEMY_TYPES.find(t => t.key === 'slime');
-    const type = Object.assign({}, sl, { key: 'glitch', isBoss: true, bossLabel: '', displayName: 'GLITCH', color: 0x00ffd5, radius: 34, hp: 900, speed: 100, damage: 22, behavior: 'erratic', aggroRange: 1200 });
-    const room = this.dungeon.rooms[0];
-    const bx = (room.x + room.w - 6 + 0.5) * TILE, by = (room.y + room.h / 2) * TILE;
-    const gfx = this.add.circle(bx, by, type.radius, type.color).setDepth(4).setAlpha(0); // 当たり判定用（見えない）
-    const hpBar = this.add.rectangle(bx, by - type.radius - 10, type.radius * 2, 6, 0xff5b5b).setDepth(4);
-    const label = this.add.text(bx, by - type.radius - 22, '', { fontSize: '12px', color: '#ffd54c', fontStyle: 'bold', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(4).setVisible(false);
+    this.enemies = [];
+    this.showBossUi({ key: 'glitch', displayName: 'GLITCH' }, this.floor + '_boss'); // 画面上のボス名は「GLITCH」だけ
+    const hb = document.getElementById('bossHpBar'); if (hb) hb.style.opacity = '0'; // 敵がいないので、HPバーは隠す（名前だけ出す）
+    // ボス名：ノイズでちらつく（ときどき、文字がバグった記号に入れ替わる）
     const bossId = this.floor + '_boss';
-    this.bossGroupCounts = this.bossGroupCounts || {};
-    this.bossGroupCounts[bossId] = 1;
-    const e = { id: bossId, type, gfx, hpBar, label, hp: type.hp, maxHp: type.hp, damage: type.damage, state: 'idle', timer: 0, dirX: 0, dirY: 0, hitCooldown: 0, bossGroupId: bossId, _bossScale: 1 };
-    this.enemies = [e];
-    this.showBossUi(type, bossId);
-
-    // ---- 見た目：ブロックの塊 ----
-    const g = this.add.graphics().setDepth(4.2);
-    const PAL = [0x00ffd5, 0xff2a6d, 0xffffff, 0x7a5cff, 0x39ff14, 0x111122, 0xffe600];
-    const CELL = 9, R = type.radius * 1.25;
-    let cells = [], bars = [], regenT = 0, flashT = 0, blinkT = 0, speedT = 0, lastHp = e.hp, tNow = 0;
-    const regen = () => {
-      cells = [];
-      for (let cx = -R; cx < R; cx += CELL) for (let cy = -R; cy < R; cy += CELL) {
-        if (Math.hypot(cx + CELL / 2, cy + CELL / 2) > R * (0.7 + Math.random() * 0.45)) continue; // 縁はギザギザに欠ける
-        if (Math.random() < 0.28) continue; // 所々、穴があく
-        cells.push({ x: cx + (Math.random() < 0.15 ? (Math.random() - 0.5) * CELL * 2 : 0), y: cy, w: CELL * (Math.random() < 0.2 ? 2 : 1), h: CELL, c: PAL[Math.floor(Math.random() * PAL.length)] });
-      }
-      bars = [];
-      const n = 2 + Math.floor(Math.random() * 3);
-      for (let i = 0; i < n; i++) bars.push({ x: -R * (1 + Math.random() * 0.6), y: (Math.random() * 2 - 1) * R, w: R * (1.2 + Math.random() * 1.6), h: 2 + Math.random() * 5, c: PAL[Math.floor(Math.random() * 4)] }); // 横に走るノイズの線
-      if (this._bossUiGroup === bossId) { // ボス名もノイズでちらつく
-        const el = document.getElementById('bossNameBanner');
-        if (el) el.textContent = Math.random() < 0.35 ? 'GLITCH'.split('').map(ch => Math.random() < 0.4 ? '█▓▒░#@%&01?'[Math.floor(Math.random() * 11)] : ch).join('') : 'GLITCH';
-      }
+    let bannerT = 0;
+    const flicker = (time, delta) => {
+      bannerT -= Math.min(delta / 1000, 0.1);
+      if (bannerT > 0 || this._bossUiGroup !== bossId) return;
+      bannerT = 0.1 + Math.random() * 0.1;
+      const el = document.getElementById('bossNameBanner');
+      if (el) el.textContent = Math.random() < 0.35 ? 'GLITCH'.split('').map(ch => Math.random() < 0.4 ? '█▓▒░#@%&01?'[Math.floor(Math.random() * 11)] : ch).join('') : 'GLITCH';
     };
-    regen();
-    const stop = () => { this.events.off('update', upd); if (g && g.scene) g.destroy(); };
+    const stop = () => this.events.off('update', flicker);
+    this.events.on('update', flicker);
+    this.events.once('shutdown', stop);
+    this._sharkInit(); // 🦈 本体（サメ）を部屋に出す
+    this._glitchIntro(); // 📟 戦いの最初に、床へ緑色のエラーメッセージを出す
+  }
+  _glitchIntro() { // 📟 グリッチ戦の最初の演出：プレイヤーの足元の床に、緑に輝くシステムのエラーメッセージが左揃えで打ち出される（エラーコード → 「削除をプレイヤーに委ね、データベースの最上位ティアの武器『古代魔法』を付与する」という意味の英文）。しばらく出たあと、ノイズで崩れながら消える
+    //   見た目：明るい緑の文字＋にじむ光（加算合成）＋赤とシアンの色ずれ（グリッチ本体と同じ）＋末尾の点滅カーソル＋ときどきのちらつき
+    const room = this.dungeon && this.dungeon.rooms[0]; if (!room) return;
+    if (this._glitchIntroStop) this._glitchIntroStop(); // 前の演出が残っていれば片付ける
+    const full = 'ERROR 0xDEAD_C0DE: FATAL EXCEPTION\n> UNRECOVERABLE CORRUPTION DETECTED\n> DELETION DELEGATED TO THE PLAYER.\n> GRANTING THE TOP-TIER WEAPON IN THE DATABASE:\n> "ANCIENT MAGIC"';
+    const CPS = 38, HOLD = 4.5, FADE = 0.9; // 文字を打つ速さ（文字/秒）／打ち終わってから残る秒数／消えるまでの秒数
+    const WW = Math.max(160, Math.min(380, room.w * TILE - 48)); // 文字の折り返し幅
+    const base = { fontSize: '12px', fontFamily: 'monospace', align: 'left', wordWrap: { width: WW } };
+    const mk = (color, depth, extra) => this.add.text(0, 0, '', Object.assign({}, base, { color }, extra || {})).setOrigin(0, 0).setDepth(depth).setVisible(false); // 左揃え・左上を基準。床の層（血だまり3.5・サメ4より下）
+    const gl = mk('#2aff5a', 3.16).setShadow(0, 0, '#2aff5a', 22, true, true).setBlendMode(Phaser.BlendModes.ADD); // いちばん下：大きくにじむ緑の光
+    const rd = mk('#ff2a4a', 3.18).setBlendMode(Phaser.BlendModes.ADD), cy = mk('#2affff', 3.18).setBlendMode(Phaser.BlendModes.ADD); // 赤とシアンの色ずれ（左右に1.5pxずらす）
+    const layers = [gl, rd, cy], OFF = [0, -1.5, 1.5]; // 実体の文字の層は無し（光る文字＋色ずれのみ）
+    let t = 0, gt = 0, bx = 0, by = 0, placed = false; const J = '█▓▒░#@%&01?/<>{}';
     const upd = (time, delta) => {
-      const dt = delta / 1000;
-      if (!this.enemies || !this.enemies.includes(e) || e.hp <= 0 || !gfx.scene) { stop(); return; }
-      tNow += dt;
-      if (e.hp < lastHp) flashT = 0.12; // 攻撃を受けた：一瞬、真っ白
-      lastHp = e.hp;
-      if (flashT > 0) flashT -= dt;
-      regenT -= dt; if (regenT <= 0) { regen(); regenT = 0.05 + Math.random() * 0.1; }
-      blinkT -= dt; // たまに1コマだけ消える
-      let hidden = false; if (blinkT <= 0) { hidden = Math.random() < 0.5; blinkT = hidden ? 0.04 : 0.3 + Math.random() * 1.2; }
-      speedT -= dt; if (speedT <= 0) { type.speed = type.speed < 150 ? 230 : 90; speedT = type.speed > 150 ? 0.35 : 0.8; } // 急に速くなる
-      g.clear();
-      if (hidden) return;
-      const x = gfx.x, y = gfx.y;
-      for (const c of cells) {
-        g.fillStyle(flashT > 0 ? 0xffffff : c.c, 1);
-        g.fillRect(x + c.x, y + c.y, c.w, c.h);
+      t += Math.min(delta / 1000, 0.1); gt -= delta / 1000;
+      if (!gl.scene) return;
+      if (!placed) { // 最初の1フレームで、プレイヤーの足元の地面に置く（以後は動かない＝床に書かれた文字）
+        const pl = this.player, L0 = room.x * TILE + 8, R0 = (room.x + room.w) * TILE - 8, T0 = room.y * TILE + 8, B0 = (room.y + room.h) * TILE - 8;
+        gl.setText(full); const h = gl.height; gl.setText(''); // 全文の高さを測る（壁にかからないように位置を寄せるため）
+        const px = pl ? pl.x : (L0 + R0) / 2, py = pl ? pl.y + (pl.radius || 12) + 4 : (T0 + B0) / 2;
+        bx = Math.max(L0, Math.min(px - 12, R0 - WW)); by = Math.max(T0, Math.min(py, B0 - h));
+        layers.forEach((q, i) => { q.setPosition(bx + OFF[i], by); q.setVisible(true); }); placed = true;
       }
-      for (const b of bars) {
-        g.fillStyle(flashT > 0 ? 0xffffff : b.c, 0.85);
-        g.fillRect(x + b.x, y + b.y, b.w, b.h);
-      }
+      const tEnd = full.length / CPS + HOLD, typing = t * CPS < full.length, fading = t > tEnd;
+      const n = Math.min(full.length, Math.floor(t * CPS)); let out = full.slice(0, n);
+      if (gt <= 0) { gt = 0.07; gl._gl = []; for (let i = 0; i < 3; i++) if (Math.random() < 0.5) gl._gl.push(Math.floor(Math.random() * Math.max(1, n))); } // ときどき、数文字がバグった記号に入れ替わる
+      if (gl._gl && !typing) { const ch = out.split(''); for (const k of gl._gl) if (ch[k] && ch[k] !== '\n' && ch[k] !== ' ') ch[k] = J[Math.floor(Math.random() * J.length)]; out = ch.join(''); }
+      if (!fading) out += (Math.floor(t * 2.4) % 2 === 0 || typing) ? '█' : ' '; // 末尾のカーソル（打っている間は出しっぱなし、そのあとは点滅）
+      layers.forEach(q => q.setText(out));
+      const u = fading ? Math.min(1, (t - tEnd) / FADE) : 0, fl = Math.max(0.35, 0.9 + 0.1 * Math.sin(t * 38) - (Math.random() < 0.06 ? 0.45 : 0)), fa = (1 - u) * (u > 0 && Math.random() < 0.25 ? 0.5 : 1); // ちらつき（ときどき一瞬暗くなる）／消える時のちらつき
+      gl.setAlpha(fl * fa); rd.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1)); cy.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1));
+      if (u > 0) { const j = (Math.random() - 0.5) * 6 * u; layers.forEach((q, i) => q.x = bx + OFF[i] + j); } // 消える時は、横にずれる
+      if (u >= 1) stop();
     };
+    const stop = () => { this.events.off('update', upd); layers.forEach(q => { try { if (q.scene) q.destroy(); } catch (e) { /* 破棄済み */ } }); if (this._glitchIntroStop === stop) this._glitchIntroStop = null; };
+    this._glitchIntroStop = stop;
     this.events.on('update', upd);
     this.events.once('shutdown', stop);
+  }
+
+  // 🦈 グリッチの本体（サメ）：部屋の中を、尾ひれを振って泳ぐように動き回る。★今は移動だけ（攻撃もダメージも、自分との当たりもまだない）。
+  //   見た目は、これまでのグリッチの塊と同じ：暗い緑の体＋緑の縁＋赤とシアンの色ずれ＋四角い欠片＋壊れたコードの行＋横ずれ。ちらつきは控えめ（切り替えは0.2秒ごと以上）。
+  _sharkInit() {
+    const room = this.dungeon.rooms[0]; if (!room) return;
+    if (this._sharkG && this._sharkG.scene) this._sharkG.destroy();
+    this._sharkG = this.add.graphics().setDepth(4);
+    if (this._sharkG2 && this._sharkG2.scene) this._sharkG2.destroy();
+    if (this._sharkG0 && this._sharkG0.scene) this._sharkG0.destroy();
+    if (this._forkG && this._forkG.scene) this._forkG.destroy(); this._forkG = null; this._fork = null; this._ransomT = 0; this._warpClear(); // 🪟 前のフォークボムのウィンドウが残っていれば消す／🌀 ワープの残りも片づける
+    this._bloodPools = []; this._bloodDirty = false; if (this._bloodG && this._bloodG.scene) this._bloodG.destroy(); this._bloodG = this.add.graphics().setDepth(3.5); // 🩸 血だまりの層
+    if (this._sharkGS && this._sharkGS.scene) this._sharkGS.destroy(); this._sharkGS = this.add.graphics().setDepth(12); // 🟩 グリッチ弾・照準の層
+    if (this._sharkWG && this._sharkWG.scene) this._sharkWG.destroy(); this._sharkWG = this.add.graphics().setDepth(4.4); // 🌊 波の層（サメの体・文字より手前、プレイヤー(5)より奥）
+    this._sharkG0 = this.add.graphics().setDepth(3.9); // 🌊 空中にいる間の、床に落ちる影
+    this._sharkG2 = this.add.graphics().setDepth(4.2); // 🌊 潜航中の背びれ・波紋・水しぶき（体より手前に描く）
+    if (this._shark && this._shark.txts) this._shark.txts.forEach(q => { if (q.scene) q.destroy(); });
+    if (this._shark && this._shark.sg) this._sgDestroy(this._shark.sg); /* 🥤 前のシェルゲームのダミーが残っていれば消す */ const SC = Math.max(1, Math.min(1.5, 0.6 * Math.min(room.w, room.h) / 6.5)); // 🦈 大きさの倍率：最大1.5倍。部屋が狭いと、収まる大きさまで小さくなる
+    const S = this._shark = {
+      sc: SC, len: TILE * 6.5 * SC, wid: TILE * 0.65 * SC, // 全長／体のいちばん太いところの半分の幅
+      speed: 95 * (1 + 0.5 * (SC - 1)), turn: 1.4 / Math.sqrt(SC), beat: 1.4,   // 泳ぐ速さ（px/秒）／曲がる速さ（ラジアン/秒）／尾ひれを振る速さ（1秒に何往復か。速く泳ぐほど少し増える）
+      room, x: (room.x + room.w / 2) * TILE, y: (room.y + room.h / 2) * TILE, a: Math.random() * Math.PI * 2,
+      v: 0, ph: 0, bend: 0, age: 0, wp: null, wpT: 0, stepT: 0, trailT: 0, bitT: 0, sh: 2, vis: true,
+      frag: [], tears: [], bits: [], trail: [], txts: [],
+      mode: 'fin', mt: 3 + Math.random() * 2, dive: 1, z: 0, lu: null, splash: [], spT: 0 // 🌊 状態：'up'＝全身が見える／'dive'＝床（海）に潜って背びれだけが出る。dive は 0（浮上）〜1（潜航）。splash＝背びれの水しぶき（緑）
+    };
+    for (let i = 0; i < 48; i++) S.frag.push(this._sharkFrag());
+    for (let i = 0; i < 3; i++) { const q = this.add.text(S.x, S.y, '', { fontSize: '9px', color: '#9dffb4', fontFamily: 'monospace' }).setOrigin(0.5).setDepth(4.5); q.setVisible(false); S.txts.push(q); }
+    const mg0 = Math.max(3, S.len / TILE * 0.5);
+    for (let k = 0; k < 60 && this._sharkBlocked(S, S.x, S.y, S.a); k++) { // 真ん中に何かあって立てないなら、部屋の中の、体が収まる場所を探す
+      S.x = (room.x + mg0 + Math.random() * Math.max(1, room.w - 2 * mg0)) * TILE; S.y = (room.y + mg0 + Math.random() * Math.max(1, room.h - 2 * mg0)) * TILE; S.a = Math.random() * Math.PI * 2;
+    }
+    this._sharkPickWp(S);
+  }
+  _sharkFrag() { const R = Math.random, out = R() < 0.22; return { s: 0.04 + R() * 0.9, v: out ? (R() < 0.5 ? -1 : 1) * (1.05 + R() * 0.5) : (R() * 2 - 1) * 0.92, sz: 3 + Math.floor(R() * 5), c: Math.floor(R() * 4), on: R() < 0.8 }; } // 体の上（と、少しはみ出た所）に散らばる四角い欠片
+  _sharkCode() { const R = Math.random, H = '0123456789ABCDEF', J = '█▓▒░#@%&01?/<>{}', w = ['0x', 'if(', 'ptr', 'nil', 'NaN', 'seg', 'null']; let s = w[Math.floor(R() * w.length)]; for (let i = 0, n = 3 + Math.floor(R() * 3); i < n; i++) s += R() < 0.7 ? H[Math.floor(R() * 16)] : J[Math.floor(R() * J.length)]; return s; } // 壊れたコードの1行
+  _sharkPickWp(S) { // 泳ぎ先：部屋の中のランダムな床。遠くて、あまり後ろ向きでない所を選ぶ（大きく弧を描いて泳ぐ）
+    const R = Math.random, r = S.room, wrap = d => Math.atan2(Math.sin(d), Math.cos(d)), mg = Math.max(2, S.len / TILE * 0.4); let best = null;
+    for (let k = 0; k < 30; k++) {
+      const x = (r.x + mg + R() * Math.max(1, r.w - 2 * mg)) * TILE, y = (r.y + mg + R() * Math.max(1, r.h - 2 * mg)) * TILE;
+      if (this.isWall(x, y) || Math.hypot(x - S.x, y - S.y) < TILE * 6) continue;
+      if (Math.abs(wrap(Math.atan2(y - S.y, x - S.x) - S.a)) < 2.2) { best = { x, y }; break; }
+      if (!best) best = { x, y };
+    }
+    S.wp = best || { x: (r.x + r.w / 2) * TILE, y: (r.y + r.h / 2) * TILE }; S.wpT = 4 + R() * 4;
+  }
+  _sharkBlocked(S, x, y, a) { return this._sharkBlockCount(S, x, y, a) > 0; } // その位置・向きに、体が立てないか
+  _sharkBlockCount(S, x, y, a) { // 体の前・横・後ろの数点のうち、壁や部屋の外に重なっている点の数（0＝ちゃんと立てる）
+    const L = S.len, W = S.wid, ca = Math.cos(a), sa = Math.sin(a), r = S.room, m = TILE * 0.6; let n = 0;
+    const x0 = r.x * TILE + m, x1 = (r.x + r.w) * TILE - m, y0 = r.y * TILE + m, y1 = (r.y + r.h) * TILE - m;
+    for (const [fl, fw] of [[0.5, 0], [0.3, 0.8], [0.3, -0.8], [0.05, 1.1], [0.05, -1.1], [-0.2, 1], [-0.2, -1], [-0.45, 0]]) {
+      const lx = fl * L, ly = fw * W, px = x + lx * ca - ly * sa, py = y + lx * sa + ly * ca;
+      if (px < x0 || px > x1 || py < y0 || py > y1 || this.isWall(px, py)) n++;
+    }
+    return n;
+  }
+  _sharkShape(S, X, Y, a, ph, bend) { // サメの形（上から見た図）を、いまの位置・向き・尾ひれの位相から作る。頭がほとんど動かず、尾にいくほど大きく振れる
+    const L = S.len, W = S.wid, N = 22, ca = Math.cos(a), sa = Math.sin(a), TAU = Math.PI * 2;
+    const T = (lx, ly) => ({ x: X + lx * ca - ly * sa, y: Y + lx * sa + ly * ca });
+    const hf = s => s < 0.3 ? W * Math.sin(Math.PI / 2 * Math.max(0, s) / 0.3) : W * Math.max(0.1, 1 - 0.88 * Math.pow(Math.min(1.3, (s - 0.3) / 0.7), 1.25)); // 体の半分の幅：鼻は尖り、頭の後ろがいちばん太く、尾へ向かって細くなる
+    let lx = s => (0.5 - s) * L, ly = s => W * (0.9 * (0.12 + 0.88 * s * s) * Math.sin(TAU * 0.9 * s - ph) + bend * 1.3 * s * s); // 背骨：尾にいくほど大きく振れる＋曲がる時は体が弧を描く
+    const tRot = S.tailRot || 0;
+    if (tRot) { // 🌊 波の尾の振り：背骨の各区間の長さはそのまま、向きだけを尾へいくほど回す（尾が伸び縮みしない）
+      const M = 220, TX = new Array(M + 1), TY = new Array(M + 1), lx0 = lx, ly0 = ly; TX[0] = lx0(0); TY[0] = ly0(0);
+      for (let k = 1; k <= M; k++) { const s0 = (k - 0.5) / M, dx = lx0(k / M) - lx0((k - 1) / M), dy = ly0(k / M) - ly0((k - 1) / M), dl = Math.hypot(dx, dy), u = Math.min(1, Math.max(0, (s0 - 0.25) / 0.75)), g = u * u * (3 - 2 * u), th = Math.atan2(dy, dx) + tRot * g; TX[k] = TX[k - 1] + dl * Math.cos(th); TY[k] = TY[k - 1] + dl * Math.sin(th); }
+      const at = (A, q) => { const f = Math.min(M, Math.max(0, q * M)), k = Math.min(M - 1, Math.floor(f)); return A[k] + (A[k + 1] - A[k]) * (f - k); };
+      lx = q => at(TX, q); ly = q => at(TY, q);
+    }
+    const P = (s, off) => { const e = 0.01, tx = lx(s + e) - lx(s - e), ty = ly(s + e) - ly(s - e), m = Math.hypot(tx, ty) || 1; return T(lx(s) + (-ty / m) * off, ly(s) + (tx / m) * off); };
+    // 形が変わらない部品：背骨の s の位置（横に off ずれた点）を取り付け位置にして、そこでの背骨の向きに合わせて置く。pts は (後ろ向きの距離, 横の距離) の組。flap だけ回す（形は伸び縮みしない）
+    const rig = (s, off, pts, side, flap) => {
+      const e = 0.01; let tx = lx(s + e) - lx(s - e), ty = ly(s + e) - ly(s - e); const m = Math.hypot(tx, ty) || 1; tx /= m; ty /= m;
+      const ax = lx(s) + (-ty) * off, ay = ly(s) + tx * off, cf = Math.cos(flap * side), sf = Math.sin(flap * side);
+      return pts.map(([bk, lt]) => { lt *= side; const b2 = bk * cf - lt * sf, l2 = bk * sf + lt * cf; return T(ax + b2 * tx + l2 * (-ty), ay + b2 * ty + l2 * tx); });
+    };
+    const FIN = [[-0.07 * L, 0], [0.14 * L, 1.25 * W], [0.07 * L, 0]]; // 胸びれの形（付け根2点と先端。いつも同じ大きさ）
+    const sp = [], nn = [], hw = [], top = [], bot = [], topI = [], botI = [];
+    for (let i = 0; i <= N; i++) {
+      const s = i / N, e = 0.01; let tx = lx(s + e) - lx(s - e), ty = ly(s + e) - ly(s - e); const m = Math.hypot(tx, ty) || 1; tx /= m; ty /= m;
+      const nx = -ty, ny = tx, h = hf(s), px = lx(s), py = ly(s);
+      sp.push(T(px, py)); nn.push({ x: nx * ca - ny * sa, y: nx * sa + ny * ca }); hw.push(h);
+      top.push(T(px + nx * h, py + ny * h)); bot.push(T(px - nx * h, py - ny * h)); const fi = 0.55 * Math.min(1, Math.max(0, (20 - i) / 6)); topI.push(T(px + nx * h * fi, py + ny * h * fi)); botI.push(T(px - nx * h * fi, py - ny * h * fi)); // 体の中の明るい部分は、尾の手前で細く消える（段差を作らない）
+    }
+    // 体と尾びれを、一つながりの輪郭にする：体の縁をそのまま延ばした向きから、なめらかに尾びれへ広がる（接合部に角や段差を作らない）。尾びれの先・切れ込みは形が変わらない部品
+    const J = 20, sJ = J / N, dir = (p, q) => { const dx = p.x - q.x, dy = p.y - q.y, m = Math.hypot(dx, dy) || 1; return { x: dx / m, y: dy / m }; };
+    const bz = (p0, c, p1, n) => { const o = []; for (let k = 1; k <= n; k++) { const u = k / n, v = 1 - u; o.push({ x: v * v * p0.x + 2 * v * u * c.x + u * u * p1.x, y: v * v * p0.y + 2 * v * u * c.y + u * u * p1.y }); } return o; };
+    const dT = dir(top[J], top[J - 1]), dB = dir(bot[J], bot[J - 1]), kk = 0.07 * L;
+    const cT = { x: top[J].x + dT.x * kk, y: top[J].y + dT.y * kk }, cB = { x: bot[J].x + dB.x * kk, y: bot[J].y + dB.y * kk };
+    const tr = rig(sJ, 0, [[0.22 * L, 0.95 * W], [0.16 * L, 0.29 * W], [0.12 * L, 0.1 * W], [0.13 * L, -0.29 * W], [0.16 * L, -0.8 * W]], 1, 0); // 上の先・切れ込みへの曲がり・切れ込み・切れ込みから下へ・下の先
+    const sil = top.slice(0, J + 1).concat(bz(top[J], cT, tr[0], 6), bz(tr[0], tr[1], tr[2], 4), bz(tr[2], tr[3], tr[4], 4), bz(tr[4], cB, bot[J], 6), bot.slice(1, J).reverse());
+    const fl = 0.2 * Math.sin(ph * 0.5), gills = [];
+    for (const k of [0.27, 0.305, 0.34]) for (const sg of [1, -1]) gills.push([P(k, sg * hf(k) * 0.5), P(k + 0.018, sg * hf(k) * 0.88)]);
+    return {
+      sp, nn, hw, body: sil, inner: topI.slice(0, J + 1).concat(botI.slice(0, J + 1).reverse()), tailRig: tr,
+      fL: rig(0.4, hf(0.4) * 0.8, FIN, 1, fl), fR: rig(0.4, -hf(0.4) * 0.8, FIN, -1, fl), // 胸びれ（左右）：形は固定で、付け根を軸にゆっくりはためく。付け根は体の内側に入れてあり、体の下にもぐって見える
+      dors: [P(0.36, 0), P(0.66, 0)], eyes: [P(0.13, hf(0.13) * 0.72), P(0.13, -hf(0.13) * 0.72)], gills, tp: P(1.0, 0)
+    };
+  }
+  _sharkPath(g, pts, ox, oy) { g.beginPath(); g.moveTo(pts[0].x + ox, pts[0].y + oy); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x + ox, pts[i].y + oy); g.closePath(); }
+  _sharkSpan(pts, y) { let lo = Infinity, hi = -Infinity; for (let i = 0, n = pts.length; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; if ((p.y <= y && q.y > y) || (q.y <= y && p.y > y)) { const x = p.x + (y - p.y) / (q.y - p.y) * (q.x - p.x); if (x < lo) lo = x; if (x > hi) hi = x; } } return hi > lo ? [lo, hi] : null; } // 高さ y で体を横に切った時の、左端と右端（横ずれの帯を体の中だけに描くのに使う）
+  _sharkBlood(x, y, k) { // 🩸 血しぶき（k＝量の倍率）：赤の濃淡を重ねて飛び散らせる
+    const n = Math.max(2, Math.round(14 * k));
+    this.spawnBurst(x, y, 0xe01020, n); this.spawnBurst(x, y, 0x8a0b14, Math.round(n * 0.7)); this.spawnBurst(x, y, 0xff4a55, Math.round(n * 0.4));
+    this._sharkBloodPool(x, y, k);
+  }
+  _sharkBloodPool(x, y, k) { // 🩸 床に血だまりを残す（量が多いほど大きく広がる）。10秒たつと、最後の4秒で薄れて消える
+    const P = this._bloodPools || (this._bloodPools = []), n = 3 + Math.round(4 * k), spread = 6 + 10 * k, blobs = [], R = Math.random;
+    for (let i = 0; i < n; i++) { const an = R() * Math.PI * 2, d = Math.sqrt(R()) * spread; blobs.push({ dx: Math.cos(an) * d, dy: Math.sin(an) * d * 0.8, r: 3 + R() * (3 + 3 * k) }); }
+    P.push({ x, y, blobs, age: 0 }); if (P.length > 200) P.shift(); this._bloodDirty = true;
+  }
+  _bloodUpdate(dt) { // 血だまりを描く（増えた時・薄れている間だけ描き直す）
+    const P = this._bloodPools;
+    if (!P || !P.length) { if (this._bloodDirty && this._bloodG && this._bloodG.scene) this._bloodG.clear(); this._bloodDirty = false; return; }
+    let fading = false;
+    for (let i = P.length - 1; i >= 0; i--) { const q = P[i]; q.age += dt; if (q.age >= 10) { P.splice(i, 1); this._bloodDirty = true; } else if (q.age > 6) fading = true; }
+    if (!this._bloodDirty && !fading) return;
+    if (!this._bloodG || !this._bloodG.scene) this._bloodG = this.add.graphics().setDepth(3.5);
+    const g = this._bloodG; g.clear();
+    for (const q of P) {
+      const al = q.age > 6 ? (10 - q.age) / 4 : 1;
+      g.fillStyle(0x5e0910, 0.8 * al); for (const b of q.blobs) g.fillCircle(q.x + b.dx, q.y + b.dy, b.r);
+      g.fillStyle(0x9c1019, 0.75 * al); for (const b of q.blobs) g.fillCircle(q.x + b.dx, q.y + b.dy, b.r * 0.6);
+    }
+    this._bloodDirty = false;
+  }
+  _sharkShotsUpdate(S, shp, dt, plOk) { // 🟩 輝く球のビーム：溜めた球が、すごい速さで前へ引き伸ばされた楕円になって一直線に突き進む。壁で消え、古代魔法でパリィできる（貫通して1発1回だけダメージ）
+    if (!this._sharkGS || !this._sharkGS.scene) this._sharkGS = this.add.graphics().setDepth(12);
+    const gs = this._sharkGS, R = Math.random, SH = S.shots || (S.shots = []), DF = S.defl || (S.defl = []), pl = this.player, GC = [0x2aff5a, 0x9dffb4, 0x0b7a2a, 0xc8ffd4];
+    gs.clear();
+    const ell = (cx, cy, a, b, ux, uy, col, al) => { // 向き(ux,uy)に長い楕円（半径a×b）を塗る
+      gs.fillStyle(col, al); gs.beginPath();
+      for (let i = 0; i < 30; i++) { const t = i / 30 * 6.2832, ex = Math.cos(t) * a, ey = Math.sin(t) * b, x = cx + ex * ux - ey * uy, y = cy + ex * uy + ey * ux; if (i === 0) gs.moveTo(x, y); else gs.lineTo(x, y); }
+      gs.closePath(); gs.fillPath();
+    };
+    const orb = (cx, cy, a, b, ux, uy) => { // 輝く球（a=bなら円、a>bなら楕円）：外のにじむ光→緑→明るい緑→白い芯。縁にだけ、少しガビガビを混ぜる
+      ell(cx, cy, a * 1.9, b * 1.9, ux, uy, 0x2aff5a, 0.1); ell(cx, cy, a * 1.45, b * 1.45, ux, uy, 0x2aff5a, 0.18); ell(cx, cy, a * 1.15, b * 1.15, ux, uy, 0x2aff5a, 0.5);
+      ell(cx, cy, a, b, ux, uy, 0x9dffb4, 0.92); ell(cx, cy, a * 0.62, b * 0.55, ux, uy, 0xe8fff0, 0.96); ell(cx, cy, a * 0.3, b * 0.3, ux, uy, 0xffffff, 1);
+      const nx = -uy, ny = ux;
+      for (let k = 0; k < 6; k++) { const t = (R() - 0.5) * 2 * a, o = (R() < 0.5 ? -1 : 1) * b * (0.95 + R() * 0.5), w = 3 + R() * 9, h = 2 + R() * 5; gs.fillStyle(R() < 0.6 ? 0x000000 : GC[(R() * 4) | 0], 0.9); gs.fillRect(cx + ux * t + nx * o - w / 2, cy + uy * t + ny * o - h / 2, w, h); } // 縁のノイズ（黒と緑のかけら）
+      if (R() < 0.5) { gs.fillStyle(0xc8ffd4, 0.85); gs.fillRect(cx - a * 1.1, cy + (R() - 0.5) * b * 1.6, a * 2.2 * (0.3 + R() * 0.7), 2); } // ずれた走査線
+    };
+    if (S.mz) { // 発射の衝撃：広がるリングと、前方に走る火花の線
+      const m = S.mz; m.t += dt;
+      if (m.t > 0.3) S.mz = null;
+      else {
+        const u = m.t / 0.3, an0 = Math.atan2(m.uy, m.ux);
+        gs.lineStyle(4 * (1 - u) + 1, 0xc8ffd4, 0.9 * (1 - u)); gs.strokeCircle(m.x, m.y, 12 + u * 110); gs.lineStyle(2, 0x2aff5a, 0.8 * (1 - u)); gs.strokeCircle(m.x, m.y, 6 + u * 70);
+        for (let k = 0; k < 8; k++) { const an = an0 + (R() - 0.5) * 1.2, d1 = 30 + R() * 120 * (1 - u); gs.lineStyle(2, GC[(R() * 4) | 0], 0.8 * (1 - u)); gs.lineBetween(m.x + Math.cos(an) * 10, m.y + Math.sin(an) * 10, m.x + Math.cos(an) * d1, m.y + Math.sin(an) * d1); }
+      }
+    }
+    if (S.mode === 'aim' && !S.aimFired) { // 溜めている間：鼻先の前に球がだんだん大きく輝き、まわりの光が吸い込まれる。最後の0.55秒は照準の線が出て、球が震える
+      const nz = shp.sp[0], ca = Math.cos(S.a), sa = Math.sin(S.a), locked = S.mt <= 0.55, k = Math.min(1, 1 - Math.max(0, S.mt) / 1.8);
+      const ox = nz.x + ca * 16 + (locked ? (R() - 0.5) * 3 : 0), oy = nz.y + sa * 16 + (locked ? (R() - 0.5) * 3 : 0);
+      S.bp = (S.bp || 0) + (1.5 + 28.5 * k * k) * dt; // 🔴 赤い点線の点滅：最初はゆっくり、だんだんペースが早まり、限界まで早まったら撃つ（点滅の速さ 1.5→30回/秒）
+      if (S.bp % 1 < 0.5) { gs.lineStyle(2 + 2 * k, 0xff2a2a, 0.9);
+        for (let d = 40; d < 620; d += 28) gs.lineBetween(nz.x + ca * d, nz.y + sa * d, nz.x + ca * (d + 14), nz.y + sa * (d + 14)); }
+      for (let i = 0; i < 16; i++) { const ph = (S.age * (1.2 + k * 1.6) + i / 16) % 1, an = i * 2.4 + S.age * 0.7, d = (24 + 80 * (1 - k * 0.4)) * (1 - ph) + 6; gs.fillStyle(GC[1 + i % 3], 0.3 + 0.6 * ph); gs.fillRect(ox + Math.cos(an) * d - 2, oy + Math.sin(an) * d - 2, 4, 4); } // 吸い込まれる光の粒
+      const rr = (4 + 24 * Math.pow(k, 1.4)) * (1 + 0.08 * Math.sin(S.age * (14 + 20 * k)));
+      orb(ox, oy, rr, rr, ca, sa);
+      if (locked) { const u = (0.55 - S.mt) / 0.55; gs.lineStyle(2, 0xc8ffd4, 0.5 + 0.4 * u); gs.strokeCircle(ox, oy, rr * (2.6 - 1.4 * u)); } // 発射直前：ぎゅっと縮むリング
+    }
+    for (let i = SH.length - 1; i >= 0; i--) {
+      const q = SH[i]; q.age += dt; const nz0 = shp.sp[0]; q.bx = nz0.x + q.ux * 20; q.by = nz0.y + q.uy * 20; // 根元はずっとサメの鼻先についたまま（サメが動けば一緒に動く）
+      let dead = q.age > 0.9; const Ln = q.cap != null ? Math.min(q.len, q.cap) : q.len + q.sp * dt; // 先端が前へ伸びていく（飛んでいかない。壁に当たっても止まらず、貫通して伸び続ける）
+      q.len = Ln;
+      const rr = q.r * (q.age > 0.7 ? Math.max(0.15, (0.9 - q.age) / 0.2) : 1); // 最後の0.2秒で細くなって消える
+      const a = Math.max(q.len / 2, rr + 1), cx = q.bx + q.ux * q.len / 2, cy = q.by + q.uy * q.len / 2, e = a - rr; // 楕円の中心と、芯の線分（中心から前後にeずつ）
+      const hx = cx + q.ux * e, hy = cy + q.uy * e, tx = cx - q.ux * e, ty = cy - q.uy * e;
+      if (!dead && plOk) {
+        if (!q.parried && this.playerInvuln <= 0) { const c = this._ancientBlocksSeg(tx, ty, hx, hy, rr * 0.9); if (c) { const px = c.x, py = c.y; q.parried = true; q.hit = true; q.cap = Math.max(0, (px - q.bx) * q.ux + (py - q.by) * q.uy) + rr; q.pt = 0.3; q.age = Math.max(q.age, 0.55); this._ancientParryFx(px, py); } } // 🛡 ビームの線全体（根元〜先端）が盾に触れたらパリィ成功（ダメージ判定と同じく線で判定）：ビームは消えず、盾に当たった所で止まり、細い筋になって後ろへ受け流される（もう当たらない）。ダメージを食らった直後（無敵時間中）はパリィできない
+        if (!dead && !q.hit && this.playerInvuln <= 0) { // 楕円の当たり判定：芯の線分から半径rr*0.9
+          const abx = tx - hx, aby = ty - hy, l2 = abx * abx + aby * aby || 1, tt = Math.max(0, Math.min(1, ((pl.x - hx) * abx + (pl.y - hy) * aby) / l2));
+          if (Math.hypot(pl.x - (hx + abx * tt), pl.y - (hy + aby * tt)) < rr * 0.9 + pl.radius) { q.hit = true; this._sharkHurt(30, 1.0); this.spawnBurst(pl.x, pl.y, 0x2aff5a, 14); } // 当たると30ダメージ
+        }
+      }
+      if (dead) { SH.splice(i, 1); continue; }
+      if (q.parried && q.pt > 0) { // 🛡 受け流し：当たった所から、細い筋が盾に沿って左右へ流れ、後ろへ抜けていく
+        q.pt -= dt; const fx = q.bx + q.ux * q.len, fy = q.by + q.uy * q.len;
+        for (let k = 0; k < 2; k++) { const sd = R() < 0.5 ? -1 : 1, sp = 500 + R() * 600, fw = 120 + R() * 320; DF.push({ x: fx, y: fy, vx: -q.uy * sd * sp + q.ux * fw, vy: q.ux * sd * sp + q.uy * fw, life: 0.3 + R() * 0.25, max: 0.55, w: 1 + R() * 1.5, c: GC[1 + ((R() * 3) | 0)] }); }
+      }
+      orb(cx, cy, a, rr, q.ux, q.uy);
+    }
+    for (let i = DF.length - 1; i >= 0; i--) { // 受け流された細い筋：すぐ細く消える（見た目だけ）
+      const f = DF[i]; f.life -= dt; if (f.life <= 0) { DF.splice(i, 1); continue; }
+      f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= 1 - 1.5 * dt; f.vy *= 1 - 1.5 * dt;
+      gs.lineStyle(f.w, f.c, Math.min(1, f.life / f.max * 1.6)); gs.lineBetween(f.x, f.y, f.x - f.vx * 0.07, f.y - f.vy * 0.07);
+    }
+  }
+  _sharkWaveMove(S, dt, plOk, plr) { // 🌊 波：尾をプレイヤーへ向けて（鼻先は反対向き）→振りかぶり→扇ぐように振り抜く。振り抜く途中で S.wv.fire が立ち、尾の先から波が出る（_sharkWaveUpdate）
+    const F = GLITCH_WAVE, w = S.wv; if (!w) return;
+    const wrap = d => Math.atan2(Math.sin(d), Math.cos(d)); w.t += dt;
+    S.v *= Math.max(0, 1 - dt * 6);
+    if (w.ph === 'turn') {
+      S.bend *= Math.max(0, 1 - dt * 4); S.tailRot = (S.tailRot || 0) * Math.max(0, 1 - dt * 4); S.ph += dt * Math.PI * 2 * S.beat * 0.8;
+      if (plOk) { const d = wrap(Math.atan2(plr.y - S.y, plr.x - S.x) + Math.PI - S.a); S.a += Math.max(-3.2 * dt, Math.min(3.2 * dt, d)); if (Math.abs(d) < 0.12 || w.t >= F.turnT) { w.ph = 'wind'; w.t = 0; } } // 尾がプレイヤーの方を向く
+      else if (w.t >= F.turnT) { w.ph = 'wind'; w.t = 0; }
+    } else if (w.ph === 'wind') { // 尾を片側へぐっと引く
+      S.bend *= Math.max(0, 1 - dt * 6); S.tailRot = (S.tailRot || 0) + (-F.tailRot * w.sd - (S.tailRot || 0)) * Math.min(1, dt * 7); S.ph += dt * Math.PI * 2 * S.beat * 0.4;
+      if (w.t >= F.windT) { w.ph = 'swing'; w.t = 0; w.b0 = S.tailRot || 0; }
+    } else if (w.ph === 'swing') { // 反対側へ一気に振り抜く（扇ぐ）。半分まで来たら、尾の先から波を出す
+      const u = Math.min(1, w.t / F.swingT), es = u * u * (3 - 2 * u); S.tailRot = w.b0 + (F.tailRot * w.sd - w.b0) * es;
+      if (!w.fired && u >= 0.45) { w.fired = true; w.fire = true; }
+      if (u >= 1) { w.ph = 'recover'; w.t = 0; }
+    } else { S.bend *= Math.max(0, 1 - dt * 3); S.tailRot = (S.tailRot || 0) * Math.max(0, 1 - dt * 3); S.ph += dt * Math.PI * 2 * S.beat * 0.8; } // recover
+    S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+  }
+  _waveOverlap(w, x, y, r) { // 🌊 波の帯（前縁 R から厚み th の分だけ内側、広がり ±al）に、(x,y) の半径 r の円が重なっているか（ダメージ判定と同じ形）
+    const F = GLITCH_WAVE, k = Math.min(1, Math.max(0, (w.R - F.r0) / F.grow)), th = F.thick0 + (F.thick1 - F.thick0) * k, al = F.ang0 + (F.ang1 - F.ang0) * k;
+    const vx = x - w.ox, vy = y - w.oy, d = Math.hypot(vx, vy), da = Math.abs(Math.atan2(Math.sin(Math.atan2(vy, vx) - w.a), Math.cos(Math.atan2(vy, vx) - w.a))), slack = d > r ? Math.asin(Math.min(1, r / d)) : Math.PI;
+    return d - r <= w.R && d + r >= w.R - th && da <= al + slack;
+  }
+  _waveBlocks(x, y, r) { // 🌊 波は壁のように通り抜けられない：いまは波の外にいるプレイヤーが、(x,y) へ動くと波の帯に入ってしまう時は、その動きを止める（すでに波の中にいる時は、自由に出られる。パリィで弱まった波は壁にならない）
+    const S = this._shark, pl = this.player; if (!S || !S.waves || !S.waves.length || !pl) return false;
+    for (const w of S.waves) { if (w.parried) continue; if (this._waveOverlap(w, x, y, r) && !this._waveOverlap(w, pl.x, pl.y, r)) return true; }
+    return false;
+  }
+  _sharkWaveUpdate(S, shp, dt, plOk) { // 🌊 波：尾の先から出て、前縁が広がりながら進む（進むほど厚く・広くなる）。当たると継続ダメージを受けながら押し流される。古代魔法でパリィすると、ダメージも押し流しもなくなる
+    const F = GLITCH_WAVE, R = Math.random, pl = this.player, WV = S.waves || (S.waves = []), wrap = d => Math.atan2(Math.sin(d), Math.cos(d));
+    if (!this._sharkWG || !this._sharkWG.scene) this._sharkWG = this.add.graphics().setDepth(4.4);
+    const g = this._sharkWG; g.clear();
+    const wv = S.wv;
+    if (wv && wv.fire) { // 尾の先から、プレイヤーの方へ波を出す（向きは出した時に固定。追尾しない）
+      wv.fire = false; const tl = shp.sp[shp.sp.length - 1], ang = plOk ? Math.atan2(pl.y - tl.y, pl.x - tl.x) : S.a + Math.PI;
+      WV.push({ ox: tl.x, oy: tl.y, a: ang, R: F.r0, age: 0, parried: false, fade: 1 });
+      this.spawnBurst(tl.x, tl.y, 0x9dffb4, 18); this.spawnBurst(tl.x, tl.y, 0x2aff5a, 10); try { this.cameras.main.shake(150, 0.004); } catch (e) {}
+      for (let i = 0; i < 24 && S.splash.length < 420; i++) S.splash.push({ x: tl.x + (R() - 0.5) * 20, y: tl.y + (R() - 0.5) * 20, z: 2 + R() * 8, vx: Math.cos(ang) * (60 + R() * 160) + (R() - 0.5) * 80, vy: Math.sin(ang) * (60 + R() * 160) + (R() - 0.5) * 80, vz: 60 + R() * 140, life: 0.5 + R() * 0.5, sz: 3 + Math.floor(R() * 4), c: [0x2aff5a, 0x9dffb4, 0xc8ffd4][(R() * 3) | 0] });
+    }
+    for (let i = WV.length - 1; i >= 0; i--) {
+      const w = WV[i]; w.age += dt;
+      if (w.parried) { w.fade -= dt / 0.45; w.R += F.speed * 0.2 * dt; if (w.fade <= 0) { WV.splice(i, 1); continue; } } else w.R += F.speed * dt; // パリィされた波は、勢いをなくして弱まる
+      if (w.R > F.maxR) { WV.splice(i, 1); continue; }
+      const k = Math.min(1, Math.max(0, (w.R - F.r0) / F.grow)), th = F.thick0 + (F.thick1 - F.thick0) * k, al = F.ang0 + (F.ang1 - F.ang0) * k; // 厚み・広がり：進むほど大きくなる
+      const ca = Math.cos(w.a), sa = Math.sin(w.a);
+      if (!w.parried && plOk) { // 🛡 パリィ：前縁の帯のどこかが盾に触れたら成功。ダメージも押し流しもなくなる（ダメージ直後の無敵時間中でも、盾が出ていれば止められる）
+        for (let j = 0; j <= 8; j++) { const an = w.a - al + al * 2 * j / 8, rr = Math.max(0, w.R - th * 0.5), px = w.ox + Math.cos(an) * rr, py = w.oy + Math.sin(an) * rr; if (this._ancientBlocks(px, py, th * 0.55)) { w.parried = true; let fx = px, fy = py; const hx = this._ancientNearHex(px, py); if (hx) { const vx = hx.x - w.ox, vy = hx.y - w.oy, dd = Math.hypot(vx, vy) || 1, cc = Math.min(dd + hx.r, Math.max(dd - hx.r, rr)); fx = w.ox + vx / dd * cc; fy = w.oy + vy / dd * cc; } /* 波の発生源から盾の六角形へ向かう線上の、波の帯が盾に触れる位置（盾の外側の面） */ this._ancientParryFx(fx, fy); break; } }
+      }
+      if (!w.parried && plOk) { // 当たり判定：波の帯（前縁 R から厚み th の分だけ内側、広がり ±al）は壁。重なっているあいだダメージを受け続け、前縁の外へ押し出されて運ばれる
+        const vx = pl.x - w.ox, vy = pl.y - w.oy, d = Math.hypot(vx, vy), pr = pl.radius || TILE * 0.32, da = Math.abs(wrap(Math.atan2(vy, vx) - w.a)), slack = d > pr ? Math.asin(Math.min(1, pr / d)) : Math.PI;
+        if (d - pr <= w.R && d + pr >= w.R - th && da <= al + slack) {
+          // 🧱 波は壁：重なったプレイヤーは、波の前縁の外へ押し出され、前縁に運ばれる（波の速さのまま）。通り抜けられない。部屋の壁と波にはさまれて動かせない時は、波がそのまま体を通り過ぎる。ダメージは、波に重なっているあいだ続く
+          const ux = d > 1e-3 ? vx / d : ca, uy = d > 1e-3 ? vy / d : sa, tgt = w.R + pr + 1, tx = w.ox + ux * tgt, ty = w.oy + uy * tgt;
+          if (tgt > d) { if (!this.circleHitsWall(tx, ty, pr)) { pl.x = tx; pl.y = ty; } else { if (!this.circleHitsWall(tx, pl.y, pr)) pl.x = tx; if (!this.circleHitsWall(pl.x, ty, pr)) pl.y = ty; } }
+          if (this._sharkHurt(F.damage, F.tick)) this.spawnBurst(pl.x, pl.y, 0x2aff5a, 8); // 当たっている（波に重なっている）あいだは、毎フレーム判定し続ける（間隔は F.tick の無敵時間）
+        }
+      }
+      // --- 描画：緑の波（外のにじむ光→本体→明るい内側）＋ギザギザの白い波頭＋泡 ---
+      const f = (w.parried ? Math.max(0, w.fade) : 1) * Math.min(1, w.age / 0.12), N = 20;
+      const band = (rIn, rOut, aH, col, a0) => { g.fillStyle(col, a0 * f); g.beginPath(); for (let j = 0; j <= N; j++) { const an = w.a - aH + aH * 2 * j / N; if (j === 0) g.moveTo(w.ox + Math.cos(an) * rOut, w.oy + Math.sin(an) * rOut); else g.lineTo(w.ox + Math.cos(an) * rOut, w.oy + Math.sin(an) * rOut); } for (let j = N; j >= 0; j--) { const an = w.a - aH * 0.8 + aH * 1.6 * j / N; g.lineTo(w.ox + Math.cos(an) * rIn, w.oy + Math.sin(an) * rIn); } g.closePath(); g.fillPath(); };
+      band(Math.max(0, w.R - th * 1.15), w.R + th * 0.12, al * 1.1, 0x2aff5a, 0.10);
+      band(Math.max(0, w.R - th), w.R, al, 0x2aff5a, 0.24);
+      band(Math.max(0, w.R - th * 0.65), w.R, al * 0.95, 0x9dffb4, 0.30);
+      for (const [rf, lw, c, a0] of [[0, 3, 0xc8ffd4, 0.95], [0.35, 2, 0x9dffb4, 0.6], [0.7, 2, 0x2aff5a, 0.45]]) { // 波頭と、その後ろの筋
+        const rr = Math.max(0, w.R - th * rf); g.lineStyle(lw, c, a0 * f); g.beginPath();
+        for (let j = 0; j <= N; j++) { const an = w.a - al + al * 2 * j / N, jit = (R() - 0.5) * (rf === 0 ? 7 : 4), x = w.ox + Math.cos(an) * (rr + jit), y = w.oy + Math.sin(an) * (rr + jit); if (j === 0) g.moveTo(x, y); else g.lineTo(x, y); }
+        g.strokePath();
+      }
+      for (let q = 0; q < 6; q++) { const an = w.a + (R() * 2 - 1) * al, rr = w.R - R() * th * 0.55, sz = 2 + ((R() * 4) | 0); g.fillStyle(R() < 0.5 ? 0xe8ffee : 0x9dffb4, 0.85 * f); g.fillRect(w.ox + Math.cos(an) * rr - sz / 2, w.oy + Math.sin(an) * rr - sz / 2, sz, sz); } // 泡
+      if (R() < 0.5) { const an = w.a + (R() * 2 - 1) * al * 0.9, rr = w.R - R() * th, len = 14 + R() * 40; g.fillStyle(R() < 0.6 ? 0x000000 : 0xc8ffd4, 0.8 * f); g.fillRect(w.ox + Math.cos(an) * rr, w.oy + Math.sin(an) * rr, len, 2); } // グリッチの走査線・黒いかけら
+    }
+  }
+  _sharkHurt(dmg, inv) { // 🦈 サメの攻撃がプレイヤーに当たった時のダメージ（無敵時間・死亡処理は既存の流れに合わせる）
+    if (this.isGhost || this.isDowned || this.playerInvuln > 0 || this.playerHp <= 0) return false;
+    const d = this.accDmgTaken(dmg); this.recordDamageTaken(d);
+    this.playerHp -= d; this.playerInvuln = inv || 0.8;
+    this.interruptBandage(); this.interruptChargeBomb(true);
+    this.spawnBurst(this.player.x, this.player.y, 0x2aff5a, 10);
+    flashHit(0.16, 220); this.updateHud();
+    if (this.playerHp <= 0) this.onPlayerDeath();
+    return true;
+  }
+  _sharkUpdate(t, dt) {
+    const S = this._shark, g = this._sharkG; if (!S || !g || !g.scene) return;
+    dt = Math.min(dt, 0.1); S.age += dt; this._bloodUpdate(dt); const R = Math.random, wrap = d => Math.atan2(Math.sin(d), Math.cos(d)), N = 22;
+    // --- 泳ぐ：泳ぎ先へ向かって、弧を描いて曲がる。壁が近ければ避ける。尾をひと振りするごとに、ぐっと進む ---
+    // --- 🦈 状態：'fin'（背びれで泳ぎ回る）→'chase'（追ってくる）→'emerge'（水しぶきが飛び散り、体が出る）→'rush'（一定時間、姿を現したまま高速で追ってくる）→潜って'fin'へ戻る ---
+    const m0 = S.mode, plr = this.player, plOk = !!plr && this.playerHp > 0 && !this.isGhost;
+    S.z = 0;
+    if (S.sg) this._sgUpdate(S, dt, plOk, plr); // 🥤 シェルゲーム：ダミーの動きと、全体の進行（本体の位置は、本体が 'sg' の間だけここで決める）
+    if (m0 === 'fin' || m0 === 'chase') { // 背びれの間は、壁に当たり判定なし（壁の上も通り抜けて泳ぐ）
+      S.wpT -= dt;
+      if (m0 === 'chase' && plOk) { S.wp = { x: plr.x, y: plr.y }; S.wpT = 1; }
+      else if (!S.wp || S.wpT <= 0 || Math.hypot(S.wp.x - S.x, S.wp.y - S.y) < TILE * 2.5) this._sharkPickWp(S);
+      const want = Math.atan2(S.wp.y - S.y, S.wp.x - S.x), tn = S.turn * (m0 === 'chase' ? 3 : 2.5), d = wrap(want - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d));
+      S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5);
+      const tv = S.speed * (m0 === 'chase' ? 2.2 : 3.5) * (0.82 + 0.18 * Math.cos(S.ph * 2)) * (1 - 0.3 * Math.abs(S.bend)); S.v += (tv - S.v) * Math.min(1, dt * 2.5);
+      S.ph += dt * Math.PI * 2 * S.beat * 0.7; // 尾の振りはゆっくり一定（約1往復/秒）。泳ぐ速さには連動させない
+      S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt; S.stuckT = 0;
+    } else if (m0 === 'emerge') { // その場で止まって、プレイヤーの方を向きながら体が出てくる
+      S.v *= Math.max(0, 1 - dt * 5);
+      if (plOk) { const d = wrap(Math.atan2(plr.y - S.y, plr.x - S.x) - S.a); S.a += Math.max(-4 * dt, Math.min(4 * dt, d)); }
+      S.bend *= Math.max(0, 1 - dt * 4); S.ph += dt * Math.PI * 2 * S.beat * 0.8;
+      S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+    } else if (m0 === 'rush') { // 🦈 追撃：姿を現したまま、高速でプレイヤーを追いかける（曲がる速さは控えめなので、横に動けば避けられる）
+      if (plOk && (!S.rushFixed || Math.abs(wrap(Math.atan2(plr.y - S.y, plr.x - S.x) - S.a)) < Math.PI / 2)) { const want = Math.atan2(plr.y - S.y, plr.x - S.x), tn = S.rushFixed ? GLITCH_SHELL.homeTurn : S.turn * 1.5, d = wrap(want - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d)); S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5); }
+      const tv = S.speed * (S.rushFixed ? GLITCH_SHELL.dashK : 7) * (0.9 + 0.1 * Math.cos(S.ph * 2)) * (1 - 0.25 * Math.abs(S.bend)); S.v += (tv - S.v) * Math.min(1, dt * 6);
+      S.ph += dt * Math.PI * 2 * S.beat * 3.2;
+      S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+    } else if (m0 === 'aim' || m0 === 'cdive') { // 🟩 その場で止まって、プレイヤーの方へ鼻先を向ける（🔁 連撃の潜っている間も同じ）。最後の0.55秒は向きを固定する
+      S.v *= Math.max(0, 1 - dt * 6);
+      if (plOk && !S.aimFired) { const nx = S.x + Math.cos(S.a) * S.len * 0.5, ny = S.y + Math.sin(S.a) * S.len * 0.5, d = wrap(Math.atan2(plr.y - ny, plr.x - nx) - S.a); S.a += Math.max(-3 * dt, Math.min(3 * dt, d)); }
+      S.bend *= Math.max(0, 1 - dt * 4); S.ph += dt * Math.PI * 2 * S.beat * 0.8;
+      S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+    } else if (m0 === 'grab') { // 🦈 咥えたまま、向きを変えずに全速力でまっすぐ突進し続ける
+      const tv = S.speed * 7 * (0.92 + 0.08 * Math.cos(S.ph * 2)); S.v += (tv - S.v) * Math.min(1, dt * 6);
+      S.bend *= Math.max(0, 1 - dt * 4); S.ph += dt * Math.PI * 2 * S.beat * 3.2;
+      S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+    } else if (m0 === 'retreat') { // 🛡 パリィされた後：素早く向きを変えて、来た方へ戻っていく
+      const d = wrap(S.retA - S.a), tn = S.turn * 4, step = Math.max(-tn * dt, Math.min(tn * dt, d));
+      S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5);
+      const tv = S.speed * 3.5 * (0.9 + 0.1 * Math.cos(S.ph * 2)) * (1 - 0.25 * Math.abs(S.bend)); S.v += (tv - S.v) * Math.min(1, dt * 4);
+      S.ph += dt * Math.PI * 2 * S.beat * 2.2;
+      S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+    } else if (m0 === 'wave') { this._sharkWaveMove(S, dt, plOk, plr); // 🌊 波：尾をプレイヤーへ向けて、扇ぐように振る
+    } else if (m0 === 'fork') { this._forkMove(S, dt, plOk, plr); // 🪟 フォークボム中の泳ぎ（ウィンドウへ向かう）
+    }
+    // --- 見た目の切り替え（ゆっくり：0.2秒ごと以上）---
+    S.stepT -= dt;
+    if (S.stepT <= 0) {
+      S.stepT = (S.age < 1.4 ? 0.14 : 0.22) + R() * 0.2; S.sh = 1.5 + R() * 1.5; S.vis = true; // （出現直後の、消える点滅演出はなくした）
+      for (let i = 0; i < S.frag.length; i++) if (R() < 0.3) S.frag[i] = this._sharkFrag();
+      S.tears = []; for (let i = 0; i < 2; i++) if (R() < 0.55) S.tears.push({ fy: R(), h: 2 + R() * 3, dx: (R() < 0.5 ? -1 : 1) * (6 + R() * 16), c: R() < 0.5 ? 0x2aff5a : 0xc8ffd4 });
+      for (const q of S.txts) if (R() < 0.6) q.setText(this._sharkCode());
+    }
+    S.trailT -= dt; if (S.trailT <= 0) { S.trailT = 0.16; S.trail.unshift({ x: S.x, y: S.y, a: S.a, ph: S.ph, bend: S.bend, z: S.z || 0 }); if (S.trail.length > 5) S.trail.pop(); } // 泳いだあとに残る、薄い残像
+    const shp = this._sharkShape(S, S.x, S.y - (S.z || 0), S.a, S.ph, S.bend); // 空中では、体を z の分だけ上に描く（地面での位置は y + z）
+    this._sharkShotsUpdate(S, shp, dt, plOk); // 🟩 グリッチ弾の移動・当たり判定・描画
+    if (S.tailRot && S.mode !== 'wave') { S.tailRot *= Math.max(0, 1 - dt * 6); if (Math.abs(S.tailRot) < 0.01) S.tailRot = 0; } // 波の尾の振りは、波の攻撃が終わったら戻す
+    this._sharkWaveUpdate(S, shp, dt, plOk); // 🌊 波の発生・移動・当たり判定・パリィ・描画
+    // --- 🌊 潜る／浮かぶ：浮いている間(8〜12秒)→潜る(6〜9秒)→…。潜る・浮かぶ瞬間に、水しぶきが大きく上がる ---
+    const SPC = [0x2aff5a, 0x9dffb4, 0x2aff5a, 0xc8ffd4], fbP = shp.sp[10], fb0 = shp.sp[9], fb1 = shp.sp[12], finH = TILE * 0.85 * S.sc * (S.dive * S.dive * (3 - 2 * S.dive));
+    const splashBurst = (n, pt = fbP) => { for (let i = 0; i < n && S.splash.length < 420; i++) S.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] }); };
+    S.mt -= dt;
+    if (m0 === 'fin') {
+      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = ['shoot', 'rush', 'shell', 'wave', this._fork ? 'shoot' : 'fork', 'combo', this._ransomT > 0 ? 'shoot' : 'ransom', 'warp']; S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
+       S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, S.atk === 'combo' ? { x: S.x, y: S.y } : fbP); } else S.mt = 2; } // しばらく泳ぎ回ったら、距離に関係なくその場で姿を現して、追撃を始める
+    } else if (m0 === 'chase') {
+      if (!plOk || S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 追いつけない・見失ったら、泳ぎ回りに戻る
+      else if (Math.hypot(plr.x - shp.sp[0].x, plr.y - shp.sp[0].y) < TILE * 3.5) { S.mode = 'emerge'; S.mt = 0.45; splashBurst(34); } // 距離が一定以内→水しぶきが飛び散り、体が出てくる
+    } else if (m0 === 'emerge') {
+      S.noNose = S.atk === 'shell'; /* 🥤 シェルゲームの出現中（本体が出てくる時〜三匹が揃っている間）は、鼻先のしぶきを出さない（_sgToOrbit で戻す） */ splashBurst(3);
+      if (S.mt <= 0) { // 体が出きったら、選んだ攻撃を始める
+        if (S.atk === 'shoot') { S.mode = 'aim'; S.mt = 1.8; S.aimFired = false; S.bp = 0; splashBurst(24); } // 射撃：少しだけ狙って、弾を放つ
+        else if (S.atk === 'shell') { this._sgStart(S); splashBurst(24); } // 🥤 シェルゲーム：両隣にダミーを出して、背びれをシャッフルする（_sgStart〜_sgUpdate）
+        else if (S.atk === 'fork') { this._forkStart(S); splashBurst(24); } // 🪟 フォークボム：右上と真ん中にウィンドウが出て、サメが真ん中のウィンドウに潜る（_forkStart〜_forkPhase）
+        else if (S.atk === 'ransom') { this._ransomStart(S); splashBurst(24); } // 🔀 ランサムウェア：移動の操作が一定時間反転（_ransomStart）
+        else if (S.atk === 'warp') { this._warpStart(S); splashBurst(24); } // 🌀 ワープ：足元にウィンドウが出て、最北戦線の発信機の上へ転送（_warpStart〜_warpPhase）
+        else if (S.atk === 'wave') { S.mode = 'wave'; S.mt = 99; S.wv = { t: 0, ph: 'turn', fire: false, fired: false, sd: Math.random() < 0.5 ? 1 : -1, b0: 0 }; splashBurst(24); } // 🌊 波：尾をプレイヤーへ向けて、扇ぐように振る（_sharkWaveMove〜_sharkWaveUpdate）
+        else if (S.atk === 'combo') { if (!S.cb) S.cb = { left: GLITCH_COMBO.count }; S.cb.left--; S.mode = 'rush'; S.mt = GLITCH_COMBO.rushT; S.rushHit = false; S.rushFixed = false; splashBurst(24); } // 🔁 連撃：追撃を1回（残り回数を1つ減らす）
+        else { S.mode = 'rush'; S.mt = 4.5; S.rushHit = false; S.rushFixed = false; splashBurst(24); } // 追撃：高速で追いかける（4.5秒間）
+      }
+    } else if (m0 === 'aim') { // 🟩 射撃：溜めながら狙う(1.25秒)→向きを固定(0.55秒)→発射→少し止まって潜る
+      if (!S.aimFired && S.mt <= 0 && plOk) {
+        S.aimFired = true; S.mt = 0.7; const nz = shp.sp[0], r = 26, ux = Math.cos(S.a), uy = Math.sin(S.a);
+        (S.shots || (S.shots = [])).push({ bx: nz.x + ux * 20, by: nz.y + uy * 20, ux, uy, sp: 10000, r: 10, len: 0, age: 0, hit: false, wall: false }); // 細いビーム：根元は鼻先についたまま、先端が前へ伸びていく（bx,by＝根元／len＝今の長さ）
+        S.mz = { x: nz.x, y: nz.y, ux, uy, t: 0 }; this.spawnBurst(nz.x, nz.y, 0x2aff5a, 22); this.spawnBurst(nz.x, nz.y, 0x9dffb4, 12); S.v = -90; // 発射の衝撃：リングと火花、反動で後ろへ
+        try { this.cameras.main.shake(180, 0.008); this.cameras.main.flash(90, 90, 255, 140); } catch (e) {}
+      } else if (!plOk || (S.aimFired && S.mt <= 0)) {
+        for (const i of [0, 6, 12, 18]) splashBurst(14, { x: shp.sp[i].x, y: shp.sp[i].y });
+        S.mode = 'fin'; S.mt = 3.5 + R() * 3; S.wpT = 0;
+      }
+    } else if (m0 === 'wave') { // 🌊 波：振り抜いたあと少し止まって、潜る（出た波は、サメが潜ってもそのまま進む）
+      const w = S.wv;
+      if (!plOk || !w || (w.ph === 'recover' && w.t >= GLITCH_WAVE.recoverT)) { for (const i of [0, 6, 12, 18]) splashBurst(14, { x: shp.sp[i].x, y: shp.sp[i].y }); S.mode = 'fin'; S.mt = 3.5 + R() * 3; S.wpT = 0; S.wv = null; }
+    } else if (m0 === 'cdive') { // 🔁 連撃：潜って（その場で鼻先をプレイヤーへ向けながら）、ワープせず、潜ったその場所からまた姿を現す
+      if (!plOk) { S.mode = 'fin'; S.mt = 3.5 + R() * 3; S.wpT = 0; }
+      else if (S.mt <= 0) { S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, { x: S.x, y: S.y }); }
+    } else if (m0 === 'rush' || m0 === 'retreat' || m0 === 'grab') {
+      if (m0 === 'rush' && S.mt <= 0 && plOk && S.atk === 'combo' && S.cb && S.cb.left > 0) { for (const i of [0, 6, 12, 18]) splashBurst(14, { x: shp.sp[i].x, y: shp.sp[i].y }); S.mode = 'cdive'; S.mt = GLITCH_COMBO.gap; } // 🔁 連撃：まだ回数が残っている（かわした）なら、潜って次へ。パリィ・噛みつきの時は、既存どおり攻撃が終わる
+      else if ((!plOk && m0 !== 'retreat') || S.mt <= 0) { // 時間切れ・噛みつき後・戻りきった後：水しぶきを上げて、背びれに戻る
+        for (const i of [0, 6, 12, 18]) splashBurst(14, { x: shp.sp[i].x, y: shp.sp[i].y });
+        try { this.cameras.main.shake(120, 0.003); } catch (e) {}
+        S.mode = 'fin'; S.mt = 3.5 + R() * 3; S.wpT = 0;
+      }
+    } else if (m0 === 'ransom') { if (S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 🔒 感染させたあと、少し止まってから泳ぎ回りに戻る（効果は残る）
+    } else if (m0 === 'fork') { this._forkPhase(S, shp, dt, splashBurst); } // 🪟 フォークボムの進行
+    else if (m0 === 'warp') { this._warpPhase(S, dt); } // 🌀 ワープの進行（サメは潜ったまま動かない）
+    S.dive = Math.max(0, Math.min(1, S.dive + ((S.mode === 'fin' || S.mode === 'chase' || S.mode === 'cdive' || (S.mode === 'sg' && S.sgDown) || (S.mode === 'fork' && S.fk && S.fk.down) || S.mode === 'warp') ? 1 : -1) * dt / ((S.mode === 'emerge' || (S.mode === 'sg' && !S.sgDown)) ? 0.4 : 0.28))); // 出る：0.4秒／潜る：0.28秒
+    // --- 🦈 体の当たり判定：体が出ていて低い間は、体に重なれない（押し出される）／飛びかかり中に頭に当たると噛まれる ---
+    if (plOk && S.dive < 0.4) {
+      const pl = this.player, pr = pl.radius, zz = S.z || 0;
+      if (zz < TILE * 0.6 * S.sc && S.mode !== 'grab') for (let pass = 0; pass < 2; pass++) for (let i = 0; i <= N; i++) {
+        const q = shp.sp[i], qy = q.y + zz, rr = shp.hw[i] * 0.95 + pr; let ddx = pl.x - q.x, ddy = pl.y - qy, dd = Math.hypot(ddx, ddy);
+        if (dd >= rr) continue;
+        if (dd < 0.001) { ddx = shp.nn[i].x; ddy = shp.nn[i].y; dd = 1; }
+        const nxp = pl.x + ddx / dd * (rr - dd + 0.5), nyp = pl.y + ddy / dd * (rr - dd + 0.5);
+        if (!this.circleHitsWall(nxp, nyp, pr)) { pl.x = nxp; pl.y = nyp; } // 壁に押し込む形になる時は、押し出さない
+      }
+      if (S.mode === 'grab') { // プレイヤーを口に咥えたまま運ぶ。鼻先が壁にぶつかったら大ダメージ（そのあと、よろけて戻っていく）
+        const q = shp.sp[0], ahx = q.x + Math.cos(S.a) * (pr + 6), ahy = q.y + Math.sin(S.a) * (pr + 6);
+        if (this.circleHitsWall(ahx, ahy, pr)) {
+          const f = S.lastFree || q; pl.x = f.x; pl.y = f.y; this.playerInvuln = 0; this._sharkHurt(60, 1.5); // 壁に叩きつける：60ダメージ
+          this.spawnBurst(ahx, ahy, 0xffffff, 18); this._sharkBlood(pl.x, pl.y, 2.2); try { this.cameras.main.shake(300, 0.012); } catch (e) {}
+          S.mode = 'retreat'; S.mt = 1.2; S.retA = S.a + Math.PI; S.v *= 0.2;
+        } else { pl.x = q.x; pl.y = q.y; S.lastFree = { x: q.x, y: q.y }; S.bloodT = (S.bloodT || 0) - dt; if (S.bloodT <= 0) { S.bloodT = 0.05; this._sharkBlood(q.x, q.y, 0.25); } }
+      }
+      if (S.mode === 'rush' && !S.rushHit) { // 鼻先だけが当たり判定：古代魔法でパリィできるのも、噛みつくのも鼻先
+        const t0 = shp.sp[0], t1 = shp.sp[1], bm = Math.hypot(t1.x - t0.x, t1.y - t0.y) || 1, hr = TILE * 0.25 * S.sc; // 判定の円は、前端が見た目の鼻先に一致するよう、半径の分だけ後ろにずらす（半径も鼻の細さに合わせて小さく）
+        const q = { x: t0.x + (t1.x - t0.x) / bm * hr, y: t0.y + (t1.y - t0.y) / bm * hr };
+        if (this._ancientBlocks(q.x, q.y, hr)) { S.rushHit = true; S.mode = 'retreat'; S.mt = 1.2; S.retA = S.a + Math.PI; this._ancientParryFx(q.x, q.y); } // 🛡 パリィ成功：ダメージなし。向きを変えて戻っていき、攻撃は終わる
+        else if (this.playerInvuln <= 0 && Math.hypot(pl.x - q.x, pl.y - q.y) < hr + pr) { S.rushHit = true; S.mode = 'grab'; S.mt = 4; S.lastFree = { x: q.x, y: q.y }; this._sharkBlood(pl.x, pl.y, 1); try { this.cameras.main.shake(140, 0.006); this.cameras.main.flash(110, 160, 0, 10); } catch (e) {} } // 鼻先に当たると咥えられる（ダメージは壁に当たった時）
+      }
+    }
+    this._sharkSplashUpdate(S, shp, dt); // 背びれ・鼻先のしぶきの発生と動き
+    S.bitT -= dt; if (S.bitT <= 0 && S.bits.length < 24) { S.bitT = 0.09; S.bits.push({ x: shp.tp.x + (R() - 0.5) * 10, y: shp.tp.y + (R() - 0.5) * 10, vx: (R() - 0.5) * 14, vy: (R() - 0.5) * 14, life: 0.9, sz: 2 + Math.floor(R() * 3) }); } // 尾から落ちる、データのかけら
+    for (let i = S.bits.length - 1; i >= 0; i--) { const b = S.bits[i]; b.life -= dt; if (b.life <= 0) { S.bits.splice(i, 1); continue; } b.x += b.vx * dt; b.y += b.vy * dt; }
+    this._forkUpdate(dt); // 🪟 フォークボムのウィンドウ（出現・消滅・描画）
+    // --- 描く ---
+    if (S.sg) { S.trail.length = 0; S.bits.length = 0; } // 🥤 シェルゲーム中：残像と欠片は出さない（本体だけに出ると、見分けがついてしまう）
+    this._sharkDrawOne(S, shp, g, this._sharkG0, this._sharkG2);
+    if (S.fkHide) { g.clear(); this._sharkG0.clear(); this._sharkG2.clear(); } // 🪟 ウィンドウの中に潜っている間は、背びれも見せない
+    if (S.sg) this._sgDrawDummies(S, dt); // 🥤 ダミーのサメも描く
+  }
+
+  // ================= 🪟 グリッチの攻撃「フォークボム」 =================
+  // パソコンのウイルスの、ウィンドウが右下へ次々と出てくるやつがモチーフ。流れ（S.fk.ph）：
+  //   warn ：ウィンドウが出る位置すべてに、赤い枠線の警告が点滅する（プレイヤーが避ける時間）
+  //   open ：右下へ向かう2本の列でプレイヤーを挟める位置に、同じ高さ（ウィンドウの下端が部屋の上端に重なる）でウィンドウが1枚ずつ出る（サメはその場で止まる）
+  //   swim ：サメが、部屋の真ん中に近いほうのウィンドウへ向かって泳ぐ
+  //   sink ：背びれがウィンドウの中央に収まり、潜って見えなくなる
+  //   wait ：少し間をおく
+  //   chain：2つのウィンドウから、右下へ向かってウィンドウが「ダダダダ」と増えていく（平行な2本の列。右の壁を越えても止まらず、下の端で止まる）
+  //   burrow／leap／ldive／pause：増え終わったら、サメは窓の下に潜ったまま、その列に沿って上下に動く（顔は出さない）。サメに近い窓（窓の見えている上の帯がサメに近いもの）だけが震える。時間になったら、予告なしで反対側の列のウィンドウへ向かって飛び出し、速く泳いで横切って飛び込む（横切るサメに当たるとダメージ）。これを GLITCH_FORK.leaps 回くり返す
+  //   rise ：最後に飛び込んだウィンドウから浮かんで、泳ぎ回りに戻る。ウィンドウは時間では消えず、ここでサメが浮かんだ時点で崩れて消える
+  // 当たり判定：ウィンドウは壁と同じで、入れない（縁にそって滑れる）。出た瞬間にそこにいたプレイヤーは、ダメージを受けて、2本の列のあいだの通り道へ横に押し出される（_forkCollide）。調整値は GLITCH_FORK、テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'fork'。
+  // 🔒 フォークボム中（サメが fork モードの間）は、武器が使えない（通常攻撃・各特殊武器の入口がこれを見る）。同じ間、右スティックは壊れた見た目になる（_ransomHud）
+  // 🌀 ワープ攻撃：サメが姿を現し終えたら、足元にウィンドウを出す（プレイヤーに付いてくる）→ castT 秒後に転送 → パターンの戦い → 終わったら元の場所へ戻る。サメは潜ったまま動かない（'warp' モード）。
+  _warpStart(S) {
+    const A = this.dungeon && this.dungeon.glitchArena;
+    if (!this.player || !A) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; }
+    const W = GLITCH_WARP, pat = W.patterns[Math.floor(Math.random() * W.patterns.length)];
+    S.mode = 'warp'; S.mt = 99; S.gw = { ph: 'win', t: 0, pat, back: null, ch: [], endT: null, x: this.player.x, y: this.player.y };
+    if (!this._gwG || !this._gwG.scene) this._gwG = this.add.graphics().setDepth(4.1); // プレイヤー(5)の下に出るウィンドウ
+    if (!this._gwTxG || !this._gwTxG.scene) this._gwTxG = this.add.graphics().setDepth(3); // 転送先の発信機
+    try { this.cameras.main.shake(200, 0.004); } catch (e) {}
+  }
+  _warpPhase(S, dt) {
+    const gw = S.gw, A = this.dungeon && this.dungeon.glitchArena, W = GLITCH_WARP, pl = this.player;
+    if (!gw || !A) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; }
+    const plOk = !!pl && this.playerHp > 0 && !this.isGhost;
+    gw.t += dt;
+    if (gw.ph === 'win') { // 足元のウィンドウ：ぽんと開いて、最後に縮みながら消える
+      if (plOk) { gw.x = pl.x; gw.y = pl.y + 6; }
+      this._warpDrawWin(gw);
+      if (gw.t >= W.castT) {
+        if (!plOk) { this._warpClear(); S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; } // 転送の前に力尽きた
+        gw.back = { x: pl.x, y: pl.y }; gw.ph = 'fight'; gw.t = 0;
+        if (this._gwG && this._gwG.scene) this._gwG.clear();
+        this.interruptBandage();
+        pl.setPosition(A.spawnX, A.spawnY);
+        try { this.cameras.main.flash(260, 60, 255, 120); this.cameras.main.centerOn(A.spawnX, A.spawnY); } catch (e) {}
+        this.spawnBurst(A.spawnX, A.spawnY, 0x3dff85, 14);
+        this.placeAlliesAtPlayer();
+        this.showBanner('🌀 転送：最北戦線', 1200);
+        const enter = this['_gwPat_' + gw.pat + '_enter']; if (enter) enter.call(this, S, A);
+      }
+    } else if (gw.ph === 'fight') {
+      this._warpDrawTx(A);
+      const chk = this['_gwPat_' + gw.pat + '_done'];
+      const done = !plOk || (chk ? chk.call(this, S, dt) : true);
+      if (done && gw.endT == null) gw.endT = gw.t; // 終わった：returnDelay 秒だけ待ってから戻る
+      if ((gw.endT != null && gw.t >= gw.endT + W.returnDelay) || gw.t >= W.maxStay) this._warpReturn(S, plOk);
+    }
+  }
+  _warpReturn(S, plOk) { // 元の場所へ戻る：敵を片づけて、転送前の位置へ（壁の中なら部屋の真ん中）。戻ったあとは、泳ぎ回りに戻る
+    const gw = S.gw, A = this.dungeon.glitchArena, pl = this.player;
+    this._warpClear();
+    if (plOk && pl && gw && gw.back && pl.x >= A.x0 - TILE * 2) { // 転送先にいる時だけ戻す（力尽きて部屋に戻された後などは、動かさない）
+      let nx = gw.back.x, ny = gw.back.y;
+      if (this.circleHitsWall(nx, ny, pl.radius || 10)) { const rm = this.dungeon.rooms[0]; nx = (rm.x + rm.w / 2) * TILE; ny = (rm.y + rm.h / 2) * TILE; }
+      this.interruptBandage();
+      pl.setPosition(nx, ny);
+      try { this.cameras.main.flash(260, 60, 255, 120); this.cameras.main.centerOn(nx, ny); } catch (e) {}
+      this.spawnBurst(nx, ny, 0x3dff85, 14);
+      this.placeAlliesAtPlayer();
+    }
+    S.gw = null; S.mode = 'fin'; S.mt = 3 + Math.random() * 3; S.wpT = 0;
+  }
+  _warpClear() { // ウィンドウ・発信機の絵・転送先の敵を片づける（何も無ければ何もしない）
+    const S = this._shark, gw = S && S.gw;
+    if (gw && gw.ch) for (const e of gw.ch) { if (!e) continue; if (!e._removed) this.rtRemoveEnemy(e); const i = this.enemies.indexOf(e); if (i >= 0) this.enemies.splice(i, 1); }
+    if (gw) gw.ch = [];
+    if (this._gwG && this._gwG.scene) this._gwG.clear();
+    if (this._gwTxG && this._gwTxG.scene) this._gwTxG.clear();
+  }
+  _warpDrawWin(gw) { // 足元のウィンドウ（フォークボムと同じ、緑のタイトルバーの窓）。下には転送の進み具合のバー
+    const g = this._gwG; if (!g || !g.scene) return; g.clear();
+    const W = GLITCH_WARP, R = Math.random, age = gw.t, u = Math.max(0, (age - (W.castT - 0.3)) / 0.3);
+    const pk = Math.min(1, age / 0.12), k = (0.35 + 0.65 * (1 - (1 - pk) * (1 - pk))) * (1 - 0.85 * u * u);
+    const gj = Math.max(0, 1 - age / 0.3) * 6 + u * 10, jx = (R() - 0.5) * gj, jy = (R() - 0.5) * gj * 0.4;
+    const a = Math.min(1, 0.3 + age / 0.06) * (1 - 0.6 * u);
+    const ww = W.winW * k, hh = W.winH * k, x = gw.x + jx - ww / 2, y = gw.y + jy - hh / 2, th = Math.min(24, Math.max(5, hh * 0.2)), sd = Math.max(5, ww * 0.012);
+    g.fillStyle(0x000000, 0.35 * a); g.fillRect(x + sd, y + sd, ww, hh);
+    g.fillStyle(0x03150a, 0.96 * a); g.fillRect(x, y, ww, hh);
+    g.fillStyle(0x0b6b22, 0.95 * a); g.fillRect(x, y, ww, th);
+    g.fillStyle(0x9dffb4, 0.8 * a); g.fillRect(x + 4, y + th * 0.3, th * 0.4, th * 0.4); g.fillRect(x + th * 0.4 + 8, y + th * 0.4, ww * 0.28, th * 0.2);
+    const bs = th * 0.62, by = y + (th - bs) / 2;
+    for (let b = 0; b < 3; b++) { const bx = x + ww - (b + 1) * (bs + 3) - 1; g.fillStyle(b === 0 ? 0xff2a55 : 0x1c8a38, 0.95 * a); g.fillRect(bx, by, bs, bs); }
+    const pw = ww * 0.8, px = x + (ww - pw) / 2, py = y + th + (hh - th) * 0.5, ph = Math.max(3, hh * 0.08); // 転送の進み具合
+    g.fillStyle(0x0b3d18, 0.9 * a); g.fillRect(px, py, pw, ph);
+    g.fillStyle(0x3dff85, 0.95 * a); g.fillRect(px, py, pw * Math.min(1, age / W.castT), ph);
+  }
+  _warpDrawTx(A) { // 転送先の発信機（最北戦線のものに似せた飾り。台座・アンテナ・緑のコア・広がる電波の輪）
+    const g = this._gwTxG; if (!g || !g.scene) return; g.clear();
+    const t = this.time.now, x = A.txX, y = A.txY, pulse = 0.5 + 0.5 * Math.sin(t / 260);
+    for (let i = 0; i < 3; i++) { const k = (t / 1400 + i / 3) % 1; g.lineStyle(2, 0x3dff85, 0.35 * (1 - k)); g.strokeCircle(x, y - 26, 14 + k * 70); }
+    g.fillStyle(0x23303a, 1); g.fillRect(x - 18, y + 2, 36, 14);
+    g.fillStyle(0x3b4a56, 1); g.fillRect(x - 3, y - 30, 6, 34);
+    g.fillStyle(0x3dff85, 0.6 + 0.4 * pulse); g.fillCircle(x, y - 32, 7);
+  }
+  // 🌀 パターン 'chargers'：転送された直後、プレイヤーを中心に円状にチャージャーが並ぶ。appear 秒たつと全員が突進の溜めを始めて、突進する。全員の突進が終わる（または倒す）と終わり。
+  _gwPat_chargers_enter(S, A) {
+    const C = GLITCH_WARP.chargers, gw = S.gw, base = ENEMY_TYPES.find(o => o.key === 'charger'); if (!base) return;
+    this._gwSeq = (this._gwSeq || 0) + 1;
+    const hp = Math.round(base.hp * C.hpMult), dmg = Math.round(base.damage * C.dmgMult);
+    for (let i = 0; i < C.n; i++) {
+      const ang = -Math.PI / 2 + i * Math.PI * 2 / C.n, x = A.spawnX + Math.cos(ang) * C.ring, y = A.spawnY + Math.sin(ang) * C.ring;
+      const e = this.rtMakeEnemy('charger', x, y, 'gw_' + this._gwSeq + '_' + i, hp, hp, dmg); if (!e) continue;
+      e.type = Object.assign({}, e.type, { chargeRange: C.range }); // どこに逃げても、突進を始める（この個体だけの複製）
+      e.timer = 99; e.chargeLock = C.appear; e.chargeLockMax = C.appear; e._gwD = false; // 並んでいる間は動かず、appear 秒かけて熱くなってから溜めに入る
+      gw.ch.push(e); this.spawnBurst(x, y, 0xff6b6b, 8);
+    }
+  }
+  _gwPat_chargers_done(S, dt) { // 生きている全員が、突進を一度して、終わっていれば true
+    let all = true;
+    for (const e of S.gw.ch) {
+      if (!e || e._removed || e.hp <= 0 || this.enemyById[e.id] !== e) continue; // 倒された
+      if (e.state === 'dash') { e._gwD = true; all = false; } else if (!e._gwD) all = false;
+    }
+    return all;
+  }
+  _ransomLock() { const S = this._shark; return !!(S && S.mode === 'fork' && S.fk && this._fork); }
+  _ransomStart(S) { // 🔀 ランサムウェア攻撃：サメが姿を現し終えたら、感染させる（_ransomT 秒、移動の操作が反転）。サメは castT 秒止まる（'ransom' モード）
+    const R = GLITCH_RANSOM; S.mode = 'ransom'; S.mt = R.castT; this._ransomT = R.t;
+    try { this.cameras.main.flash(250, 255, 40, 40); this.cameras.main.shake(300, 0.006); } catch (e) {}
+  }
+  _ransomHud() { // 武器ロック中・操作反転中だけ、画面上部に赤い警告を出す（右スティックの乱れはロック中だけ。スマホ）
+    const lock = this._ransomLock(), inv = this._ransomT > 0, show = lock || inv;
+    if (lock !== this._ransomOn) { this._ransomOn = lock; const b = document.getElementById('aimJoystickBase'); if (b) b.classList.toggle('ransomGlitch', lock); }
+    if (show && (!this._ransomTxt || !this._ransomTxt.scene)) this._ransomTxt = this.add.text(this.scale.width / 2, 60, '', { fontSize: '22px', color: '#ff4d4d', backgroundColor: '#000000bb', padding: { x: 12, y: 6 }, align: 'center' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(1000);
+    if (this._ransomTxt && this._ransomTxt.scene) {
+      this._ransomTxt.setVisible(show);
+      if (show) { this._ransomTxt.setText([lock ? '🔒 RANSOMWARE：武器ロック中' : '', inv ? '🔀 操作反転 ' + this._ransomT.toFixed(1) + ' 秒' : ''].filter(Boolean).join('\n')); this._ransomTxt.setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 90)); }
+    }
+  }
+  _forkStart(S) {
+    const room = S.room, F = GLITCH_FORK, pl = this.player, plOk = !!pl && this.playerHp > 0, rx = room.x * TILE, ry = room.y * TILE, rw = room.w * TILE, rh = room.h * TILE;
+    const W = Math.min(F.w, rw * 0.8), H = Math.min(F.h, rh * 0.8); // 部屋が小さい時は、収まる大きさまで小さくする
+    const y0 = ry - H / 2; // 2つとも同じ高さ：ウィンドウの下端が、部屋の上端にぴったり重なる（一番上のウィンドウ）
+    const kx = F.stepX / F.stepY, gap = W + kx * H + F.corridor; // kx＝列の傾き（下へ1進むと右へいくつ進むか）／gap＝2つの中心の横の間隔：窓の幅W＋斜めに重なって太くなる分(kx*H)を引いても、通り道が corridor だけ空く広さ
+    const xp = plOk ? pl.x - kx * (pl.y - y0) : rx + rw / 2; // プレイヤーを通る「右下へ向かう直線」が、ウィンドウの高さ(y0)を通る横位置
+    const Lw = { x: xp - gap / 2, y: y0 }, Rw = { x: xp + gap / 2, y: y0 }; // プレイヤーの左側を通る列と、右側を通る列：どちらも右下へ進むので、プレイヤーは2列の間に入る（窓が部屋から大きくはみ出してもよい＝いつでも挟むことを優先）
+    const cxm = rx + rw / 2, nearL = Math.abs(Lw.x - cxm) <= Math.abs(Rw.x - cxm);
+    const B = nearL ? Lw : Rw, A = nearL ? Rw : Lw; // B＝部屋の真ん中に近いほう（サメが潜る）／A＝もう一方
+    const chain = o => { const pts = []; for (let i = 1; i <= F.maxN; i++) { const q = { x: o.x + F.stepX * i, y: o.y + F.stepY * i }; if (q.y - H / 2 > ry + rh) break; pts.push(q); } return pts; }; // 横の壁（部屋の左右の端）では止まらず、一番下のウィンドウは、上端が部屋の下端に重なるところまで（それより下には出ない）
+    if (this._forkG && this._forkG.scene) this._forkG.destroy();
+    this._forkG = this.add.graphics().setDepth(4.6); // サメの体・文字(〜4.5)より手前、プレイヤー(5)より奥：サメは、全ウィンドウの下に描かれる
+    this._fork = { wins: [], cols: { A: [], B: [] }, warns: [], seq: 0, clock: 0, done: false, w: W, h: H, mid: { x0: (Lw.x + Rw.x) / 2, y0, kx }, last: null, push: 0, pushT: 0 }; // mid＝2本の列のまん中を通る線（通り道の中心。y0の高さでの横位置x0、下へ進むと右へkxずつ寄る）／last＝最後に窓と重なっていなかった位置／push＝押し出し中の向き（±1）
+    const sp10 = this._sharkShape(S, S.x, S.y, S.a, S.ph, S.bend).sp[10];
+    const f = S.fk = { ph: 'warn', t: 0, A, B, cur: null, tgt: null, k: 0, p0: null, p1: null, hit: false, chA: chain(A), chB: chain(B), i: 0, tick: 0, down: false, off: { x: S.x - sp10.x, y: S.y - sp10.y } }; // off＝体の中心から背びれまでのずれ（背びれをウィンドウの中央に合わせるため）
+    f.n = Math.max(f.chA.length, f.chB.length);
+    S.mode = 'fork'; S.mt = 99; S.fkHide = false;
+    this._fork.warns = [A, B, ...f.chA, ...f.chB].map(q => ({ x: q.x, y: q.y })); // 🚨 ウィンドウが出る位置すべてに、まず赤い枠線の警告を出す（出た位置から順に消える）
+  }
+  _forkPop(x, y, col) { // ウィンドウを1枚出す（col＝'A'か'B'：どちらの列か。飛び込みで「反対側」を選ぶのに使う）
+    const R = Math.random, Fk = this._fork;
+    const w = { x, y, w: Fk.w, h: Fk.h, col, ci: Fk.cols[col].length, seq: Fk.seq++, vib: false, vibT: 0, tele: false, born: Fk.clock, kill: null, fresh: true, lens: [0.5 + R() * 0.5, 0.35 + R() * 0.55, 0.25 + R() * 0.6, 0.4 + R() * 0.5, 0.2 + R() * 0.6] };
+    Fk.wins.push(w); Fk.cols[col].push(w); Fk.warns = (Fk.warns || []).filter(q => Math.abs(q.x - x) > 1 || Math.abs(q.y - y) > 1); // 出た位置の警告枠は消す
+    this.spawnBurst(x, y, 0x2aff5a, 6);
+    return w;
+  }
+  _forkWin(x, y) { const Fk = this._fork; return Fk ? Fk.wins.find(w => Math.abs(w.x - x) < 1 && Math.abs(w.y - y) < 1) || null : null; }
+  _forkTopNear(col, x, y) { // 🪟 見えている部分（窓の上の帯：次の窓が右下に重なるので、下は隠れる）が、点(x,y)にいちばん近い窓。窓の中心ではなく、上の帯で考える
+    const F = GLITCH_FORK, Fk = this._fork; let best = null, bd = Infinity;
+    const oc = col === Fk.cols.A ? Fk.cols.B : Fk.cols.A, left = !oc.length || !col.length || col[0].x < oc[0].x; // 左の列か（通路は右側）
+    for (const w of col) {
+      if (w.kill != null && Fk.clock >= w.kill) continue;
+      const cx = left ? w.x + w.w / 2 : w.x - w.w / 2, cy = left ? w.y - w.h / 2 : w.y + w.h / 2, d = Math.hypot(cx - x, cy - y); // 通路側の角（左の列なら右上、右の列なら左下）がサメに最も近い窓
+      if (d < bd) { bd = d; best = w; }
+    }
+    return best;
+  }
+  _forkBurrowStart(f, S) { // 🪟 飛び込んだ窓の下に潜ったまま、その列に沿って上下に動き始める
+    const Fk = this._fork, F = GLITCH_FORK, cur = f.cur, col = Fk && cur && Fk.cols[cur.col];
+    if (!col || !col.length) { f.ph = 'rise'; f.t = 0; return; }
+    f.col = cur.col; f.bs = cur.ci; f.bt = cur.ci; f.bT = F.burrowMin + Math.random() * (F.burrowMax - F.burrowMin); // bs＝列の上の今の位置（窓の番号。小数）／bt＝向かう位置／bT＝潜っている時間
+    f.vibW = null; f.stay = 0; f.jit = (Math.random() * 2 - 1) * F.burrowWobble; /* 上下に、-burrowWobble〜+burrowWobble 枚分の乱数でずらす（0に固めない） */ f.ph = 'burrow'; f.t = 0; f.hit = false;
+  }
+  _forkBurrow(f, S, dt) { // 🪟 潜っている間：列の中心線に沿って、プレイヤーの高さへ向かって上下に動く。サメに近い窓だけが震える。時間になったら飛び出す
+    const Fk = this._fork, F = GLITCH_FORK, col = Fk && Fk.cols[f.col]; if (!col || !col.length) { f.ph = 'rise'; f.t = 0; return; }
+    const w0 = col[0], last = col.length - 1, pl = this.player, stay = f.t >= f.bT; if (stay) f.stay = (f.stay || 0) + dt; // stay＝潜る時間が終わって、飛び出す前にその場で留まっている間（追わない・震えは続く）
+    if (!stay && pl && this.playerHp > 0 && !this.isGhost) f.bt = ((pl.x - w0.x) * F.stepX + (pl.y - w0.y) * F.stepY) / (F.stepX * F.stepX + F.stepY * F.stepY) + (f.jit || 0); // プレイヤーを通る、列に直角な線上の位置へ（そのまま飛び出せば当たる位置）。jit＝そこから列に沿って上下にずらす量（窓の枚数）
+    f.bt = Math.max(0, Math.min(last, f.bt));
+    const ds = stay ? 0 : F.burrowSpeed / F.stepY * dt; f.bs = Math.max(0, Math.min(last, f.bs + Math.max(-ds, Math.min(ds, f.bt - f.bs))));
+    S.x = w0.x + F.stepX * f.bs; S.y = w0.y + F.stepY * f.bs; S.fkHide = true; // 見えない（窓の下）
+    const nw = this._forkTopNear(col, S.x, S.y); if (f.vibW && f.vibW !== nw) f.vibW.vib = false; f.vibW = nw; if (nw) nw.vib = true; // サメに近い窓だけ震える
+    if (stay && f.stay >= F.stayT) this._forkLeapStart(f, S);
+  }
+  _forkLeapStart(f, S) { // 🪟 予告なしで飛び出す：反対側の列の、プレイヤーに近い窓へ向かって（向きはこの瞬間に決まる）
+    const Fk = this._fork, pl = this.player, plOk = !!pl && this.playerHp > 0, oc = f.col === 'A' ? 'B' : 'A';
+    const cand = ((Fk && Fk.cols[oc]) || []).filter(w => w.kill == null || Fk.clock < w.kill);
+    if (!cand.length) { f.ph = 'rise'; f.t = 0; return; }
+    const ref = plOk ? pl : S; cand.sort((a, b) => Math.hypot(a.x - ref.x, a.y - ref.y) - Math.hypot(b.x - ref.x, b.y - ref.y));
+    const F = GLITCH_FORK, sl = Math.hypot(F.stepX, F.stepY), ux = F.stepX / sl, uy = F.stepY / sl; // u＝列の向き（右下）
+    cand.sort((a, b) => Math.abs((a.x - S.x) * ux + (a.y - S.y) * uy) - Math.abs((b.x - S.x) * ux + (b.y - S.y) * uy)); // 列に直角な線上に最も近い窓
+    f.tgt = cand[0];
+    if (f.vibW) { f.vibW.vib = false; f.vibW = null; } // 飛び出した瞬間に、震えは止まる
+    let nx = -uy, ny = ux; if ((f.tgt.x - S.x) * nx + (f.tgt.y - S.y) * ny < 0) { nx = -nx; ny = -ny; } // 列に直角で、反対側の列へ向かう向き
+    const dn = (f.tgt.x - S.x) * nx + (f.tgt.y - S.y) * ny, tx = nx, ty = ny;
+    f.dir = { x: nx, y: ny }; f.p1 = { x: S.x + nx * dn, y: S.y + ny * dn }; // 直角に進んだ先（反対側の窓の中心と同じ距離）
+    S.a = Math.atan2(ty, tx); S.bend = 0; S.dive = 0; S.z = 0; S.fkHide = false; f.down = false;
+    f.ph = 'leap'; f.t = 0; f.hit = false;
+  }
+  _forkMove(S, dt, plOk, plr) { // フォークボム中のサメの動き
+    const f = S.fk; if (!f) return; const wrap = d => Math.atan2(Math.sin(d), Math.cos(d));
+    if (f.ph === 'open' || f.ph === 'warn') { // その場で止まって、プレイヤーの方を向く
+      S.v *= Math.max(0, 1 - dt * 5); if (plOk) { const d = wrap(Math.atan2(plr.y - S.y, plr.x - S.x) - S.a); S.a += Math.max(-4 * dt, Math.min(4 * dt, d)); }
+      S.bend *= Math.max(0, 1 - dt * 4); S.ph += dt * Math.PI * 2 * S.beat * 0.8;
+    } else if (f.ph === 'swim') { // 真ん中のウィンドウへ。背びれがそこに着くように、体の中心はずれの分だけ先を狙う
+      const want = Math.atan2(f.B.y + f.off.y - S.y, f.B.x + f.off.x - S.x), tn = S.turn * 3, d = wrap(want - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d));
+      S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5);
+      const tv = S.speed * 4.5 * (0.9 + 0.1 * Math.cos(S.ph * 2)) * (1 - 0.25 * Math.abs(S.bend)); S.v += (tv - S.v) * Math.min(1, dt * 5);
+      S.ph += dt * Math.PI * 2 * S.beat * 2.5;
+    } else if (f.ph === 'leap') { // 🪟 leap＝窓の下から予告なしで飛び出して、加速して、反対側のウィンドウまで速く泳いで横切る（空中には上がらない）
+      const F = GLITCH_FORK, sp = F.peekSpeed + (F.leapSpeed - F.peekSpeed) * Math.min(1, f.t / F.accT);
+      S.x += f.dir.x * sp * dt; S.y += f.dir.y * sp * dt; S.z = 0;
+      S.a = Math.atan2(f.dir.y, f.dir.x); S.v = 0; S.bend = 0; S.ph += dt * Math.PI * 2 * S.beat * 3.2;
+      return;
+    } else if (f.ph === 'sink') { S.v *= Math.max(0, 1 - dt * 6); S.bend *= Math.max(0, 1 - dt * 4); S.ph += dt * Math.PI * 2 * S.beat * 0.7; }
+    else { S.v = 0; S.ph += dt * Math.PI * 2 * S.beat * 0.4; }
+    S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+  }
+  _forkPhase(S, shp, dt, splashBurst) { // フォークボムの進行（shp＝いまのサメの形）
+    const f = S.fk, F = GLITCH_FORK, R = Math.random; if (!f) { S.mode = 'fin'; S.mt = 3; return; }
+    const fb = shp.sp[10]; f.t += dt; f.off.x = S.x - fb.x; f.off.y = S.y - fb.y;
+    if (f.ph === 'warn') { // 🚨 赤い枠の警告が点滅している間は、まだウィンドウは出ない
+      if (f.t >= F.warnT) { this._forkPop(f.A.x, f.A.y, 'A'); this._forkPop(f.B.x, f.B.y, 'B'); f.ph = 'open'; f.t = 0; try { this.cameras.main.shake(120, 0.004); } catch (e) {} }
+    } else if (f.ph === 'open') { if (f.t >= F.openT) { f.ph = 'swim'; f.t = 0; } }
+    else if (f.ph === 'swim') {
+      if (Math.hypot(fb.x - f.B.x, fb.y - f.B.y) < TILE * 0.9 || f.t > 3.5) { f.ph = 'sink'; f.t = 0; f.down = true; splashBurst(20, { x: f.B.x, y: f.B.y }); } // 背びれがウィンドウの中央に来たら潜る（着かないまま3.5秒たっても潜る）
+    } else if (f.ph === 'sink') {
+      S.x += (f.B.x - fb.x) * Math.min(1, dt * 8); S.y += (f.B.y - fb.y) * Math.min(1, dt * 8); // 背びれをウィンドウの中央へ寄せる
+      if (S.dive >= 1 && f.t >= 0.5) { f.ph = 'wait'; f.t = 0; S.fkHide = true; splashBurst(30, { x: f.B.x, y: f.B.y }); this.spawnBurst(f.B.x, f.B.y, 0x2aff5a, 16); } // ウィンドウに飲み込まれて見えなくなる
+    } else if (f.ph === 'wait') { if (f.t >= F.waitT) { f.ph = 'chain'; f.t = 0; f.i = 0; f.tick = 0; try { this.cameras.main.shake(F.interval * 1000 * Math.max(1, f.n) + 100, 0.003); } catch (e) {} } }
+    else if (f.ph === 'chain') { // ダダダダ：2つのウィンドウから、右下へ1枚ずつ同時に増えていく
+      f.tick -= dt;
+      while (f.tick <= 0 && f.i < f.n) { f.tick += F.interval; const a = f.chA[f.i], b = f.chB[f.i]; if (a) this._forkPop(a.x, a.y, 'A'); if (b) this._forkPop(b.x, b.y, 'B'); f.i++; }
+      if (f.i >= f.n && !this._fork.done) this._forkFinish();
+      if (f.i >= f.n && f.t >= f.n * F.interval + F.riseDelay) { f.cur = this._forkWin(f.B.x, f.B.y); f.k = 0; this._forkBurrowStart(f, S); } // 増え終わったら、窓の下を動き回る攻撃へ
+    } else if (f.ph === 'burrow') { this._forkBurrow(f, S, dt); // 🪟 窓の下に潜ったまま列に沿って上下に動く（サメに近い窓が震える）。時間になったら、予告なしで飛び出す
+    } else if (f.ph === 'leap') { // 🪟 横切っている間：サメにぶつかるとダメージ
+      const pl = this.player;
+      if (!f.hit && pl && this.playerHp > 0 && !this.isGhost && Math.hypot(pl.x - S.x, pl.y - S.y) < TILE * 1.2 * S.sc + (pl.radius || TILE * 0.32)) { if (this._sharkHurt(F.leapDamage, 1.0)) { f.hit = true; this.spawnBurst(pl.x, pl.y, 0x2aff5a, 14); try { this.cameras.main.shake(200, 0.01); } catch (e) {} } }
+      if ((S.x - f.p1.x) * f.dir.x + (S.y - f.p1.y) * f.dir.y >= 0 || f.t > 4) { // 反対側のウィンドウの中心まで来た：飛び込む
+        f.ph = 'ldive'; f.t = 0; f.cur = f.tgt; f.tgt.tele = false; f.down = true; S.x = f.p1.x; S.y = f.p1.y;
+        splashBurst(34, { x: f.cur.x, y: f.cur.y }); this.spawnBurst(f.cur.x, f.cur.y, 0x2aff5a, 16);
+      }
+    } else if (f.ph === 'ldive') { // 背びれをウィンドウの中央へ寄せて、飲み込まれる
+      S.x += (f.cur.x - fb.x) * Math.min(1, dt * 8); S.y += (f.cur.y - fb.y) * Math.min(1, dt * 8);
+      if (S.dive >= 1 && f.t >= 0.3) { S.fkHide = true; splashBurst(22, { x: f.cur.x, y: f.cur.y }); f.k++; f.ph = f.k >= F.leaps ? 'rise' : 'pause'; f.t = 0; }
+    } else if (f.ph === 'pause') { if (f.t >= F.leapPause) this._forkBurrowStart(f, S); // 少し間をおいて、また窓の下を動き回る
+    } else { // rise：最後に飛び込んだウィンドウから浮かんで、泳ぎ回りに戻る
+      const hp = f.cur || f.B; if (f.cur) f.cur.vib = false; if (f.tgt) f.tgt.tele = false;
+      const Fk = this._fork; if (Fk) { Fk.done = true; Fk.wins.forEach((w, i) => { if (w.kill == null || w.kill > Fk.clock) w.kill = Fk.clock + i * 0.015; }); } // 🪟 技が終わったら、ウィンドウは（30秒を待たずに）順番に崩れて消える
+      S.fkHide = false; S.fk = null; splashBurst(34, { x: hp.x, y: hp.y }); this.spawnBurst(hp.x, hp.y, 0x2aff5a, 14);
+      S.mode = 'fin'; S.mt = 3.5 + R() * 3; S.wpT = 0;
+    }
+  }
+  _forkFinish() { // 増え終わった：しばらく残したあと、順番に崩れて消える
+    const F = GLITCH_FORK, Fk = this._fork; if (!Fk) return; Fk.done = true;
+    Fk.wins.forEach((w, i) => { w.kill = Fk.clock + F.hold + i * 0.02; });
+  }
+  _forkCollide(Fk, dt) { // 🪟 ウィンドウの当たり判定：出た瞬間にそこにいたらダメージ→通り道へ横に押し出す／すでにあるウィンドウには入れない
+    const pl = this.player, F = GLITCH_FORK; if (!pl || this.playerHp <= 0 || this.isGhost || this.isDowned) { Fk.push = 0; return; }
+    const pr = pl.radius || TILE * 0.32, act = Fk.wins.filter(w => w.kill == null || Fk.clock < w.kill); // 消え始めたウィンドウには、もう当たらない
+    const hitW = (w, x, y) => { const ex = Math.max(Math.abs(x - w.x) - w.w / 2, 0), ey = Math.max(Math.abs(y - w.y) - w.h / 2, 0); return ex * ex + ey * ey < pr * pr; };
+    const hit = (x, y) => act.some(w => hitW(w, x, y));
+    for (const w of act) { // 出たばかりのウィンドウに重なっていたら：ダメージ＋押し出し開始（通り道は、2本の列のまん中。そちら側へ横に押す）
+      if (!w.fresh) continue; w.fresh = false;
+      if (Fk.push || !hitW(w, pl.x, pl.y)) continue;
+      const xc = Fk.mid.x0 + Fk.mid.kx * (pl.y - Fk.mid.y0); Fk.push = xc >= pl.x ? 1 : -1; Fk.pushT = 0;
+      this._sharkHurt(F.damage, 0.8); this.spawnBurst(pl.x, pl.y, 0x2aff5a, 12); try { this.cameras.main.shake(160, 0.008); } catch (e) {}
+    }
+    if (Fk.push) { // 押し出し中：通り道へ向かって、横へ速く動かす（壁があれば、そこで止まる）
+      Fk.pushT += dt; const nx = pl.x + Fk.push * F.pushSpeed * dt;
+      if (!this.circleHitsWall(nx, pl.y, pr)) pl.x = nx; else Fk.pushT = 99;
+      if (!hit(pl.x, pl.y)) { Fk.push = 0; Fk.last = { x: pl.x, y: pl.y }; } // 窓から出た
+      else if (Fk.pushT > 1.2) Fk.push = 0; // 出きれない時はあきらめて、下の「入れない」の処理で、最後に窓と重なっていなかった位置へ戻す
+      else return;
+    }
+    if (hit(pl.x, pl.y)) { // すでにあるウィンドウには入れない：入ろうとした方向の動きだけ止める（縁にそって滑れる）
+      const L = Fk.last; if (!L) return;
+      if (!hit(pl.x, L.y)) pl.y = L.y; else if (!hit(L.x, pl.y)) pl.x = L.x; else { pl.x = L.x; pl.y = L.y; }
+    } else Fk.last = { x: pl.x, y: pl.y };
+  }
+  _forkUpdate(dt) { // ウィンドウの出現・消滅・描画（サメの状態とは関係なく、毎フレーム）
+    const Fk = this._fork; if (!Fk) return; const g = this._forkG; if (!g || !g.scene) { this._fork = null; return; }
+    Fk.clock += dt; g.clear(); const R = Math.random, FADE = 0.45;
+    for (const q of (Fk.warns || [])) { // 🚨 これから出るウィンドウの位置に、赤い枠線の警告（点滅）
+      const bl = 0.55 + 0.45 * Math.sin(Fk.clock * 14), wx = q.x - Fk.w / 2, wy = q.y - Fk.h / 2;
+      g.fillStyle(0xff2a55, 0.07 * bl); g.fillRect(wx, wy, Fk.w, Fk.h); g.lineStyle(3, 0xff2a55, 0.85 * bl); g.strokeRect(wx, wy, Fk.w, Fk.h);
+    }
+    Fk.wins = Fk.wins.filter(w => w.kill == null || Fk.clock - w.kill < FADE);
+    for (const w of Fk.wins) {
+      const age = Fk.clock - w.born, u = w.kill == null ? 0 : Math.max(0, Math.min(1, (Fk.clock - w.kill) / FADE)); // age＝出てからの秒数／u＝消え始めてからの進み（0〜1）
+      const pk = Math.min(1, age / 0.12), k = 0.35 + 0.65 * (1 - (1 - pk) * (1 - pk)); // 出る時は、小さい所からぽんと開く
+      const gj = Math.max(0, 1 - age / 0.3) * 6 + u * 10, jx = (R() - 0.5) * gj + (w.vib ? (R() - 0.5) * 2 * GLITCH_FORK.vibAmp : 0), jy = (R() - 0.5) * gj * 0.4 + (w.vib ? (R() - 0.5) * 1.2 * GLITCH_FORK.vibAmp : 0); // 出る時・消える時は横にぶれる／サメに近い窓（vib）は、震える // 出る時と消える時は、横にぶれる
+      const a = Math.min(1, 0.3 + age / 0.06) * (1 - u) * (u > 0 && R() < 0.3 ? 0.5 : 1);
+      const ww = w.w * k, hh = w.h * k, x = w.x + jx - ww / 2, y = w.y + jy - hh / 2, th = Math.min(24, Math.max(5, hh * 0.2)), sd = Math.max(5, ww * 0.012), lh = Math.max(3, hh * 0.022); // th＝タイトルバーの高さ／sd＝影のずれ／lh＝文字線の太さ
+      g.fillStyle(0x000000, 0.35 * a); g.fillRect(x + sd, y + sd, ww, hh); // 影
+      g.fillStyle(0x03150a, 0.96 * a); g.fillRect(x, y, ww, hh); // 本体
+      g.fillStyle(0x0b6b22, 0.95 * a); g.fillRect(x, y, ww, th); // タイトルバー
+      g.fillStyle(0x9dffb4, 0.8 * a); g.fillRect(x + 4, y + th * 0.3, th * 0.4, th * 0.4); g.fillRect(x + th * 0.4 + 8, y + th * 0.4, ww * 0.28, th * 0.2); // タイトルの小さな印
+      const bs = th * 0.62, by = y + (th - bs) / 2;
+      for (let b = 0; b < 3; b++) { const bx = x + ww - (b + 1) * (bs + 3) - 1; g.fillStyle(b === 0 ? 0xff2a55 : 0x1c8a38, 0.95 * a); g.fillRect(bx, by, bs, bs); if (b === 0) { g.lineStyle(1, 0xffffff, 0.9 * a); g.lineBetween(bx + 2, by + 2, bx + bs - 2, by + bs - 2); g.lineBetween(bx + bs - 2, by + 2, bx + 2, by + bs - 2); } } // 右端が赤い「×」
+      const ix = x + ww * 0.2, iy = y + th + (hh - th) * 0.5, is = Math.min(ww * 0.14, (hh - th) * 0.32); // 赤い警告マーク
+      g.fillStyle(0xff2a55, 0.85 * a); g.fillTriangle(ix, iy - is, ix - is * 1.1, iy + is, ix + is * 1.1, iy + is);
+      g.fillStyle(0x03150a, 0.95 * a); g.fillRect(ix - 1, iy - is * 0.35, 2, is * 0.7); g.fillRect(ix - 1, iy + is * 0.5, 2, 2);
+      g.fillStyle(0x2aff5a, 0.5 * a); for (let l = 0; l < 5; l++) g.fillRect(x + ww * 0.38, y + th + (hh - th) * (0.16 + l * 0.15), ww * 0.52 * w.lens[l], lh); // 文字のつもりの線
+      g.lineStyle(1, 0xff2a55, 0.45 * a); g.strokeRect(x - 1.5, y, ww, hh); g.lineStyle(1, 0x2af0ff, 0.45 * a); g.strokeRect(x + 1.5, y, ww, hh); // 赤とシアンの色ずれ
+      g.lineStyle(2, 0x2aff5a, 0.9 * a); g.strokeRect(x, y, ww, hh); // 緑の縁
+      if (w.tele) { const rb = 0.55 + 0.45 * Math.sin(Fk.clock * 18); g.fillStyle(0xff2a55, (w.vib ? 0.22 : 0.14) * rb * a); g.fillRect(x, y, ww, hh); g.lineStyle(4, 0xff2a55, 0.95 * rb * a); g.strokeRect(x - 3, y - 3, ww + 6, hh + 6); } // 🚨 飛び出し元と飛び込み先は、赤く点滅
+    }
+    this._forkCollide(Fk, dt); // 🪟 当たり判定
+    if (Fk.done && !Fk.wins.length) { g.destroy(); this._forkG = null; this._fork = null; }
+  }
+
+  // 🦈 サメ1体を描く（本体もダミーも同じ関数）。S＝サメの状態／shp＝形／g＝体／g0＝空中の影（無ければ null）／g2＝背びれ・波紋・しぶき。
+  //   S.dm（0〜1）が正の間は、緑が紫へずれて背びれも小さくなる（シェルゲームのダミーの目印。0で本体と見分けがつかなくなる）。
+  _sharkDrawOne(S, shp, g, g0, g2) {
+    const N = 22, kfin = S.dive * S.dive * (3 - 2 * S.dive), finH = TILE * 0.85 * S.sc * kfin * (1 - 0.3 * (S.dm || 0));
+    g.clear(); if (g0) g0.clear(); if (g2) g2.clear(); g.setAlpha(1 - S.dive); // 潜るほど、体は床の下に沈んで見えなくなる
+    const hide = !S.vis || this.playerHp <= 0;
+    for (const q of S.txts) q.setVisible(!hide && S.dive < 0.95 && !S.sg);
+    if (hide) return;
+    const MAIN = (S.dm || 0) > 0 ? this._sgMix(0x2aff5a, 0xc06bff, S.dm) : 0x2aff5a, HOT = 0xff2a55, COLD = 0x2af0ff, all = [shp.body, shp.fL, shp.fR];
+    for (let k = S.trail.length - 1; k >= 0; k--) { const q = S.trail[k], gs = this._sharkShape(S, q.x, q.y - (q.z || 0), q.a, q.ph, q.bend); g.lineStyle(1, MAIN, 0.04 + 0.025 * (S.trail.length - k)); this._sharkPath(g, gs.body, 0, 0); g.strokePath(); }
+    for (const b of S.bits) { g.fillStyle(MAIN, 0.5 * (b.life / 0.9)); g.fillRect(b.x - b.sz * S.sc / 2, b.y - b.sz * S.sc / 2, b.sz * S.sc, b.sz * S.sc); }
+    g.lineStyle(1, HOT, 0.4); for (const p of all) { this._sharkPath(g, p, -S.sh, 0); g.strokePath(); } // 赤とシアンの色ずれ
+    g.lineStyle(1, COLD, 0.4); for (const p of all) { this._sharkPath(g, p, S.sh, 0); g.strokePath(); }
+    g.fillStyle(0x03150a, 0.96); g.lineStyle(2, MAIN, 0.85); for (const p of [shp.fL, shp.fR]) { this._sharkPath(g, p, 0, 0); g.fillPath(); g.strokePath(); } // 胸びれ（縁も、ここで描く＝このあと描く体が、付け根の上にかぶさる）
+    g.fillStyle(0x041a0b, 0.97); this._sharkPath(g, shp.body, 0, 0); g.fillPath(); // 体
+    g.fillStyle(0x0a3a1a, 0.55); this._sharkPath(g, shp.inner, 0, 0); g.fillPath(); // 体の中の少し明るい部分（丸みが出る）
+    g.lineStyle(2, 0x9dffb4, 0.5); g.lineBetween(shp.dors[0].x, shp.dors[0].y, shp.dors[1].x, shp.dors[1].y); // 背びれの筋
+    g.lineStyle(1, MAIN, 0.6); for (const [p, q] of shp.gills) g.lineBetween(p.x, p.y, q.x, q.y); // えらの切れ込み
+    const COLS = [[MAIN, 0.5], [0x9dffb4, 0.45], [0x0e6b2a, 0.75], [0xc8ffd4, 0.55]];
+    for (const f of S.frag) { // 四角い欠片
+      if (!f.on) continue; const fi = f.s * N, i = Math.min(N - 1, Math.floor(fi)), u = fi - i, a0 = shp.sp[i], a1 = shp.sp[i + 1], n0 = shp.nn[i], n1 = shp.nn[i + 1], h = shp.hw[i] + (shp.hw[i + 1] - shp.hw[i]) * u;
+      const x = a0.x + (a1.x - a0.x) * u + (n0.x + (n1.x - n0.x) * u) * f.v * h, y = a0.y + (a1.y - a0.y) * u + (n0.y + (n1.y - n0.y) * u) * f.v * h, c = COLS[f.c];
+      g.fillStyle(c[0], Math.abs(f.v) > 1 ? c[1] * 0.7 : c[1]); g.fillRect(x - f.sz * S.sc / 2, y - f.sz * S.sc / 2, f.sz * S.sc, f.sz * S.sc);
+    }
+    let y0 = Infinity, y1 = -Infinity; for (const p of shp.body) { if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; }
+    g.fillStyle(0x000000, 0.12); for (let yy = Math.ceil(y0 / 5) * 5; yy < y1; yy += 5) { const sp = this._sharkSpan(shp.body, yy); if (sp) g.fillRect(sp[0], yy, sp[1] - sp[0], 1); } // 走査線
+    for (const q of S.tears) { const yy = y0 + q.fy * (y1 - y0), sp = this._sharkSpan(shp.body, yy); if (sp) { g.fillStyle(q.c, 0.32); g.fillRect(sp[0] + q.dx, yy, sp[1] - sp[0], q.h); } } // 横にずれた帯（体の中だけ）
+    g.lineStyle(2, MAIN, 0.85); this._sharkPath(g, shp.body, 0, 0); g.strokePath(); // 縁（体と尾びれは一つながり。胸びれの縁は、体より下に先に描いてある）
+    g.fillStyle(HOT, 0.95); g.fillStyle(HOT, 0.9); for (const e of shp.eyes) g.fillRect(e.x - 2.5 * S.sc, e.y - 2.5 * S.sc, 5 * S.sc, 5 * S.sc); // 赤い目
+    g.fillStyle(0xffffff, 0.8); for (const e of shp.eyes) g.fillRect(e.x - 0.5, e.y - 0.5, 1.5, 1.5);
+    const rot = Math.cos(S.a) < 0 ? S.a + Math.PI : S.a; // 文字は、体の向きに沿わせる（逆さまにならないように）
+    S.txts.forEach((q, k) => { const p = shp.sp[Math.round([0.32, 0.5, 0.68][k] * N)]; q.setPosition(p.x, p.y).setRotation(rot).setAlpha(0.7 * (1 - S.dive)); });
+    // --- 🌊 潜航：背びれだけが床の上に出る。根元に波紋、後ろにV字の航跡、緑のしぶき ---
+    if (g0 && S.z > 1) { g0.fillStyle(0x021008, 0.32); for (let i = 1; i <= N - 1; i += 2) g0.fillEllipse(shp.sp[i].x, shp.sp[i].y + S.z, shp.hw[i] * 1.9, shp.hw[i] * 0.9); } // 影（地面の位置）
+    if (g2) {
+      const kd = S.dive, ez = kd * kd * (3 - 2 * kd), ca = Math.cos(S.a), sa = Math.sin(S.a);
+      if (kd > 0.02) {
+        const b0 = shp.sp[9], b1 = shp.sp[12], mx = (b0.x + b1.x) / 2, my = (b0.y + b1.y) / 2, H = finH;
+        g2.fillStyle(0x021008, 0.55 * ez); g2.fillEllipse(mx, my + 2, 40 * S.sc, 15 * S.sc); // 背びれの根元の、床にあいた暗い穴
+        for (let j = 0; j < 3; j++) { const q = (S.age * 0.9 + j / 3) % 1, rx = (14 + q * 34) * S.sc; g2.lineStyle(1, MAIN, 0.55 * (1 - q) * ez); g2.strokeEllipse(mx, my + 2, rx * 2, rx * 0.9); } // 広がる波紋
+        const tip = { x: b0.x + (b1.x - b0.x) * 0.95, y: my - H }, cv = { x: (tip.x + b1.x) / 2 - (b1.x - b0.x) * 0.08, y: my - H * 0.5 }, fin = [b0, tip, cv, b1]; // 前側の辺（b0→先端）が長く、後ろ側の辺（先端→b1）は短くて切り立った三角形
+        g.setAlpha(1 - S.dive); // （体の側は上で設定済み）
+        g2.lineStyle(1, 0xff2a55, 0.4 * ez); this._sharkPath(g2, fin, -S.sh, 0); g2.strokePath(); g2.lineStyle(1, 0x2af0ff, 0.4 * ez); this._sharkPath(g2, fin, S.sh, 0); g2.strokePath(); // 赤とシアンの色ずれ
+        g2.fillStyle(0x041a0b, 0.97); this._sharkPath(g2, fin, 0, 0); g2.fillPath(); // 背びれ
+        g2.fillStyle(0x0a3a1a, 0.6); this._sharkPath(g2, [b0, { x: tip.x + (b1.x - b0.x) * 0.02, y: tip.y + H * 0.35 }, { x: cv.x, y: cv.y + H * 0.25 }, b1].map(pt => ({ x: pt.x, y: pt === b0 || pt === b1 ? pt.y - 1 : pt.y })), 0, 0); g2.fillPath(); // 中の少し明るい部分
+        for (let i = 0; i < 8; i++) { const f = S.frag[i]; if (!f || !f.on) continue; const px = b0.x + (b1.x - b0.x) * f.s, py = my - H * Math.abs(f.v) * 0.45 * Math.max(0.1, 1 - Math.abs(f.s - 0.3) * 1.4), c = COLS[f.c]; g2.fillStyle(c[0], c[1]); g2.fillRect(px - 1.5, py - 1.5, 3, 3); } // 背びれの上の欠片
+        g2.lineStyle(2, MAIN, 0.9 * ez); this._sharkPath(g2, fin, 0, 0); g2.strokePath(); // 縁
+      }
+      if (kd > 0.02) { const fp = shp.sp[10], pu = 0.85 + 0.15 * Math.sin(S.age * 14); g2.fillStyle(MAIN, 0.22 * ez); g2.fillEllipse(fp.x, fp.y + 1, 50 * S.sc * pu, 16 * S.sc * pu); g2.fillStyle(0x9dffb4, 0.16 * ez); g2.fillEllipse(fp.x, fp.y, 32 * S.sc * pu, 10 * S.sc * pu); } // 根元を覆う泡
+      for (const q of S.splash) { // 緑の水しぶき（高さ z だけ上にずらして描く）
+        const al = Math.min(1, q.life / 0.3), yy = q.y - q.z;
+        g2.lineStyle(1, q.c, 0.5 * al); g2.lineBetween(q.x, yy, q.x - q.vx * 0.04, yy + q.vz * 0.04);
+        g2.fillStyle(q.c, 0.85 * al); g2.fillRect(q.x - q.sz * S.sc / 2, yy - q.sz * S.sc / 2, q.sz * S.sc, q.sz * S.sc);
+      }
+    }
+  }
+
+  // 🌊 背びれの根元から出し続けるしぶき・鼻先から左右へ飛ばすしぶきを出し、飛んでいるしぶきを動かす（本体もダミーも同じ）
+  _sharkSplashUpdate(S, shp, dt) {
+    const R = Math.random, SPC = [0x2aff5a, 0x9dffb4, 0x2aff5a, 0xc8ffd4], fbP = shp.sp[10], fb0 = shp.sp[9], fb1 = shp.sp[12];
+    S.spT -= dt; if (S.dive > 0.3 && S.spT <= 0) { S.spT = 0.04; for (let i = 0; i < 2 && S.splash.length < 420; i++) S.splash.push({ x: fb0.x + (fb1.x - fb0.x) * R() + (R() - 0.5) * 10, y: fbP.y + 2 + (R() - 0.5) * 6, z: R() * 5, vx: (R() - 0.5) * 50 - Math.cos(S.a) * 40, vy: (R() - 0.5) * 30 - Math.sin(S.a) * 40, vz: 40 + R() * (R() < 0.3 ? 150 : 80), life: 0.45 + R() * 0.5, sz: 5 + Math.floor(R() * 5), c: SPC[Math.floor(R() * 4)] }); } // 背びれの根元いっぱいから、緑のしぶきを出し続ける（根元がしぶきに覆われる）
+    // 🌊 実際に動いている（泳いでいる）時だけ、鼻先からしぶきを出す：位置の変化から速さを測る（止まって狙っている間・ウィンドウの中で待つ間などは出さない）
+    { const mvx = S.x - (typeof S._lx === 'number' ? S._lx : S.x), mvy = S.y - (typeof S._ly === 'number' ? S._ly : S.y); S._lx = S.x; S._ly = S.y;
+      const spd = dt > 0 ? Math.hypot(mvx, mvy) / dt : 0; S._spd = (S._spd || 0) + (spd - (S._spd || 0)) * Math.min(1, dt * 12); }
+    const swimming = (S._spd || 0) > TILE * 0.6;
+    S.spU = (S.spU || 0) - dt; if (S.dive < 0.7 && S.spU <= 0 && !S.noNose && swimming) { S.spU = 0.025; const upk = 1 - S.dive, nz = shp.sp[0], rs = Math.sqrt(S.sc); for (const sg of [1, -1]) for (let i = 0; i < 2 && S.splash.length < 420; i++) { if (R() > upk * (i === 0 ? 1 : 0.5)) continue; const an = S.a + sg * (Math.PI / 2 + 0.15 + R() * 0.55), sp0 = (60 + R() * 100) * rs; S.splash.push({ x: nz.x + Math.cos(S.a) * 4 + (R() - 0.5) * 6, y: nz.y + Math.sin(S.a) * 4 + (R() - 0.5) * 6, z: R() * 4, vx: Math.cos(an) * sp0, vy: Math.sin(an) * sp0, vz: 50 + R() * 110, life: 0.5 + R() * 0.45, sz: 4 + Math.floor(R() * 5), c: SPC[Math.floor(R() * 4)] }); } } // 🌊 浮いている時：鼻先から左右へ、水をかき分けるように大きめのしぶきを飛ばす
+    for (let i = S.splash.length - 1; i >= 0; i--) { const q = S.splash[i]; q.life -= dt; if (q.life <= 0 || (q.z <= 0 && q.vz < 0)) { S.splash.splice(i, 1); continue; } q.vz -= 260 * dt; q.z += q.vz * dt; q.x += q.vx * dt; q.y += q.vy * dt; }
+  }
+
+  // ================= 🥤 グリッチの攻撃「シェルゲーム」 =================
+  // ボールの入ったカップを目で追うゲームの攻撃。流れ（sg.ph）：
+  //   show   ：本体が姿を現し、両隣にダミーのサメが出る（ダミーは紫・背びれが小さい＝本体の目印）
+  //   orbit  ：全員が潜って、プレイヤーの周りをまわる。背びれは徐々に見た目が同じになる（S.dm / d.dm：1→0）
+  //   shuffle：背びれが素早く入れ替わる（2体ずつ、内側と外側にすれ違う）
+  //   settle ：少し間をおく
+  //   spread ：三方向に距離を取る
+  //   charge ：順番（ランダム）に、間をずらして1体ずつ姿を出して突進してくる
+  // 当たり判定があるのは本体だけ（鼻先。古代魔法でパリィできる。既存の 'rush' の仕組みをそのまま使う）。ダミーは突っ込んでくるだけで、何にも当たらない。
+  // 調整値は GLITCH_SHELL、テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'shell'。
+  _sgMix(a, b, t) { const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255, br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255; return (Math.round(ar + (br - ar) * t) << 16) | (Math.round(ag + (bg - ag) * t) << 8) | Math.round(ab + (bb - ab) * t); } // 色を混ぜる（t＝0でa／1でb）
+  _sharkSplashBurst(E, n, pt) { // 🌊 水しぶきをまとめて出す（本体の splashBurst と同じ。ダミー用）
+    const R = Math.random, SPC = [0x2aff5a, 0x9dffb4, 0x2aff5a, 0xc8ffd4]; pt = pt || { x: E.x, y: E.y };
+    for (let i = 0; i < n && E.splash.length < 420; i++) E.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] });
+  }
+  _sgFree(S, cx, cy, ang, maxD) { // (cx,cy) から ang の向きへ、部屋の中を何px まっすぐ進めるか（maxD まで）
+    const r = S.room, m = TILE * 2, x0 = r.x * TILE + m, x1 = (r.x + r.w) * TILE - m, y0 = r.y * TILE + m, y1 = (r.y + r.h) * TILE - m, ca = Math.cos(ang), sa = Math.sin(ang);
+    let d = 0; while (d < maxD) { const nx = cx + ca * (d + TILE / 2), ny = cy + sa * (d + TILE / 2); if (nx < x0 || nx > x1 || ny < y0 || ny > y1) break; d += TILE / 2; }
+    return d;
+  }
+  _sgMakeDummy(S, x, y, a) { // ダミーのサメを1体作る（本体と同じ形・同じ描き方。自分の描画面を持つ）
+    const D = { isDummy: true, noNose: true, sc: S.sc, len: S.len, wid: S.wid, room: S.room, x, y, a, v: 0, ph: Math.random() * 6.28, bend: 0, age: 0, sh: 2, vis: true, frag: [], tears: [], bits: [], trail: [], txts: [], dive: 0, z: 0, splash: [], spT: 0, spU: 0, stepT: 0, dm: 1, down: false, cs: '', sgAng: 0, sgR: 0 };
+    for (let i = 0; i < 48; i++) D.frag.push(this._sharkFrag());
+    D.g = this.add.graphics().setDepth(4); D.g2 = this.add.graphics().setDepth(4.2);
+    return D;
+  }
+  _sgStart(S) { // 体が出きった：両隣にダミーを出して、シェルゲームを始める
+    const px = Math.cos(S.a), py = Math.sin(S.a), qx = -py, qy = px, off = S.wid * 3.4;
+    const D = [-1, 1].map(sg => this._sgMakeDummy(S, S.x + qx * off * sg, S.y + qy * off * sg, S.a));
+    for (const d of D) { this._sharkSplashBurst(d, 34); this.spawnBurst(d.x, d.y, 0xc06bff, 14); }
+    S.mode = 'sg'; S.v = 0; S.bend = 0; S.dm = 0; S.cs = ''; S.sgDown = false; S.sgR = 0; S.sgAng = 0;
+    S.sg = { ph: 'show', t: 0, age: 0, ents: [S, ...D], rot: 0, cx: 0, cy: 0 };
+  }
+  _sgToOrbit(S, plr) { // 潜って、プレイヤーの周りをまわり始める。本体を基準に、3体を120度ずつに並べる
+    const sg = S.sg, ents = sg.ents, ds = ents.slice(1), TAU = Math.PI * 2, wrap = d => Math.atan2(Math.sin(d), Math.cos(d));
+    sg.ph = 'orbit'; sg.t = 0; sg.cx = plr.x; sg.cy = plr.y; sg.rot = 0;
+    const th0 = Math.atan2(S.y - sg.cy, S.x - sg.cx), rel = d => wrap(Math.atan2(d.y - sg.cy, d.x - sg.cx) - th0);
+    const so = ds.slice().sort((p, q) => rel(p) - rel(q));
+    S.sgAng = th0; so[0].sgAng = th0 - TAU / 3; so[1].sgAng = th0 + TAU / 3;
+    for (const e of ents) { e.sgR = 0; e.sg0 = { x: e.x, y: e.y, a: e.a }; e.noNose = false; } // 三匹が揃って見せている間が終わったら、鼻先のしぶきを元に戻す
+    S.sgDown = true; for (const d of ds) d.down = true;
+  }
+  _sgToSpread(S, plr) { // 三方向へ距離を取る：3体全体を少し回して、部屋の中に収まりやすい向きを選ぶ
+    const sg = S.sg, C = GLITCH_SHELL, ents = sg.ents;
+    sg.ph = 'spread'; sg.t = 0; sg.cx = plr.x; sg.cy = plr.y;
+    let bestD = 0, bestV = -1;
+    for (const k of [0, 1, -1, 2, -2, 3, -3, 4, -4]) {
+      const dl = k * Math.PI / 12; let mn = Infinity;
+      for (const e of ents) mn = Math.min(mn, this._sgFree(S, sg.cx, sg.cy, sg.rot + e.sgAng + dl, C.spreadR));
+      if (mn > bestV + 1) { bestV = mn; bestD = dl; }
+    }
+    for (const e of ents) { e.spA = sg.rot + e.sgAng + bestD; e.spR = C.spreadR; /* 壁に合わせて距離は縮めない（サメは壁に当たらないので、いつも同じ距離まで散らばる） */ e.spFrom = { x: e.x, y: e.y }; e.sgR = 0; }
+  }
+  _sgToCharge(S) { // 突進の順番（本体が何番目かはランダム）と、姿を出し始める時刻・突進する時刻を決める
+    const sg = S.sg, C = GLITCH_SHELL, R = Math.random, idx = [0, 1, 2];
+    for (let i = 2; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    sg.ph = 'charge'; sg.t = 0;
+    idx.forEach((k, i) => { const e = sg.ents[k]; e.cs = 'wait'; e.teleAt = i * C.gap; e.launchAt = e.teleAt + C.teleT; e.dm = e.isDummy ? 0 : e.dm; });
+  }
+  _sgLaunch(S, e, plr) { // 突進：その時のプレイヤーの位置へ、向きを固定してまっすぐ（追尾しない）。本体は既存の 'rush' に切り替える
+    const C = GLITCH_SHELL, dist = Math.hypot(plr.x - e.x, plr.y - e.y);
+    e.a = Math.atan2(plr.y - e.y, plr.x - e.x); e.cs = 'dash'; this._sharkSplashBurst(e, 14);
+    if (e === S) { S.mode = 'rush'; S.rushFixed = true; S.rushHit = false; S.v = 0; S.sgDown = false; S.mt = (dist * C.homeBudget + C.dashOver) / (S.speed * C.dashK) + 0.25; }
+    else { e.v = 0; e.tr = 0; e.dist = dist * C.homeBudget + C.dashOver; }
+  }
+  _sgUpdate(S, dt, plOk, plr) {
+    const sg = S.sg, C = GLITCH_SHELL, R = Math.random, TAU = Math.PI * 2, ents = sg.ents, ds = ents.slice(1);
+    const wrap = d => Math.atan2(Math.sin(d), Math.cos(d)), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    sg.age += dt;
+    if (S.mode === 'sg') S.ph += dt * TAU * S.beat * 0.7; // 本体も、ダミーと同じ速さで尾を振る（体が見えている間に、尾が止まっていると本体だと分かってしまう）
+    // --- ダミーの共通の更新：ちらつき・尾の振り・潜る／浮かぶ・突進・沈んで消える ---
+    for (const d of ds) {
+      if (d.dead) continue;
+      d.age += dt; d.ph += dt * TAU * (d.cs === 'dash' ? S.beat * 3.2 : S.beat * 0.7); d.stepT -= dt;
+      if (d.stepT <= 0) { d.stepT = 0.22 + R() * 0.2; d.sh = 1.5 + R() * 1.5; for (let i = 0; i < d.frag.length; i++) if (R() < 0.3) d.frag[i] = this._sharkFrag(); d.tears = []; for (let i = 0; i < 2; i++) if (R() < 0.55) d.tears.push({ fy: R(), h: 2 + R() * 3, dx: (R() < 0.5 ? -1 : 1) * (6 + R() * 16), c: R() < 0.5 ? 0x2aff5a : 0xc8ffd4 }); }
+      d.dive = clamp(d.dive + (d.down ? 1 : -1) * dt / (d.down ? 0.28 : 0.4), 0, 1);
+      if (d.cs === 'dash') {
+        if (plOk) { const dd = wrap(Math.atan2(plr.y - d.y, plr.x - d.x) - d.a); if (Math.abs(dd) < Math.PI / 2) d.a += clamp(dd, -C.homeTurn * dt, C.homeTurn * dt); } // 追従：プレイヤーが前方にいる間は向きを寄せる（追い越したら、そのまま通り過ぎる）
+        const tv = S.speed * C.dashK * (0.9 + 0.1 * Math.cos(d.ph * 2)); d.v += (tv - d.v) * Math.min(1, dt * 6);
+        d.x += Math.cos(d.a) * d.v * dt; d.y += Math.sin(d.a) * d.v * dt; d.tr += d.v * dt;
+        if (d.tr >= d.dist) { d.cs = 'sink'; d.down = true; d.gone = 0; for (const i of [0, 6, 12, 18]) this._sharkSplashBurst(d, 10); }
+      } else if (d.cs === 'sink') {
+        d.v *= Math.max(0, 1 - dt * 3); d.x += Math.cos(d.a) * d.v * dt; d.y += Math.sin(d.a) * d.v * dt;
+        if (d.dive >= 1) { d.gone = (d.gone || 0) + dt; if (d.gone > 0.3) { this._sharkSplashBurst(d, 16); try { d.g.destroy(); d.g2.destroy(); } catch (err) { /* 破棄済み */ } d.dead = true; } }
+      }
+    }
+    // --- 中断：プレイヤーがやられた・長すぎる：ダミーは沈んで消え、本体は泳ぎ回りに戻る ---
+    if ((!plOk || sg.age > 30) && sg.ph !== 'end') {
+      sg.ph = 'end';
+      for (const d of ds) if (!d.dead && d.cs !== 'sink') { d.cs = 'sink'; d.down = true; d.gone = 0; }
+      if (S.mode === 'sg') { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; S.sgDown = false; }
+    }
+    const put = (e, x, y) => { if (e === S ? S.mode !== 'sg' : (e.cs === 'dash' || e.cs === 'sink' || e.dead)) return; e.x = x; e.y = y; }; // 位置を決める（突進中・沈み中のダミー、'sg' でない本体は、自分で動く）
+    const face = (e, tx, ty, rate) => { if (e === S ? S.mode !== 'sg' : (e.cs === 'dash' || e.cs === 'sink' || e.dead)) return; const want = Math.atan2(ty - e.y, tx - e.x); e.a += clamp(wrap(want - e.a), -rate * dt, rate * dt); };
+    const ph = sg.ph;
+    if (plOk && ph !== 'end') {
+      if (ph === 'show') { // 姿を現して、プレイヤーの方を向く。両隣のダミーが出ている
+        sg.t += dt; for (const e of ents) face(e, plr.x, plr.y, 4);
+        if (sg.t >= C.showT) this._sgToOrbit(S, plr);
+      } else if (ph === 'orbit' || ph === 'shuffle' || ph === 'settle') { // プレイヤーの周りをまわる
+        sg.rot += C.omega * dt; sg.cx += (plr.x - sg.cx) * Math.min(1, dt * 6); sg.cy += (plr.y - sg.cy) * Math.min(1, dt * 6); sg.t += dt;
+        if (ph === 'orbit') {
+          const dm = Math.max(0, 1 - sg.t / C.converge); for (const d of ds) d.dm = dm; // 背びれの見た目が、徐々に同じになる
+          if (sg.t >= C.orbitT) { sg.ph = 'shuffle'; sg.t = 0; sg.n = 0; sg.sw = null; sg.lastPair = -1; }
+        } else if (ph === 'shuffle') {
+          for (const d of ds) d.dm = 0;
+          if (!sg.sw) {
+            if (sg.n >= C.swaps) { sg.ph = 'settle'; sg.t = 0; }
+            else { // 2体を選んで入れ替える（直前と同じ組は選ばない）
+              let k; do { k = Math.floor(R() * 3); } while (k === sg.lastPair); sg.lastPair = k;
+              const pr = [[0, 1], [0, 2], [1, 2]][k], A = ents[pr[0]], B = ents[pr[1]];
+              sg.sw = { A, B, t: 0, a0: A.sgAng, b0: B.sgAng, d: wrap(B.sgAng - A.sgAng), out: R() < 0.5 ? 1 : -1 }; // out＝どちらが外側を通るか（毎回ランダム。いつも同じ側だと、本体がどれか分かってしまう）
+            }
+          } else {
+            const w = sg.sw; w.t += dt; const u2 = Math.min(1, w.t / C.swapT), e2 = u2 * u2 * (3 - 2 * u2), bump = Math.sin(Math.PI * u2) * TILE * 1.7; // 片方は外側、片方は内側を通って、すれ違う
+            w.A.sgAng = w.a0 + w.d * e2; w.B.sgAng = w.b0 - w.d * e2; w.A.sgR = bump * w.out; w.B.sgR = -bump * w.out;
+            if (u2 >= 1) { w.A.sgAng = w.a0 + w.d; w.B.sgAng = w.b0 - w.d; w.A.sgR = 0; w.B.sgR = 0; sg.sw = null; sg.n++; }
+          }
+        } else if (sg.t >= C.settleT) this._sgToSpread(S, plr);
+        const u = sg.ph === 'orbit' ? clamp(sg.t / 0.8, 0, 1) : 1, es = u * u * (3 - 2 * u); // 潜ってから軌道に乗るまで、なめらかに寄せる
+        for (const e of ents) {
+          const th = sg.rot + e.sgAng, r = C.orbitR + (e.sgR || 0), tx = sg.cx + Math.cos(th) * r, ty = sg.cy + Math.sin(th) * r, ta = th + Math.PI / 2;
+          if (sg.ph === 'orbit' && u < 1 && e.sg0) { put(e, e.sg0.x + (tx - e.sg0.x) * es, e.sg0.y + (ty - e.sg0.y) * es); if (e === S ? S.mode === 'sg' : true) e.a = e.sg0.a + wrap(ta - e.sg0.a) * es; }
+          else { put(e, tx, ty); if (e === S ? S.mode === 'sg' : true) e.a = ta; }
+        }
+      } else if (ph === 'spread') { // 三方向に距離を取る
+        sg.t += dt; const u = clamp(sg.t / C.spreadT, 0, 1), es = u * u * (3 - 2 * u);
+        for (const e of ents) { const tx = sg.cx + Math.cos(e.spA) * e.spR, ty = sg.cy + Math.sin(e.spA) * e.spR; put(e, e.spFrom.x + (tx - e.spFrom.x) * es, e.spFrom.y + (ty - e.spFrom.y) * es); face(e, sg.cx, sg.cy, 8); }
+        if (sg.t >= C.spreadT + C.holdT) this._sgToCharge(S);
+      } else if (ph === 'charge') { // 順番に、間をずらして姿を出し→突進
+        sg.t += dt;
+        for (const e of ents) {
+          if (e.cs === 'wait' && sg.t >= e.teleAt) { e.cs = 'tele'; if (e === S) S.sgDown = false; else e.down = false; this._sharkSplashBurst(e, 18); }
+          if (e.cs === 'tele') { face(e, plr.x, plr.y, 4); if (sg.t >= e.launchAt) this._sgLaunch(S, e, plr); }
+        }
+      }
+    }
+    // --- 全員の突進が終わって、ダミーが消えたら、終わり ---
+    if (ds.every(d => d.dead) && (sg.ph === 'end' || (sg.ph === 'charge' && ents.every(e => e.cs === 'dash' || e.cs === 'sink')))) this._sgFinish(S);
+  }
+  _sgFinish(S) { // シェルゲームを終える：ダミーの後片付けをして、次の攻撃まで少し間をおく
+    const sg = S.sg; if (!sg) return;
+    this._sgDestroy(sg); S.sg = null; S.sgDown = false; S.dm = 0;
+    if (S.mode === 'fin') S.mt = Math.max(S.mt, 2.5 + Math.random() * 2);
+  }
+  _sgDestroy(sg) { for (const d of sg.ents.slice(1)) { try { if (d.g) d.g.destroy(); if (d.g2) d.g2.destroy(); } catch (err) { /* 破棄済み */ } d.dead = true; } }
+  _sgDrawDummies(S, dt) { // ダミーのサメを描く（本体と同じ関数）。しぶきも本体と同じ出し方
+    for (const d of S.sg.ents.slice(1)) {
+      if (d.dead || !d.g || !d.g.scene) continue;
+      const shp = this._sharkShape(d, d.x, d.y, d.a, d.ph, d.bend);
+      this._sharkSplashUpdate(d, shp, dt);
+      this._sharkDrawOne(d, shp, d.g, null, d.g2);
+    }
   }
 
   // ⚔ 斬り合い：ボス部屋に、エンディングの主人公と同じ見た目（青い体＋シリアルキラーの赤い目）の敵が1体立っている。
@@ -9174,7 +10227,7 @@ class GameScene extends Phaser.Scene {
       else this._demonEnding();
     });
   }
-  hasSpecial(key) { if (this.vsHero && specialAccByKey(key)) return false; /* 斬り合い：悪魔の装飾品も使えない */ /* 🔧 通信プレイ（協力・PvP）でも付けられる。PvPでは見た目だけで、効果は止める（翼＝刺さない／ネックレス＝出さない／紋章＝回復しない。this.pvp で判定） */ if (this.arms4Ritual && !this._endingRun && specialAccByKey(key)) return false; /* ホームの天使・調伏の儀（通常）：悪魔の装飾品は使えない（エンディング演出の調伏の儀だけは使う） */ if (this._godAccGone && specialAccByKey(key)) return false; /* 宇宙が割れて聖域に戻ったあと：悪魔の装飾は外れている */ if (ENDING_STATE.run && specialAccByKey(key)) return true; /* エンディング演出中：悪魔の装飾は全部オン */ const sv = loadSave(); return !!((sv.specialAccs[key] && sv.specialOn[key]) || (this._tmpSpecial || {})[key]); } // その特別な装飾品を、いま付けているか（デベロッパーモードでもらった分は、このゲームの間だけ）
+  hasSpecial(key) { if (this.vsHero && specialAccByKey(key)) return false; /* 斬り合い：悪魔の装飾品も使えない */ if ((this.glitchBoss || (!this.mp && window.APP && window.APP.glitchBoss)) && specialAccByKey(key)) return false; /* 📺 グリッチのボス：悪魔の装飾品も持っていけない */ /* 🔧 通信プレイ（協力・PvP）でも付けられる。PvPでは見た目だけで、効果は止める（翼＝刺さない／ネックレス＝出さない／紋章＝回復しない。this.pvp で判定） */ if (this.arms4Ritual && !this._endingRun && specialAccByKey(key)) return false; /* ホームの天使・調伏の儀（通常）：悪魔の装飾品は使えない（エンディング演出の調伏の儀だけは使う） */ if (this._godAccGone && specialAccByKey(key)) return false; /* 宇宙が割れて聖域に戻ったあと：悪魔の装飾は外れている */ if (ENDING_STATE.run && specialAccByKey(key)) return true; /* エンディング演出中：悪魔の装飾は全部オン */ const sv = loadSave(); return !!((sv.specialAccs[key] && sv.specialOn[key]) || (this._tmpSpecial || {})[key]); } // その特別な装飾品を、いま付けているか（デベロッパーモードでもらった分は、このゲームの間だけ）
   _giveSpecialAcc(sp) { // 台本の item が特別な装飾品の key だった時：入手済みにして、付けた状態にする（ホーム画面に出る）。限定武器なら、その武器に持ち替えて固定する
     { // デベロッパーモードでも、通常と同じように記録に残す（ホーム画面にも出る）
       const sv = loadSave(); sv.specialAccs[sp.key] = true; sv.specialOn[sp.key] = true;
@@ -14718,6 +15771,7 @@ class GameScene extends Phaser.Scene {
     if (this.vsHero) return; // 斬り合い：ふつうの武器は使わない（斬撃は _vhTick が出す）
     if (this.attackCooldown > 0 || this.transitioning || this.isDowned || this._autoWalk) return; // 自動で歩いている間（エンディングの続き）は攻撃できない
     if (this.wwNoAttack()) return; // 人狼ゲーム中の人狼以外、または夜以外の人狼：攻撃しない
+    if (this._ransomLock()) return; // 🔒 ランサムウェア：フォークボム中は、武器が使えない
     // マジックボム（chargeBomb）は「押し続けて溜め、離すと発射」専用の武器で、
     // updateMagicBombCharge()/fireMagicBomb()だけが発射を行う。スペースキー連打等による
     // 即時発射（無溜め状態での発射）を防ぐため、通常の攻撃入力はここで無視する。
@@ -14728,6 +15782,7 @@ class GameScene extends Phaser.Scene {
     if (this.weapon && this.weapon.type === 'summon2') return; // 降魔術：通常の攻撃入力では発動しない
     if (this.weapon && this.weapon.type === 'astral') return; // 幽体離脱：通常の攻撃入力では発動しない（updateAstral が担当）
     if (this.weapon && this.weapon.type === 'jet') return; // ロケット：通常の攻撃入力では発動しない（updateJet が担当）
+    if (this.weapon && this.weapon.type === 'ancient') return; // 古代魔法は updateAncientMagic() が、スティックを離した時に処理する
     if (this.reloading) {
       // 弾が残っていれば、リロードを中断して撃てる武器（マシンガン）。弾が0の時（自動リロード中）は撃てない
       if (this.weapon && this.weapon.interruptReload && !this.isGhost && this.ammo > 0) {
@@ -15518,7 +16573,7 @@ class GameScene extends Phaser.Scene {
   updateJet(dt) {
     const w = this.weapon;
     this._jetCd = Math.max(0, (this._jetCd || 0) - dt);
-    const canUse = !!(w && w.type === 'jet' && this.player && !this.isDowned && !this.isGhost && !this.transitioning && !this._autoWalk && !this._a4Hold && !this._a4Fly && !this._astral);
+    const canUse = !!(w && w.type === 'jet' && this.player && !this.isDowned && !this.isGhost && !this.transitioning && !this._autoWalk && !this._a4Hold && !this._a4Fly && !this._astral && !this._ransomLock());
     if (!canUse) { if (this._jet) this.jetEnd(true); this.jetDrawFx(dt); return; }
     const aim = window.aimVector, pointer = this.input.activePointer;
     const pressed = IS_TOUCH_DEVICE ? !!(aim && aim.active) : (pointer.isDown && this._aimArmed);
@@ -15661,7 +16716,7 @@ class GameScene extends Phaser.Scene {
   updateAstral(dt) {
     const w = this.weapon;
     this._astralCd = Math.max(0, (this._astralCd || 0) - dt);
-    const canUse = !!(w && w.type === 'astral' && this.player && !this.isDowned && !this.isGhost && !this.transitioning && !this._autoWalk && !this._a4Hold && !this._a4Fly);
+    const canUse = !!(w && w.type === 'astral' && this.player && !this.isDowned && !this.isGhost && !this.transitioning && !this._autoWalk && !this._a4Hold && !this._a4Fly && !this._ransomLock());
     const aim = window.aimVector, pointer = this.input.activePointer;
     let pressed = false;
     if (canUse) pressed = IS_TOUCH_DEVICE ? !!(aim && aim.active) : (pointer.isDown && this._aimArmed);
@@ -15826,9 +16881,104 @@ class GameScene extends Phaser.Scene {
   // 毎フレーム呼ばれ、「押している/倒している間は溜める → 離すと発射する」を管理する。
   // 武器の切り替えや状態異常（ゴースト・ダウン・フロア移動演出中）で強制的に打ち切る場合は、
   // 発射せずに見た目だけ消す（ノーコスト・ノーダメージでキャンセル）。
+  // 🛡 古代魔法：スティック（PCではマウス）を離すと、輝きながら一瞬だけ魔法のシールド（白い半透明の六角形の集まり）がその向きに張られる。シールドの跡は、その場に残像として残る
+  _ancientHexes(px, py, a) { // 自分を覆う六角形1枚（一辺が向きaを向く。見た目だけでパリィ判定なし）＋その前の辺と、両隣の辺に隣接する3枚（計4枚。パリィ判定はこの3枚）
+    const r = 16, d = Math.sqrt(3) * r, out = [{ x: px, y: py, r }];
+    for (const k of [-1, 0, 1]) { const an = a + k * Math.PI / 3; out.push({ x: px + Math.cos(an) * d, y: py + Math.sin(an) * d, r }); } // 辺の中点の向き＝向きa、a±60°
+    return out;
+  }
+  _ancientCol(fr) { // 🎨 パリィゲージの溜まり具合（0〜1）から、シールドの色を式で計算する（段階ではなく連続したグラデーション）。水色 → 緑 → 青紫 → 黒っぽい紫。返り値：f＝六角形の塗り、s＝輪郭、o＝外のにじむ光
+    const t = Math.max(0, Math.min(1, fr || 0));
+    const HUE0 = 190, HUE1 = -85, T_P = 0.75, LIG = 0.74, SAT = 0.85; // 色相（度）：水色(190°)から色相環を一定の速さで下り、緑(120°)→黄(60°)→赤(0°)→赤紫(-60°)→紫(-85°＝275°)の順に通る。T_P＝紫に着く時点のゲージ割合（その後に暗くなる）。色相・明るさの式はここだけ直す
+    const hue = HUE0 + (HUE1 - HUE0) * Math.min(1, t / T_P); // 色相：0〜T_P の間、ゲージに比例して均等に進む（T_P で紫に着いて止まる）
+    const sat = SAT, lig = LIG * (1 - Math.max(0, (t - T_P) / (1 - T_P))); // 明るさ：紫に着くまでは一定。着いてから満タン(t=1)にかけて、真っ黒まで暗くなる
+    const hsl = (h, sa, l) => { l = Math.max(0, Math.min(1, l)); const c = (1 - Math.abs(2 * l - 1)) * sa, hh = (((h % 360) + 360) % 360) / 60, x = c * (1 - Math.abs(hh % 2 - 1)), m = l - c / 2; let r = 0, g = 0, b = 0; if (hh < 1) { r = c; g = x; } else if (hh < 2) { r = x; g = c; } else if (hh < 3) { g = c; b = x; } else if (hh < 4) { g = x; b = c; } else if (hh < 5) { r = x; b = c; } else { r = c; b = x; } return (Math.round((r + m) * 255) << 16) | (Math.round((g + m) * 255) << 8) | Math.round((b + m) * 255); };
+    return { f: hsl(hue, sat, lig), s: hsl(hue, sat, Math.min(0.85, lig + 0.28)), o: hsl(hue, sat, Math.min(0.85, lig + 0.14)) }; // 輪郭と光は、同じ色相で少し明るく（暗い色でも背景から見えるように）
+  }
+  _ancientPoly(g, cx, cy, r, rot, fill) { g.beginPath(); for (let i = 0; i < 6; i++) { const an = rot + Math.PI / 6 + i * Math.PI / 3, x = cx + Math.cos(an) * r, y = cy + Math.sin(an) * r; if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); } g.closePath(); if (fill) g.fillPath(); g.strokePath(); }
+  _ancientBlocksSeg(ax, ay, bx, by, rad) { // 🛡 線分(a→b)の太さradの攻撃が、盾の3枚の六角形のどれかに触れたか。触れていれば、a側にいちばん近い接触点 {x, y} を返す（なければ null）。点ではなく線全体で判定するので、盾が点と点の間に入っても取りこぼさない
+    const A = this._anc, pl = this.player; if (!A || !A.shield || !pl) return null;
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1; let best = null, bt = Infinity;
+    for (const h of this._ancientHexes(pl.x, pl.y, A.shield.a).slice(1)) {
+      const t = Math.max(0, Math.min(1, ((h.x - ax) * dx + (h.y - ay) * dy) / l2)), x = ax + dx * t, y = ay + dy * t; // 六角形の中心にいちばん近い、線上の点
+      if (Math.hypot(h.x - x, h.y - y) < h.r + rad && t < bt) { bt = t; best = { x, y }; }
+    }
+    return best;
+  }
+  _ancientBlocks(x, y, rad) { // シールドが出ている間、(x,y)の半径radの攻撃を止められるか（パリィ成功か）
+    const A = this._anc, pl = this.player; if (!A || !A.shield || !pl) return false;
+    for (const h of this._ancientHexes(pl.x, pl.y, A.shield.a).slice(1)) if (Math.hypot(h.x - x, h.y - y) < h.r + rad) return true; // slice(1)＝先頭の「プレイヤーを覆う1枚」はパリィ判定から外す（見た目は残る）。前と両隣の3枚だけが判定を持つ
+    return false; // 前の3枚の六角形に触れた攻撃だけをパリィする
+  }
+  _ancientNearHex(x, y) { // 🛡 パリィ判定を持つ盾の六角形（前と両隣の3枚）のうち、(x,y)にいちばん近い1枚（エフェクトを盾の上に出すため）
+    const A = this._anc, pl = this.player; if (!A || !A.shield || !pl) return null; let best = null, bd = Infinity;
+    for (const h of this._ancientHexes(pl.x, pl.y, A.shield.a).slice(1)) { const d = Math.hypot(h.x - x, h.y - y) - h.r; if (d < bd) { bd = d; best = h; } }
+    return best;
+  }
+  _ancientParryFx(x, y) { // パリィ成功の演出：火花・衝撃の輪・白いフラッシュ（PARRY! の文字は出さない）
+    if (this.glitchBoss) this._gSlowT = 0.7; // 🐌 グリッチ戦：パリィ成功の瞬間が最も遅く、0.7秒かけて徐々に元の速さへ解けていく
+    const A = this._anc; if (!A) return; this._parryCount = (this._parryCount || 0) + 1;
+    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20)); A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
+    for (let i = 0; i < 22; i++) { const an = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 260; A.sp.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp, life: 0.45 + Math.random() * 0.3, max: 0.75, s: 3 + Math.random() * 3 }); }
+    A.rings.push({ x, y, t: 0 });
+    try { this.cameras.main.flash(90, 255, 255, 255); this.cameras.main.shake(140, 0.005); } catch (e) {}
+  }
+  updateAncientMagic(dt) {
+    const A = this._anc || (this._anc = { held: false, angle: 0, shield: null, ghosts: [], sp: [], rings: [], cd: 0, time: 0, snapT: 0, g: null });
+    if (!A.g || !A.g.scene) A.g = this.add.graphics().setDepth(20);
+    const g = A.g, w = this.weapon, pl = this.player; g.clear(); A.time += dt; A.cd -= dt;
+    const on = !!(w && w.type === 'ancient' && pl && !this.isGhost && !this.isDowned && !this.transitioning && !this._ransomLock());
+    if (on) {
+      const held = IS_TOUCH_DEVICE ? !!(window.aimVector && window.aimVector.active) : this.input.activePointer.isDown; let angle = A.angle || this.facingAngle || 0;
+      if (IS_TOUCH_DEVICE) { const aim = window.aimVector; if (aim && aim.active && (aim.x !== 0 || aim.y !== 0)) angle = Math.atan2(aim.y, aim.x); }
+      else { const pt = this.input.activePointer, wp = this.cameras.main.getWorldPoint(pt.x, pt.y); angle = Phaser.Math.Angle.Between(pl.x, pl.y, wp.x, wp.y); }
+      if (held) { A.held = true; A.angle = angle; }
+      else if (A.held) { // 離した瞬間：その向きにシールドを張る
+        A.held = false;
+        if (A.cd <= 0 && !this._autoWalk && !A.shield) {
+          A.shield = { t: 0, dur: w.shieldDur || 0.2, a: A.angle }; A.cd = w.cooldown || 0.9; A.snapT = 0; // パリィの効力があるのは0.2秒
+          for (const h of this._ancientHexes(pl.x, pl.y, A.angle).slice(1)) for (let j = 0; j < 4; j++) A.sp.push({ x: h.x + (Math.random() - 0.5) * 16, y: h.y + (Math.random() - 0.5) * 16, vx: (Math.random() - 0.5) * 40, vy: (Math.random() - 0.5) * 40, life: 0.5, max: 0.5, s: 3 + Math.random() * 3 }); // 輝く火花
+        }
+      }
+    } else A.held = false;
+    const sh = A.shield;
+    if (sh) {
+      if (!pl) A.shield = null;
+      else {
+        sh.t += dt; A.snapT -= dt;
+        if (sh.t >= sh.dur) { // 効力が終わった瞬間：同じ強さの光がその場に固定され、徐々に弱まる（プレイヤーにはついてこない）
+          A.ghosts.push({ hx: this._ancientHexes(pl.x, pl.y, sh.a), a: sh.a, life: 0.9, max: 0.9, c: this._ancientCol((A.gauge || 0) / ((w && w.gaugeMax) || 100)) });
+          A.shield = null;
+        }
+      }
+    }
+    for (let i = A.ghosts.length - 1; i >= 0; i--) { // 残像（輪郭だけ、少し広がりながら消える）
+      const q = A.ghosts[i]; q.life -= dt; if (q.life <= 0) { A.ghosts.splice(i, 1); continue; }
+      const k = q.life / q.max, al = k * k, gr = 1; // 位置も大きさも変えず、弱い光のまま静かに消える
+      const ga = Math.pow(k, 1.5); // 最初の1フレームと同じ強さから、ゆっくり弱まる
+      const qc = q.c || this._ancientCol(0); for (const h of q.hx.slice(1)) { g.lineStyle(5, qc.o, 0.28 * ga); this._ancientPoly(g, h.x, h.y, h.r * 1.14, q.a, false); g.fillStyle(qc.f, 0.8 * ga); g.lineStyle(2, qc.s, 0.95 * ga); this._ancientPoly(g, h.x, h.y, h.r, q.a, true); }
+    }
+    const cur = A.shield;
+    if (cur && pl) { // 出ている間のシールド
+      const t = cur.t, flash = Math.max(0, 1 - t / 0.06), fade = 1; // 効力が続く間は強く輝き、終わったら即座に消える（残像に切り替わる）
+      const hx = this._ancientHexes(pl.x, pl.y, cur.a), cc = this._ancientCol((A.gauge || 0) / ((w && w.gaugeMax) || 100)); // 色は今のゲージ量で決まる
+      hx.forEach((h, i) => {
+        if (i === 0) return; // 自分と重なっている1枚は見た目だけ描かない（当たり判定は _ancientBlocks のまま）
+        const tw = 0.85 + 0.15 * Math.sin(A.time * 40 + i * 1.7);
+        g.lineStyle(5, cc.o, 0.28 * fade); this._ancientPoly(g, h.x, h.y, h.r * 1.14, cur.a, false); // 外のにじむ光
+        g.fillStyle(cc.f, Math.min(1, 0.8 * tw + 0.2 * flash) * fade); g.lineStyle(2, cc.s, 0.95 * fade); this._ancientPoly(g, h.x, h.y, h.r, cur.a, true);
+      });
+    }
+    for (let i = A.rings.length - 1; i >= 0; i--) { const q = A.rings[i]; q.t += dt; if (q.t > 0.4) { A.rings.splice(i, 1); continue; } const u = q.t / 0.4; g.lineStyle(3, 0xffffff, 0.9 * (1 - u)); g.strokeCircle(q.x, q.y, 14 + u * 60); g.lineStyle(1, 0xaee0ff, 0.7 * (1 - u)); g.strokeCircle(q.x, q.y, 8 + u * 90); }
+    for (let i = A.sp.length - 1; i >= 0; i--) { // 火花（十字の小さな輝き）
+      const q = A.sp[i]; q.life -= dt; if (q.life <= 0) { A.sp.splice(i, 1); continue; }
+      q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.94; q.vy *= 0.94; const k = q.life / q.max, s = q.s * (0.5 + k);
+      g.lineStyle(1.5, 0xffffff, k); g.lineBetween(q.x - s, q.y, q.x + s, q.y); g.lineBetween(q.x, q.y - s, q.x, q.y + s);
+    }
+  }
   updateMagicBombCharge(dt) {
     const w = this.weapon;
-    if (!w || !w.chargeBomb) {
+    if (!w || !w.chargeBomb || this._ransomLock()) {
       if (this.charge && this.charge.active) { this.charge.active = false; this.clearChargeVisuals(); }
       return;
     }
@@ -18831,7 +19981,7 @@ class GameScene extends Phaser.Scene {
   // 倒した方向（PCはマウスの方向）の魔法陣が選ばれ、離した時にその技を発動する。何も選ばずに離せばキャンセル。
   updateSummon2Menu(dt) {
     const w = this.weapon;
-    const active = !!(w && w.type === 'summon2' && !this.isDowned && !this.isGhost && !this.transitioning && !this._autoWalk);
+    const active = !!(w && w.type === 'summon2' && !this.isDowned && !this.isGhost && !this.transitioning && !this._autoWalk && !this._ransomLock());
     const pointer = this.input.activePointer;
     const aim = window.aimVector;
     if (this._s2GCd > 0) this._s2GCd = Math.max(0, this._s2GCd - dt); // クールダウンは武器を持ち替えても進む
@@ -20759,6 +21909,11 @@ class GameScene extends Phaser.Scene {
       }
     }
     tr.ghosts = gh; tr.intro = { captives: caps, shown: [] };
+    // 道連れにしたボスは、演出で全員握り潰されて消える（生き残りとして戻らない）。そのままだと撃破が一度も通知されず、ボスラッシュ／ボス階の出口が開かなくなるので、
+    // 潰されたボスの組を、調伏の儀が終わって元のダンジョンに戻った時に撃破として扱う（他の技の儀で倒した時と同じ tr.bossDefeats）
+    for (const gid in (tr.dragGroups || {})) {
+      if (!tr.bossDefeats.some(d => String(d.gid) === String(gid))) tr.bossDefeats.push({ gid, pos: (tr.groupOrig && tr.groupOrig[gid]) || { x: tr.saved.x, y: tr.saved.y } });
+    }
   }
 
   // 四つ腕の「腕の先（掴む位置・ビームを溜める位置など）」の座標。腕の先に何かを出す時は、必ずここを使う。
@@ -24195,7 +25350,7 @@ class GameScene extends Phaser.Scene {
   //  - PC：ボタンを押している間、赤い点がマウスの位置に出る
   updateSniperAim(dt) {
     const w = this.weapon;
-    const can = !!(w && w.type === 'sniper' && this.ammo > 0 && !this.reloading && !this.isDowned && !this.isGhost && !this.transitioning && !this._autoWalk);
+    const can = !!(w && w.type === 'sniper' && this.ammo > 0 && !this.reloading && !this.isDowned && !this.isGhost && !this.transitioning && !this._autoWalk && !this._ransomLock());
     const pointer = this.input.activePointer;
     const aim = window.aimVector;
     if (!IS_TOUCH_DEVICE && !pointer.isDown) this._aimArmed = false;
@@ -26656,6 +27811,7 @@ class GameScene extends Phaser.Scene {
       this._mgWasHeld = mgHeld;
     }
     this.updateMagicBombCharge(dt);
+    this.updateAncientMagic(dt * (this._gTs || 1)); // 🐌 パリィ後のスローモーション中は、火花や衝撃の輪もゆっくり動く
     this.updateChargeGhostSpawns(dt);
 
     this.updateProjectiles(this._clkOn || this._godTimeStop ? 0 : dt); // 🕒 時が止まっている間は自分の弾も止まる
@@ -26689,8 +27845,16 @@ class GameScene extends Phaser.Scene {
     } else if (dx !== 0 && dy !== 0) {
       dx *= 0.7071; dy *= 0.7071;
     }
+    if (this._ransomT > 0) { this._ransomT -= delta / 1000; dx = -dx; dy = -dy; } // 🔀 ランサムウェア：感染中は、移動の操作が反転（残り時間もここで減らす）
+    this._ransomHud();
     if (this._autoWalk) { const aw = this._autoWalkDir(); dx = aw.x; dy = aw.y; } // エンディングの続き：自動で歩く（操作は効かない）
     if (this.vsHero) { this._vhStep(dx, dy, dt * (this._vhTsEff == null ? 1 : this._vhTsEff)); dx = 0; dy = 0; } // ⚔ 斬り合い：画面の中なら、自由に動ける
+    this._gTs = 1; if (this.glitchBoss && this._gSlowT > 0) { this._gSlowT -= delta / 1000; { const gu = Math.min(1, Math.max(0, 1 - this._gSlowT / 0.7)); this._gTs = 0.06 + 0.94 * gu * gu; } dx *= this._gTs; dy *= this._gTs; } // 🐌 パリィ後のスローモーション：速さの倍率（0.2→1）。自分の動きも遅くなる
+    { // 🎨 パリィ後のスローモーション中：画面の色が薄くなり（彩度が下がり）、速さが戻るのに合わせて、なめらかに元の色へ戻る
+      const gi = this._gTs < 1 ? 1 - (this._gTs - 0.06) / 0.94 : 0, cv = this.game && this.game.canvas; // gi：1（スローの最大）→0（元の速さ）
+      if (cv) { if (gi > 0.004) { cv.style.filter = 'saturate(' + Math.max(0.03, 1 - 0.97 * gi).toFixed(3) + ')'; this._gSatOn = true; } else if (this._gSatOn) { cv.style.filter = ''; this._gSatOn = false; } }
+    }
+    if (this._gTws && this._gTws.length) { this._gTws = this._gTws.filter(tw => tw && tw.isPlaying && tw.isPlaying()); for (const tw of this._gTws) { try { tw.timeScale = this._gTs; } catch (e) {} } } // PARRY!の文字の動きもスローに
 
     const r = this.player.radius;
     // マジックボムを溜めている間は、溜めた時間に応じて移動速度がどんどん落ちていく
@@ -26742,8 +27906,8 @@ class GameScene extends Phaser.Scene {
     } else {
       const nx = this.player.x + dx * moveSpeed * dt;
       const ny = this.player.y + dy * moveSpeed * dt;
-      if (!this.circleHitsWall(nx, this.player.y, r)) this.player.x = nx;
-      if (!this.circleHitsWall(this.player.x, ny, r)) this.player.y = ny;
+      if (!this.circleHitsWall(nx, this.player.y, r) && !this._waveBlocks(nx, this.player.y, r)) this.player.x = nx; // 🌊 波は壁のように通れない
+      if (!this.circleHitsWall(this.player.x, ny, r) && !this._waveBlocks(this.player.x, ny, r)) this.player.y = ny;
     }
 
     this.demonRootPushPlayer(); // 😈 根は通れない：移動のあと、根の体に食い込んでいたら外へ押し出す
@@ -27119,6 +28283,7 @@ class GameScene extends Phaser.Scene {
     if (this.hell) this._hellTick(); // 🔥 地獄の住人をそろえる
     this._updateHutBook(); // 📖 小屋の机の本：近づくと「本を読む」が出る
     if (this.vsHero) this._updateVsHero(time / 1000, delta / 1000);
+    if (this.glitchBoss) this._sharkUpdate(time / 1000, delta / 1000 * (this._gTs || 1)); // 🦈 グリッチの本体（サメ）：泳いで動く
     if (this.party) this._updateParty(time / 1000); // 🎉 パーティールーム：飾り・メモ・草原の入口・扉
     if (this.dungeon.hut) this._drawHut(this.exitGlow, time / 1000);
     else if (this._hutCover && this._hutCover.scene) this._hutCover.clear(); // 小屋のない所では目隠しを消しておく
@@ -30244,7 +31409,7 @@ class GameScene extends Phaser.Scene {
       this._usedAccKeys = this.accKey ? [this.accKey] : []; // リザルト用の装飾品の記録もやり直す
       const rushBase = this.rushWeaponKey && WEAPON_TYPES.find(w => w.key === this.rushWeaponKey);
       const devBase = !rushBase && this.devWeaponKey && WEAPON_TYPES.find(w => w.key === this.devWeaponKey);
-      const respawnBase = (this.limitedKey && limitedWeaponBase(this.limitedKey)) || rushBase || devBase || WEAPON_TYPES[0];
+      const respawnBase = (this.limitedKey && limitedWeaponBase(this.limitedKey)) || rushBase || devBase || (this.glitchBoss && WEAPON_TYPES.find(w => w.key === 'ancient')) || WEAPON_TYPES[0];
       // ボスラッシュは選んだ武器のLv.5から（デベロッパーモードなら指定レベルから）、
       // 通常のデベロッパーモードは指定したレベル（未指定ならLv.5）からやり直す
       const respawnLevel = rushBase
@@ -32501,7 +33666,7 @@ const SYNC_MIN = ['soloClearBestSecRandom', 'soloClearBestSecSet', 'floor10BestS
 const SYNC_OR = ['arms4RitualPlayed', 'arms4RitualCounted', 'libraryReported', 'hutVisited', 'endingDone']; // どちらかが true なら true
 const SYNC_UNION = ['accUnlocked', 'specialAccs', 'titles']; // 両方の合計
 const SYNC_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; // 0/1/O/I/L は使わない（読み間違い防止）
-let _syncTimer = 0, _syncChain = Promise.resolve(), _syncFail = 0;
+let _syncTimer = 0, _syncChain = Promise.resolve(), _syncFail = 0, _syncDirty = false; // _syncDirty＝まだクラウドへ送っていないセーブの変更がある（タブを離れた時の同期は、これが true の時だけ送る）
 function syncGetCode() { try { return localStorage.getItem(SYNC_CODE_KEY) || ''; } catch (e) { return ''; } }
 const SYNC_NICK_KEY = 'zomikasudungeon_syncnick'; // 回復用のニックネーム（この端末に控えておく。連携を解除したら消す）
 function syncSetCode(c) { try { if (c) localStorage.setItem(SYNC_CODE_KEY, c); else { localStorage.removeItem(SYNC_CODE_KEY); localStorage.removeItem(SYNC_NICK_KEY); } } catch (e) {} }
@@ -32577,24 +33742,26 @@ function syncRun(code, opts) {
 // セーブを書いたあと（writeSave）に呼ぶ：数秒まとめてから同期する。コードが無ければ何もしない
 function cloudSyncSchedule(delay) {
   if (!syncGetCode()) return;
+  _syncDirty = true; // 送っていない変更がある印
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(cloudSyncNow, delay == null ? 4000 : delay);
 }
 async function cloudSyncNow() {
   const code = syncGetCode();
   if (!code) return null;
+  _syncDirty = false; // 送る前に下ろす（送っている間にセーブが書かれたら、書いた側がまた立てる）
   try { const r = await syncRun(code); _syncFail = 0; return r; }
   catch (err) { console.warn('セーブの同期に失敗しました（あとでやり直します）:', err); if (++_syncFail <= 5) cloudSyncSchedule(60000); return null; }
 }
 // 起動したら一度同期する。クラウドのほうが進んでいて、まだ読み込み直後なら、画面を一度だけ読み込み直して反映する
-setTimeout(async () => {
+setTimeout(async () => { // 5秒待ってから：短い間隔のリロードでは、ここまで来ないので匿名ログインが走らない（auth/too-many-requests 対策）
   const r = await cloudSyncNow();
-  if (r && r.changedLocal && performance.now() < 15000) {
+  if (r && r.changedLocal && performance.now() < 20000) { // 5秒待つぶん、読み込み直しを許す時間も15秒→20秒に広げた
     let last = 0; try { last = Number(sessionStorage.getItem('zk_sync_reload')) || 0; } catch (e) {}
     if (Date.now() - last > 20000) { try { sessionStorage.setItem('zk_sync_reload', String(Date.now())); } catch (e) {} location.reload(); }
   }
-}, 0);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && syncGetCode()) syncRun(syncGetCode()).catch(() => {}); }); // 画面を離れる時に、最後にもう一度送る
+}, 5000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && syncGetCode() && _syncDirty) { _syncDirty = false; syncRun(syncGetCode()).catch(() => { _syncDirty = true; }); } }); // 画面を離れる時に、最後にもう一度送る
 // ロビーの「☁ 引き継ぎ」ボタンから開く画面
 function openSyncDialog() {
   let ov = document.getElementById('syncOverlay');
@@ -32708,7 +33875,8 @@ function openSyncDialog() {
 // 名前欄に「developer」と入力すると、開始フロア・所持武器を選んでテストプレイできる。
 const devPanel = document.getElementById('devPanel');
 const devWeaponSelect = document.getElementById('devWeaponSelect');
-WEAPON_TYPES.forEach(w => { // デベロッパーモードでは、旧召喚術（hidden）も選べる
+WEAPON_TYPES.forEach(w => { // デベロッパーモードでは、旧召喚術（hidden）も選べる（ただし古代魔法はグリッチ戦専用なので出さない）
+  if (w.key === 'ancient') return;
   const opt = document.createElement('option');
   opt.value = w.key;
   opt.textContent = w.name;
@@ -32900,9 +34068,12 @@ let _arms4CountChain = Promise.resolve(); // 同時に2回走って二重に数�
 function refreshArms4RitualCount() { _arms4CountChain = _arms4CountChain.then(_refreshArms4RitualCountOnce); return _arms4CountChain; }
 async function _refreshArms4RitualCountOnce() {
   const el = document.getElementById('arms4RitualCount'); if (!el) return;
+  const CK = 'zomikasudungeon_arms4count', TTL = 5 * 60 * 1000; let cache = null; try { cache = JSON.parse(localStorage.getItem(CK) || 'null'); } catch (e) { /* 読めなければ、キャッシュなしとして扱う */ } // 🗄 成功者数のキャッシュ：リロードのたびに匿名ログイン(auth/too-many-requests の原因)と読み込みをしないための控え
+  if (!(cache && typeof cache.n === 'number')) cache = null;
   try {
     if (typeof netInstance === 'undefined' || !netInstance.enabled) { el.textContent = '調伏成功者：Firebase未接続'; el.style.display = ''; return; }
-    await netInstance.signIn();
+    { const svQ = loadSave(); if (cache && Date.now() - cache.t < TTL && !((svQ.arms4RitualClears || 0) > 0 && !svQ.arms4RitualCounted)) { el.textContent = '調伏成功者 ' + cache.n + '人'; el.style.display = ''; return; } } // 5分以内の控えがあって、自分を加算する必要もなければ、ログインも読み込みもせずにそれを出す
+ await netInstance.signIn();
     const ref = netInstance.db.ref('stats/arms4Ritual/winnerCount');
     let sv = loadSave();
     if ((sv.arms4RitualClears || 0) > 0 && !sv.arms4RitualCounted) {
@@ -32916,8 +34087,10 @@ async function _refreshArms4RitualCountOnce() {
     }
     const n = (await ref.once('value')).val() || 0;
     el.textContent = '調伏成功者 ' + n + '人'; el.style.display = '';
+ try { localStorage.setItem(CK, JSON.stringify({ n, t: Date.now() })); } catch (e) { /* 保存できなくても表示はできている */ }
   } catch (e) { // 原因が分かるように、いったん画面にエラーを出す（直ったら el.style.display = 'none' に戻してよい）
     console.warn('調伏成功者数の取得に失敗', e);
+ if (cache) { el.textContent = '調伏成功者 ' + cache.n + '人'; el.style.display = ''; return; } // 取得できなくても、前に読めた人数が控えにあればそれを出す（エラー文は出さない）
     el.textContent = '調伏成功者：取得失敗（' + ((e && (e.code || e.message)) || 'unknown') + '）'; el.style.display = '';
   }
 }
@@ -33102,6 +34275,7 @@ const RUSH_WEAPON_DESC = {
   trap: '踏むと爆発、スタンと脆弱を与える（6発装填）',
   katana: '狙った方向へ瞬間移動しながら軌跡上の敵を斬る',
   jet: '移動スティックと武器スティックの向きを合わせ続けると、速度とダメージが指数的に上がる。離す／ずれると、ためた分の爆発（向きの判定はシビア）',
+  ancient: '離すと一瞬だけ魔法のシールドが出る。出ている間はサメの攻撃をパリィできる',
   astral: 'スティックを持つ間、体を置いてゴーストになる（敵に見つからず、右スティックで移動。触れて攻撃。HPは1になる。拾う・ゴールは不可）',
   summon: '敵の中からランダムに1体を味方として召喚する（自分では攻撃しない）',
   summon2: '召喚対象を選び技を発動（調伏の儀に敵を道連れ可能）',
@@ -33152,13 +34326,13 @@ let askWeapon = null;
   // ボスラッシュ／最北戦線（ひとり）：まず武器選択画面を出して、選んだ武器のLv.5でスタートする。
   document.getElementById('bossRushBtn').addEventListener('click', () => {
     // 📺 グリッチ状態のボタンを押すと、武器選択なし（剣）で、グリッチのボスがいるボス部屋へ直行する
-    if (document.getElementById('bossRushBtn').classList.contains('glitchBtn')) { startGame('solo', { bossRush: true, weaponKey: 'sword', glitchBoss: true }); return; }
+    if (document.getElementById('bossRushBtn').classList.contains('glitchBtn')) { startGame('solo', { bossRush: true, weaponKey: 'ancient', glitchBoss: true }); return; }
     askWeapon('ボスラッシュ', w => startGame('solo', { bossRush: true, weaponKey: w.key }));
   });
-  // 📺 タイトル画面を開いた時、5％の確率でボスラッシュのボタンがグリッチ（ノイズが走る）状態になる。
-  //   URLに ?glitch=1（すでに ? がある時は &glitch=1）を付けると、確率に関係なく必ずなる（確認用）。見た目だけで、押した時の動作は変わらない。
+  // 📺 タイトル画面を開いた時、GLITCH_CHANCE の確率でボスラッシュのボタンがグリッチ（ノイズが走る）状態になる。今は 0（0％）なので、確率では起こらない。
+  //   URLに ?glitch=1（すでに ? がある時は &glitch=1）を付けると、確率に関係なく必ずなる。ボタンの見た目がグリッチになり、押すとグリッチのボスの部屋へ直行する。確率を戻す時は、GLITCH_CHANCE を 0.05（5％）などにする。
   (function () {
-    const GLITCH_CHANCE = 0.05;
+    const GLITCH_CHANCE = 0; // グリッチになる確率（0＝URLの ?glitch=1 を付けた時だけ。0.05＝5％）
     let force = false;
     try { force = new URLSearchParams(location.search).get('glitch') === '1'; } catch (e) { /* 取れなければ通常の確率 */ }
     if (!force && !(Math.random() < GLITCH_CHANCE)) return;
@@ -33339,66 +34513,23 @@ function launchGame() {
     scene: [GameScene],
   });
 
-  // 🧪【テスト用】画面の揺れの測定パネルと、補正の切り替え。確認が終わったら、このブロックを丸ごと消す（元の動作に戻る）。
-  //   補正：揺れの強さに (画面に縮める倍率) の n乗 を掛ける。 n=0 で補正なし（Latest と同じ）、1 で 1/K、2 で 1/K²。
+  // 🔧 画面の揺れの強さを、描画解像度を上げる前（Latest以前）と同じ見た目に戻す。
+  //   Phaser のカメラ揺れの幅は「強さ×カメラ幅×ズーム」で、これをさらに camera.matrix.translate が（ズームを掛けて）画面に反映するため、
+  //   画面に見える揺れは「カメラ幅×ズーム²」に比例する（測定で確認済み：ratio＝ズーム、p＝2.00）。
+  //   描く画素数を画面の物理画素に合わせたことで、カメラ幅・ズームが K倍（K＝描く高さ÷innerHeight）になり、画面に縮める倍率が 1/K になった結果、
+  //   見える揺れは「K×K×K ÷ K ＝ K²」倍に強まっていた。揺れの強さに (1/K)² を掛けて打ち消す。
+  //   揺れを始めるたびに、そのカメラの画面倍率（scaleManager.zoom＝1/K）を読むので、画質の段階が変わっても追従する。
+  //   やめる時は、このブロックを消す。
   (function () {
-    window.__shakeExp = 0;
     const camProto = Phaser.Cameras.Scene2D.Camera.prototype;
-    if (!camProto._shakeTest) {
-      camProto._shakeTest = true;
-      const origShake = camProto.shake;
-      camProto.shake = function (duration, intensity, force, callback, context) {
-        let i = intensity;
-        try { if (typeof i === 'number') i = i * Math.pow((this.scaleManager && this.scaleManager.zoom) || 1, window.__shakeExp || 0); } catch (e) { /* そのまま */ }
-        return origShake.call(this, duration, i, force, callback, context);
-      };
-    }
-    if (document.getElementById('shakeTestPanel')) return;
-    const css = 'position:fixed;left:6px;top:6px;z-index:2147483647;background:rgba(0,0,0,0.82);color:#fff;font:12px/1.5 sans-serif;padding:8px;border-radius:8px;max-width:300px;';
-    const panel = document.createElement('div'); panel.id = 'shakeTestPanel'; panel.style.cssText = css;
-    const out = document.createElement('div'); out.style.cssText = 'white-space:pre-wrap;margin:6px 0;';
-    out.textContent = 'ゲームを始めてから、「1. 測定」を押してください。';
-    const mk = (label, fn) => { const b = document.createElement('button'); b.textContent = label; b.tabIndex = -1; b.style.cssText = 'margin:2px;padding:6px 8px;font-size:12px;border-radius:6px;border:1px solid #888;background:#333;color:#fff;'; b.addEventListener('click', () => { b.blur(); fn(); }); return b; };
-    const cam = () => { const sc = game.scene.getScene('game'); return sc && sc.cameras && sc.cameras.main; };
-    const modeBtns = [];
-    const setMode = (n) => { window.__shakeExp = n; modeBtns.forEach((b, i) => { b.style.background = i === n ? '#1a7f37' : '#333'; }); };
-    const measure = () => {
-      const c = cam();
-      if (!c) { out.textContent = 'カメラが見つかりません。ゲームを始めてから押してください。'; return; }
-      if (c.shakeEffect.isRunning) { out.textContent = '別の揺れが動いています。少し待ってからもう一度押してください。'; return; }
-      const z = c.zoom, base = c.matrix.matrix[4], samples = [], t0 = performance.now();
-      out.textContent = '測定中…（約1.5秒、画面が揺れます）';
-      c.shake(1500, 0.01, true);
-      const step = () => {
-        const ox = c.shakeEffect._offsetX;
-        if (Math.abs(ox) > 2) samples.push((c.matrix.matrix[4] - base) / ox);
-        if (performance.now() - t0 < 1500) { requestAnimationFrame(step); return; }
-        samples.sort((a, b) => a - b);
-        const r = samples.length ? samples[samples.length >> 1] : NaN;
-        const K = 1 / ((c.scaleManager && c.scaleManager.zoom) || 1);
-        const dpr = window.devicePixelRatio || 1;
-        let p = NaN, verdict = '判定できませんでした（もう一度押してください）';
-        if (samples.length >= 10 && isFinite(r) && r > 0 && Math.abs(z - 1) > 0.05) {
-          p = 1 + Math.log(r) / Math.log(z);
-          verdict = p < 1.5 ? '→ 揺れはズーム1回分。補正は「モード1（1/K）」が正解です。' : '→ 揺れはズーム2回分。補正は「モード2（1/K²）」が必要です。';
-        }
-        out.textContent = 'dpr ' + dpr + ' ／ 画面の高さ ' + innerHeight + '\n描く画素 ' + c.width + '×' + c.height + ' ／ K ' + K.toFixed(3) + '\nカメラのズーム ' + z.toFixed(3) + '\nratio ' + (isFinite(r) ? r.toFixed(3) : '-') + '（1に近い＝1乗、ズームに近い＝2乗）\n指数 p ' + (isFinite(p) ? p.toFixed(2) : '-') + '（標本 ' + samples.length + '）\n' + verdict;
-      };
-      requestAnimationFrame(step);
+    if (camProto._shakeFixed) return;
+    camProto._shakeFixed = true;
+    const origShake = camProto.shake;
+    camProto.shake = function (duration, intensity, force, callback, context) {
+      let i = intensity;
+      try { const k = (this.scaleManager && this.scaleManager.zoom) || 1; if (typeof i === 'number') i = i * k * k; } catch (e) { /* 取れなければそのまま */ }
+      return origShake.call(this, duration, i, force, callback, context);
     };
-    const spear = () => { const c = cam(); if (c) c.shake(180, 0.012, true); };
-    const spear4 = () => { [0, 260, 520, 780].forEach((t) => setTimeout(spear, t)); };
-    const title = document.createElement('div'); title.textContent = '🧪 揺れのテスト'; title.style.cssText = 'font-weight:bold;';
-    const close = mk('✕', () => panel.remove()); close.style.cssText += 'float:right;';
-    panel.appendChild(close); panel.appendChild(title);
-    panel.appendChild(mk('1. 測定', measure));
-    panel.appendChild(document.createElement('br'));
-    ['モード0 補正なし', 'モード1 ×1/K', 'モード2 ×1/K²'].forEach((t, i) => { const b = mk(t, () => setMode(i)); modeBtns.push(b); panel.appendChild(b); });
-    panel.appendChild(document.createElement('br'));
-    panel.appendChild(mk('2. 槍が刺さる揺れ', spear)); panel.appendChild(mk('四本槍（4連続）', spear4));
-    panel.appendChild(out);
-    document.body.appendChild(panel);
-    setMode(0);
   })();
 
   // 全画面にした／解除した時は、ブラウザの画面サイズが落ち着いてから（少し待って、念のためもう一度）画面サイズを合わせ直す。
