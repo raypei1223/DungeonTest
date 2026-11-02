@@ -6015,7 +6015,7 @@ function applyWeaponLevel(base, level) {
 // ============== Phaserシーン ==============
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
-const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
+const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
 const GLITCH_TEST_ATK = 'warp'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
 const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
@@ -6026,9 +6026,11 @@ const GLITCH_RANSOM = { t: 8, castT: 1.6 };
 const GLITCH_WARP = {
   castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 40,
   zoneW: 48, zoneH: 40, // 転送先の部屋を作れる領域の大きさ（マス）。ボス部屋（36×24）より広めに余裕を持たせてある。パターンの部屋はこの中の真ん中に作る
-  patterns: ['chargers', 'hell', 'lounge'],
+  patterns: ['chargers', 'hell', 'lounge', 'angel', 'holy'],
   hell: { stay: 15, demonDy: TILE * 4.5, hp: 999999 }, // 🔥 地獄（実際の地獄マップと同じ見た目・作りの部屋）：stay＝転送されてから戻るまで(秒)／demonDy＝悪魔がプレイヤーの何px上にいるか(画面の上の端に収まる位置)／hp＝悪魔のHP(倒せない)
   lounge: { stay: 20, hp: 999999, firstBomb: 2, detonator: [9.5, 2.5] }, // 💬 交流ルーム：stay＝戻るまでの上限(秒。ふつうは爆弾が全部起爆したら戻る)／hp＝デトネーターのHP(倒せない)／firstBomb＝最初に爆弾をまくまでの秒／detonator＝デトネーターの位置(部屋の左上からのマス)
+  angel: { stay: 60, hp: 999999, openCount: 3, angel: [18.5, 5] }, // 🪽 天使の調伏の儀：stay＝戻るまでの上限(秒)／hp＝天使のHP(倒せない)／openCount＝天使が最初の技（A4_OPENING の頭から）を何回出したら戻るか／angel＝天使の位置(部屋の左上からのマス。本物の儀式部屋と同じ)
+  holy: { stay: 15, hp: 999999, snakes: [[6.5, 4.5], [16.5, 3.5], [26.5, 4.5]] }, // ✨ 聖域：stay＝戻るまでの秒（時間で戻る）／hp＝ウロボロスの頭のHP(倒せない)／snakes＝3匹のウロボロスの位置(部屋の左上からのマス)
   chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
 };
 // 🌊 グリッチの攻撃「波」の調整値（秒・px。_sharkWaveMove／_sharkWaveUpdate の流れの順）
@@ -8986,13 +8988,22 @@ class GameScene extends Phaser.Scene {
   }
   _warpClear() { // ウィンドウ・飾りの絵・転送先の敵を片づけて、作った床を壁に戻す（何も無ければ何もしない）
     const S = this._shark, gw = S && S.gw;
-    if (gw && gw.ch) for (const e of gw.ch) { if (!e) continue; if (!e._removed) this.rtRemoveEnemy(e); const i = this.enemies.indexOf(e); if (i >= 0) this.enemies.splice(i, 1); }
+    if (gw && gw.ch) for (const e of gw.ch) { if (!e) continue; if (!e._removed) this.rtRemoveEnemy(e); if (this.bossGroupCounts) delete this.bossGroupCounts[e.id]; const i = this.enemies.indexOf(e); if (i >= 0) this.enemies.splice(i, 1); }
+    if (gw && gw.ch && gw.ch.length) { // 🐍 ウロボロスの胴体（頭が自分で作ったもの）と、灰色の死骸も片づける
+      const ids = new Set(gw.ch.map(o => o && o.id));
+      for (let i = this.enemies.length - 1; i >= 0; i--) { const o = this.enemies[i]; if (o && o.type && o.type.snakeBody && ids.has(o.bossGroupId)) { this.rtRemoveEnemy(o); this.enemies.splice(i, 1); } }
+      if (this.snakeCorpses) this.snakeCorpses = this.snakeCorpses.filter(c => { if (ids.has(c.bossGroupId)) { try { if (c.gfx) c.gfx.destroy(); } catch (err) { /* 破棄済み */ } return false; } return true; });
+    }
+    if (this._gwHolyStarImg) { try { this._gwHolyStarImg.destroy(); } catch (err) { /* 破棄済み */ } this._gwHolyStarImg = null; } // 🌌 柱・祭壇の宇宙
+    if (this._gwHolyMaskG) { try { this._gwHolyMaskG.destroy(); } catch (err) { /* 破棄済み */ } this._gwHolyMaskG = null; }
+    if (this._gwHolyDec && this._gwHolyDec.scene) this._gwHolyDec.clear(); // ✨ 聖域の柱・祭壇・光
+    if (this._gwHolyGlow && this._gwHolyGlow.scene) this._gwHolyGlow.clear();
     if (gw) gw.ch = [];
     if (gw && gw.tiles && gw.tiles.length) { const grid = this.dungeon && this.dungeon.grid; if (grid) { for (const t of gw.tiles) grid[t[1]][t[0]] = 0; this._queueWallRedraw(gw.tiles.slice()); } gw.tiles = []; }
     const dg = this.dungeon;
     if (dg) {
       const back = []; // 描き直すマス
-      for (const k of ['glitchHell', 'glitchLounge']) if (dg[k]) { for (const t of this._gwLookRect(k)) back.push(t); delete dg[k]; if (k === 'glitchHell') delete dg.torches; } // 🔥💬 地獄・交流ルームの見た目（と松明）を元へ
+      for (const k of ['glitchHell', 'glitchLounge', 'glitchHoly']) if (dg[k]) { for (const t of this._gwLookRect(k)) back.push(t); delete dg[k]; if (k === 'glitchHell') delete dg.torches; } // 🔥💬 地獄・交流ルームの見た目（と松明）を元へ
       const Zc = dg.glitchZone;
       if (Zc && gw && gw.A) { // 転送先を作っていた時だけ：爆弾が壊した壁も含め、領域は全部、元の岩へ戻す。領域に残った爆弾も消す
         for (let y = Zc.y; y < Zc.y + Zc.h; y++) for (let x = Zc.x; x < Zc.x + Zc.w; x++) if (dg.grid[y] && dg.grid[y][x] !== 0) { dg.grid[y][x] = 0; back.push([x, y]); }
@@ -9143,6 +9154,71 @@ class GameScene extends Phaser.Scene {
     if (n > 0) gw.bombSeen = true;
     return !!gw.bombSeen && n === 0;
   }
+  // 🪽 パターン 'angel'：天使の調伏の儀の部屋（ボスラッシュと同じ36×24）へ転送される。ホームの「天使・調伏の儀」ボタンと同じく、導入演出（廊下・逃走・投げ飛ばし）は飛ばして、いきなり戦闘から。天使が最初の技（A4_OPENING の頭から openCount 回）を出し終えたら戻る（天使は倒せない）。
+  _gwPat_angel_room() { return { w: 36, h: 24, spawn: [18.5, 17.5] }; } // 本物の儀式部屋の着地点と同じ（部屋の下寄りの真ん中）
+  _gwPat_angel_enter(S, A) {
+    const C = GLITCH_WARP.angel, gw = S.gw;
+    const e = this.s2TrialSpawn('arms4', A.x0 + C.angel[0] * TILE, A.y0 + C.angel[1] * TILE, 0); if (!e) return; // 調伏の儀と同じ作り方で、本物の天使を出す
+    e.hp = e.maxHp = C.hp; e._introAnim = false; e.hpBar.setVisible(true);
+    gw.a4 = e; gw.ch.push(e); this.spawnBurst(e.gfx.x, e.gfx.y, 0xffe58a, 14);
+    this.showBanner('🪽 天使・調伏の儀', 1500, '#ffe58a');
+  }
+  _gwPat_angel_done(S, dt) { // 天使が最初の技を openCount 回出して、その技が終わったら true（天使が消えていたらすぐ true）
+    const gw = S.gw, a = gw && gw.a4, T = this._a4A; if (!a || a._removed || a.hp <= 0) return true;
+    return !!(T && T.a4 === a && (T.open || 0) >= GLITCH_WARP.angel.openCount && !T.atk);
+  }
+  // ✨ パターン 'holy'：聖域（本物と同じ33×25の床）へ転送される。神はいない。柱と祭壇は見た目だけで、当たり判定はない。三匹のウロボロスが襲ってくる。stay 秒（15秒）たつと戻る。
+  _gwPat_holy_room() { return { w: 33, h: 25, spawn: [16.5, 21.5], look: 'glitchHoly' }; } // 本物の聖域の床（37×29の外周2マスを除いた部分）と、スタート位置も同じ
+  _gwPat_holy_enter(S, A) {
+    const C = GLITCH_WARP.holy, gw = S.gw;
+    C.snakes.forEach((q, i) => {
+      const e = this.s2TrialSpawn('snake', A.x0 + q[0] * TILE, A.y0 + q[1] * TILE, i); if (!e) return; // ふつうのダンジョンのボスと同じ作り方で、本物のウロボロスを出す（胴体は頭が自分で作る）
+      e.hp = e.maxHp = C.hp; gw.ch.push(e); this.spawnBurst(e.gfx.x, e.gfx.y, 0x8cf06a, 12);
+    });
+    this.showBanner('✨ 聖域', 1500, '#ffe58a');
+    this._gwPat_holy_draw(A);
+  }
+  _gwPat_holy_done(S, dt) { return false; } // 倒せない。戻るのは stay 秒たった時（_warpPhase）
+  _gwPat_holy_draw(A) { // 柱・祭壇（当たり判定なしの飾り）と、聖域の光（祭壇からの光の筋・光の玉・床の魔法陣・昇る光の粒）。毎フレーム
+    if (!A) return;
+    if (!this._gwHolyDec || !this._gwHolyDec.scene) this._gwHolyDec = this.add.graphics().setDepth(0.6);
+    if (!this._gwHolyGlow || !this._gwHolyGlow.scene) this._gwHolyGlow = this.add.graphics().setDepth(0.65).setBlendMode(Phaser.BlendModes.ADD);
+    const dg = this._gwHolyDec, g = this._gwHolyGlow; dg.clear(); g.clear();
+    const rx = Math.round(A.x0 / TILE), ry = Math.round(A.y0 / TILE), tt = this.time.now / 1000;
+    const blk = (gx, gy, alt) => { dg.fillStyle(0x000000, 1); dg.fillRect(gx * TILE, gy * TILE, TILE, TILE); dg.lineStyle(alt ? 2 : 1, alt ? 0xe2c978 : 0x8fa6ff, alt ? 0.9 : 0.5); dg.strokeRect(gx * TILE, gy * TILE, TILE, TILE); };
+    const tiles = []; // 柱（左右に2本ずつ、3列）と、北の真ん中の祭壇（5×2）のマス [x, y, 祭壇か]
+    for (const py of [6, 11, 16]) for (const px of [7, 11, 21, 25]) tiles.push([rx + px, ry + py, false]);
+    for (let y = 2; y <= 3; y++) for (let x = 14; x <= 18; x++) tiles.push([rx + x, ry + y, true]);
+    for (const q of tiles) blk(q[0], q[1], q[2]);
+    if (!this._gwHolyStarImg || !this._gwHolyStarImg.scene) { // 🌌 柱・祭壇の宇宙：本物の聖域と同じ星の絵（37×29マスぶん）を作り、本物と同じ位置になるよう合わせて、柱・祭壇のマスの形に切り抜いて重ねる
+      const KEY = 'glitchHolyStarsTex', SW = SANCTUARY.w * TILE, SH = SANCTUARY.h * TILE;
+      if (!this.textures.exists(KEY)) {
+        const S = this._makeGodStars(SW, SH), tex = this.textures.createCanvas(KEY, SW, SH), ctx = tex.getContext();
+        for (let i = 0; i < S.n; i++) {
+          const px = S.x[i], py = S.y[i], t = S.type[i];
+          ctx.globalAlpha = S.al[i]; ctx.fillStyle = '#' + S.col[i].toString(16).padStart(6, '0');
+          if (t === 0) ctx.fillRect(px, py, 1, 1); else if (t === 3) ctx.fillRect(px - 1, py - 1, 2.5, 2.5); else if (t === 1) ctx.fillRect(px, py, 1.5, 1.5);
+          else { ctx.beginPath(); ctx.arc(px, py, 1.6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = S.al[i] * 0.6; ctx.fillRect(px - 4, py - 0.4, 8, 0.8); ctx.fillRect(px - 0.4, py - 4, 0.8, 8); }
+        }
+        ctx.globalAlpha = 1; tex.refresh();
+      }
+      const im = this._gwHolyStarImg = this.add.image(A.x0 - SANCTUARY.border * TILE, A.y0 - SANCTUARY.border * TILE, KEY).setOrigin(0, 0).setDepth(0.62);
+      if (this._gwHolyMaskG && this._gwHolyMaskG.scene) this._gwHolyMaskG.destroy();
+      const mg = this._gwHolyMaskG = this.make.graphics({ add: false }); mg.fillStyle(0xffffff, 1);
+      for (const q of tiles) mg.fillRect(q[0] * TILE, q[1] * TILE, TILE, TILE);
+      im.setMask(new Phaser.Display.Masks.GeometryMask(this, mg));
+    }
+    const f = 1 + 0.12 * Math.sin(tt * 2.2) + 0.05 * Math.sin(tt * 5.1 + 1), ox = (rx + 16.5) * TILE, oy = (ry + 2) * TILE - 6;
+    for (let i = -4; i <= 4; i++) { const a = Math.PI / 2 + i * 0.16 + 0.04 * Math.sin(tt * 0.7 + i), len = 760, w = 0.05; g.fillStyle(0xfff2b8, 0.05 + 0.03 * Math.sin(tt * 1.3 + i * 1.7)); g.fillTriangle(ox, oy, ox + Math.cos(a - w) * len, oy + Math.sin(a - w) * len, ox + Math.cos(a + w) * len, oy + Math.sin(a + w) * len); }
+    const cx = (rx + 16.5) * TILE, cy = (ry + 12.5) * TILE;
+    g.lineStyle(2, 0xd9a93a, 0.45 + 0.15 * Math.sin(tt * 1.6)); g.strokeCircle(cx, cy, TILE * 3.2); g.strokeCircle(cx, cy, TILE * 4.6);
+    for (const off of [-Math.PI / 2, Math.PI / 2]) { const R = TILE * 3.2, a0 = off + tt * 0.35, a1 = a0 + Math.PI * 2 / 3, a2 = a0 + Math.PI * 4 / 3; g.strokeTriangle(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R, cx + Math.cos(a1) * R, cy + Math.sin(a1) * R, cx + Math.cos(a2) * R, cy + Math.sin(a2) * R); }
+    g.fillStyle(0xffe9a0, 0.10 * f); g.fillCircle(ox, oy, 160); g.fillStyle(0xffe9a0, 0.18 * f); g.fillCircle(ox, oy, 80);
+    g.fillStyle(0xfff6d0, 0.9); g.fillCircle(ox, oy, 15 * f); g.fillStyle(0xffffff, 1); g.fillCircle(ox, oy, 7 * f);
+    const H = A.y1 - A.y0; // 光の粒：ゆっくり上へ昇る
+    for (let k = 0; k < 36; k++) { const h1 = ((k * 2654435761) >>> 0) % 1000 / 1000, h2 = ((k * 40503 + 7) >>> 0) % 1000 / 1000; const x = A.x0 + h1 * (A.x1 - A.x0) + Math.sin(tt * 0.8 + k) * 14, y = A.y1 - ((tt * (18 + h2 * 22) + h2 * H) % H); g.fillStyle(0xfff4c0, 0.35 + 0.5 * (0.5 + 0.5 * Math.sin(tt * 3 + k * 1.9))); g.fillCircle(x, y, 1.2 + 1.6 * h2); }
+  }
+  a4WarpOn() { const S = this._shark, gw = S && S.gw; return (gw && gw.pat === 'angel' && gw.ph === 'fight' && gw.A) ? gw : null; } // 🪽 グリッチ戦のワープ「天使」の戦闘中だけ、その状態を返す
   _ransomLock() { const S = this._shark; return !!(S && ((S.mode === 'fork' && S.fk && this._fork) || (S.gw && S.gw.ph === 'fight'))); } // フォークボム中、または🌀ワープで転送されている間：武器が使えず、右スティックが壊れる
   _ransomStart(S) { // 🔀 ランサムウェア攻撃：サメが姿を現し終えたら、感染させる（_ransomT 秒、移動の操作が反転）。サメは castT 秒止まる（'ransom' モード）
     const R = GLITCH_RANSOM; S.mode = 'ransom'; S.mt = R.castT; this._ransomT = R.t;
@@ -15494,11 +15570,13 @@ class GameScene extends Phaser.Scene {
     };
     let any = false;
     const gl = dungeon.glitchLounge; // 💬 グリッチ戦のワープ「交流ルーム」の間だけ、その領域の中を交流ルームの見た目で描く
+    const gy = dungeon.glitchHoly; // ✨ グリッチ戦のワープ「聖域」の間だけ、その領域の中を聖域の見た目で描く（床はクリーム色・壁は金色。柱・祭壇は別の飾り）
     const gh = dungeon.glitchHell; // 🔥 グリッチ戦のワープ「地獄」の間だけ、その領域の中を地獄の見た目で描く
     for (let y = y0; y < y1; y++) {
       const row = dungeon.grid[y];
       for (let x = x0; x < x1; x++) {
         const t = (dungeon.ghostFloor && dungeon.ghostFloor.tiles[y * dungeon.width + x]) ? 0 : (row[x] === 0 && dungeon.hutFurn && dungeon.hutFurn[y * dungeon.width + x]) ? 1 : row[x]; // 👻 隠し通路・隠し部屋は、歩けるが床としては描かない（見た目は壁） // 小屋の家具は、当たり判定はあるが見た目は床（家具の絵は _drawHut が描く）
+        const hy = dungeon.holy || (gy && x >= gy.x && x < gy.x + gy.w && y >= gy.y && y < gy.y + gy.h); // このマスは聖域の見た目か
         const hl = dungeon.hell || (gh && x >= gh.x && x < gh.x + gh.w && y >= gh.y && y < gh.y + gh.h); // このマスは地獄の見た目か
         const lg = dungeon.lounge || (gl && x >= gl.x && x < gl.x + gl.w && y >= gl.y && y < gl.y + gl.h); // このマスは交流ルームの見た目か
         if (t === 1 || t === 3) {
@@ -15512,10 +15590,10 @@ class GameScene extends Phaser.Scene {
           if (t === 3) k = 1;
           const red = this.nextIsBoss; // ボス階への出口は白ではなく赤く染める
           const inHut = dungeon.hut && x >= dungeon.hut.x && x < dungeon.hut.x + dungeon.hut.w && y >= dungeon.hut.y && y < dungeon.hut.y + dungeon.hut.h; // 小屋の中は木の床
-          const base = lg ? 0xe6e6ec : dungeon.party ? (((x + y) & 1) ? 0xf1e6cf : 0xecd5dc) : hl ? [0x7b3b2a, 0x84412e, 0x70352a][((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0) % 3] : dungeon.holy ? 0xf6ecc8 : dungeon.snow ? (inHut ? 0x9a7650 : 0xc9d6e6) : (dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f); // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
+          const base = lg ? 0xe6e6ec : dungeon.party ? (((x + y) & 1) ? 0xf1e6cf : 0xecd5dc) : hl ? [0x7b3b2a, 0x84412e, 0x70352a][((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0) % 3] : hy ? 0xf6ecc8 : dungeon.snow ? (inHut ? 0x9a7650 : 0xc9d6e6) : (dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f); // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
           g.fillStyle(lerpColor(base, red ? 0xb02a2a : hl ? 0xe0a040 : 0x9a9aaa, k), 1);
           g.fillRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
-          g.lineStyle(t === 3 ? 2 : 1, lerpColor(lg ? 0xd0d0d8 : dungeon.party ? 0xdccfba : hl ? 0x5e2a1d : dungeon.holy ? 0xe3d297 : dungeon.snow ? (inHut ? 0x7d5d3b : 0xb6c5d8) : 0x26262e, red ? 0xff6b6b : hl ? 0xffd070 : 0xdcdce8, k), 1);
+          g.lineStyle(t === 3 ? 2 : 1, lerpColor(lg ? 0xd0d0d8 : dungeon.party ? 0xdccfba : hl ? 0x5e2a1d : hy ? 0xe3d297 : dungeon.snow ? (inHut ? 0x7d5d3b : 0xb6c5d8) : 0x26262e, red ? 0xff6b6b : hl ? 0xffd070 : 0xdcdce8, k), 1);
           g.strokeRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
         } else if ((dungeon.party || lg) && t === 0) { // 🎉 パーティールーム：壁（上の2行は飾りの壁・そのほかは水色。真ん中のテーブルの下地もここ）
           any = true;
@@ -15525,9 +15603,9 @@ class GameScene extends Phaser.Scene {
           if (y === 1) { g.fillStyle(0xe0c58a, 1); g.fillCircle(px0 + 16, py0 + 20, 3); g.fillStyle(0xf3ece4, 1); g.fillRect(px0, py0 + TILE - 2, TILE, 2); }
           else if (y >= 2) { g.lineStyle(1, 0x93b3c3, 1); g.strokeRect(px0, py0, TILE, TILE); }
           }
-        } else if (dungeon.holy && t === 0) { // ✨ 聖域：柱・祭壇・外周の壁を、金白色のブロックで描く
+        } else if (hy && t === 0) { // ✨ 聖域：柱・祭壇・外周の壁を、金白色のブロックで描く
           any = true;
-          const edge = x < 2 || y < 2 || x >= dungeon.width - 2 || y >= dungeon.height - 2;
+          const edge = !dungeon.holy || x < 2 || y < 2 || x >= dungeon.width - 2 || y >= dungeon.height - 2;
           const al = dungeon.altar, isAltar = !edge && al && x >= al.x && x < al.x + al.w && y >= al.y && y < al.y + al.h; // 祭壇は紫、柱は藍色にして、クリーム色の床とはっきり区別する
           if (edge) { // 外周の壁は、これまでどおり金色
             g.fillStyle(0xe2c978, 1); g.fillRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
@@ -22457,6 +22535,7 @@ class GameScene extends Phaser.Scene {
   a4Amida() { const pv = this.pv, am = pv && pv.mode === 'amida' && pv.amida; return (am && am.fighting && !am.fightDone && am.myRoom) ? am : null; } // あみだくじで自分のモンスターと戦っている間だけ、その状態を返す
   a4Room() {
     if (this.a4SpecOn() && this.pv.amida.specRoom) { const Q = this.pv.amida.specRoom; return { x0: Q.tx * TILE, x1: (Q.tx + Q.w) * TILE, y0: Q.ty * TILE, y1: (Q.ty + Q.h) * TILE, cx: Q.cx, cy: Q.cy }; } // あみだくじの観戦：見ている部屋
+    const wp = this.a4WarpOn(); if (wp) { const A = wp.A; return { x0: A.x0, x1: A.x1, y0: A.y0, y1: A.y1, cx: (A.x0 + A.x1) / 2, cy: (A.y0 + A.y1) / 2 }; } // 🪽 ワープ「天使」：転送先の部屋
     const am = this.a4Amida(); if (am) { const Q = am.myRoom; return { x0: Q.tx * TILE, x1: (Q.tx + Q.w) * TILE, y0: Q.ty * TILE, y1: (Q.ty + Q.h) * TILE, cx: Q.cx, cy: Q.cy }; } // あみだくじ：部屋＝自分のモンスターの部屋
     const rs = this.dungeon.rooms, r = (this.mp && this.dungeon.ritual) ? this.dungeon.ritual : rs[rs.length - 1]; // ボス部屋は常に最後（演出後は1部屋だけになる）／協力プレイは儀式部屋
     return { x0: r.x * TILE, x1: (r.x + r.w) * TILE, y0: r.y * TILE, y1: (r.y + r.h) * TILE, cx: (r.x + r.w / 2) * TILE, cy: (r.y + r.h / 2) * TILE }; }
@@ -22844,7 +22923,7 @@ class GameScene extends Phaser.Scene {
   updateArms4Atk(dt) {
     if (this._endingRun) return; // エンディング演出：天使は動かない（攻撃しない）
     if (this.a4SpecOn()) { this.a4SpecUpdate(dt); return; } // あみだくじの観戦：攻撃は動かさず、届いた演出だけを動かす
-    const amA = this.a4Amida(), tr = this.s2Any() || (amA ? (amA._a4Tr = amA._a4Tr || { phase: 'fight', amida: true }) : null); // あみだくじ：調伏の儀の代わりに、自分の部屋での戦闘中だけ動かす
+    const amA = this.a4Amida(), wpA = this.a4WarpOn(), tr = this.s2Any() || (amA ? (amA._a4Tr = amA._a4Tr || { phase: 'fight', amida: true }) : null) || (wpA ? (wpA._a4Tr = wpA._a4Tr || { phase: 'fight', warp: true }) : null); /* 🪽 ワープ「天使」：その部屋での戦闘中だけ動かす */ // あみだくじ：調伏の儀の代わりに、自分の部屋での戦闘中だけ動かす
     if (this._a4Sp) this.a4SplitUpdate(dt); // 分離中の時間切れ・撃破・統合
     let S = this._a4A;
     const a4 = (tr && tr.phase === 'fight') ? this.enemies.find(e => e.type && e.type.key === 'arms4' && !e._removed && e.hp > 0 && !e._a4Clone) : null;
