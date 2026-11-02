@@ -5665,7 +5665,7 @@ const WEAPON_TYPES = [
     blastRadius: 50, blastPerSec: 14, wallBreakTime: 2, knockback: 300,
     hidden: true }, // hidden: true＝一旦なし（宝箱・武器選択画面に出ない）。戻す時はこの hidden を消す
   // 🛡 古代魔法：スティックを離すと、一瞬だけ魔法のシールドが出る。出ている間はサメの攻撃をパリィ（ダメージを受けず攻撃を終わらせる）できる。shieldDur＝シールドが出ている秒数、cooldown＝次に出せるまでの秒数
-  { key: 'ancient', name: '古代魔法', type: 'ancient', damage: 0, cooldown: 0.9, minFloor: 1, shieldDur: 0.2, gaugeMax: 100, gaugePerParry: 5, hidden: true }, // hidden: true＝グリッチ戦専用（宝箱・ドロップ・武器選択には出ない。グリッチ戦は WEAPON_TYPES.find で直接付与する）。 gaugeMax＝パリィゲージの最大値／gaugePerParry＝パリィ成功1回でたまる量（5なら20回で満タン）
+  { key: 'ancient', name: '古代魔法', type: 'ancient', damage: 0, cooldown: 0.9, minFloor: 1, shieldDur: 0.2, ghostT: 0, shardT: 3, gaugeMax: 100, gaugePerParry: 5, hidden: true }, // hidden: true＝グリッチ戦専用（宝箱・ドロップ・武器選択には出ない。グリッチ戦は WEAPON_TYPES.find で直接付与する）。 gaugeMax＝パリィゲージの最大値／gaugePerParry＝パリィ成功1回でたまる量（5なら20回で満タン）
 ];
 
 // 召喚された味方の表示名（バナー用）
@@ -17290,6 +17290,19 @@ class GameScene extends Phaser.Scene {
     const hsl = (h, sa, l) => { l = Math.max(0, Math.min(1, l)); const c = (1 - Math.abs(2 * l - 1)) * sa, hh = (((h % 360) + 360) % 360) / 60, x = c * (1 - Math.abs(hh % 2 - 1)), m = l - c / 2; let r = 0, g = 0, b = 0; if (hh < 1) { r = c; g = x; } else if (hh < 2) { r = x; g = c; } else if (hh < 3) { g = c; b = x; } else if (hh < 4) { g = x; b = c; } else if (hh < 5) { r = x; b = c; } else { r = c; b = x; } return (Math.round((r + m) * 255) << 16) | (Math.round((g + m) * 255) << 8) | Math.round((b + m) * 255); };
     return { f: hsl(hue, sat, lig), s: hsl(hue, sat, Math.min(0.85, lig + 0.28)), o: hsl(hue, sat, Math.min(0.85, lig + 0.14)) }; // 輪郭と光は、同じ色相で少し明るく（暗い色でも背景から見えるように）
   }
+  _ancientShatter(px, py, a, col, T) { // 💥 シールドの3枚の六角形を、三角形の破片に砕いて散らす（破片は T 秒、その場に残る）
+    const A = this._anc, rnd = Math.random, SH = A.shards || (A.shards = []);
+    for (const h of this._ancientHexes(px, py, a).slice(1)) {
+      const V = []; for (let i = 0; i < 6; i++) { const an = a + Math.PI / 6 + i * Math.PI / 3; V.push([h.x + Math.cos(an) * h.r, h.y + Math.sin(an) * h.r]); } // _ancientPoly と同じ頂点
+      const C = [h.x + (rnd() - 0.5) * h.r * 0.5, h.y + (rnd() - 0.5) * h.r * 0.5], tris = [];
+      for (let i = 0; i < 6; i++) { const P = V[i], Q = V[(i + 1) % 6], k = 0.85 + rnd() * 0.25, M = [h.x + ((P[0] + Q[0]) / 2 - h.x) * k, h.y + ((P[1] + Q[1]) / 2 - h.y) * k]; tris.push([C, P, M], [C, M, Q]); } // 1枚を12個の不揃いな三角形に
+      for (const t of tris) {
+        const cx = (t[0][0] + t[1][0] + t[2][0]) / 3, cy = (t[0][1] + t[1][1] + t[2][1]) / 3, ang = Math.atan2(cy - py, cx - px) + (rnd() - 0.5) * 1.0, sp = 90 + rnd() * 200; // 自分から離れる向きに散る
+        SH.push({ x: cx, y: cy, p: t.map(v => [v[0] - cx, v[1] - cy]), vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, rot: 0, vr: (rnd() - 0.5) * 16, t: 0, life: T, c: col });
+      }
+      for (let j = 0; j < 5; j++) A.sp.push({ x: h.x + (rnd() - 0.5) * 16, y: h.y + (rnd() - 0.5) * 16, vx: (rnd() - 0.5) * 260, vy: (rnd() - 0.5) * 260, life: 0.3 + rnd() * 0.25, max: 0.55, s: 3 + rnd() * 3 }); // 砕ける瞬間の火花
+    }
+  }
   _ancientPoly(g, cx, cy, r, rot, fill) { g.beginPath(); for (let i = 0; i < 6; i++) { const an = rot + Math.PI / 6 + i * Math.PI / 3, x = cx + Math.cos(an) * r, y = cy + Math.sin(an) * r; if (i === 0) g.moveTo(x, y); else g.lineTo(x, y); } g.closePath(); if (fill) g.fillPath(); g.strokePath(); }
   _ancientBlocksSeg(ax, ay, bx, by, rad) { // 🛡 線分(a→b)の太さradの攻撃が、盾の3枚の六角形のどれかに触れたか。触れていれば、a側にいちばん近い接触点 {x, y} を返す（なければ null）。点ではなく線全体で判定するので、盾が点と点の間に入っても取りこぼさない
     const A = this._anc, pl = this.player; if (!A || !A.shield || !pl) return null;
@@ -17319,7 +17332,7 @@ class GameScene extends Phaser.Scene {
     try { this.cameras.main.flash(90, 255, 255, 255); this.cameras.main.shake(140, 0.005); } catch (e) {}
   }
   updateAncientMagic(dt) {
-    const A = this._anc || (this._anc = { held: false, angle: 0, shield: null, ghosts: [], sp: [], rings: [], cd: 0, time: 0, snapT: 0, g: null });
+    const A = this._anc || (this._anc = { held: false, angle: 0, shield: null, ghosts: [], shards: [], sp: [], rings: [], cd: 0, time: 0, snapT: 0, g: null });
     if (!A.g || !A.g.scene) A.g = this.add.graphics().setDepth(20);
     const g = A.g, w = this.weapon, pl = this.player; g.clear(); A.time += dt; A.cd -= dt;
     const on = !!(w && w.type === 'ancient' && pl && !this.isGhost && !this.isDowned && !this.transitioning && !this._ransomLock());
@@ -17343,7 +17356,9 @@ class GameScene extends Phaser.Scene {
       else {
         sh.t += dt; A.snapT -= dt;
         if (sh.t >= sh.dur) { // 効力が終わった瞬間：同じ強さの光がその場に固定され、徐々に弱まる（プレイヤーにはついてこない）
-          A.ghosts.push({ hx: this._ancientHexes(pl.x, pl.y, sh.a), a: sh.a, life: 0.9, max: 0.9, c: this._ancientCol((A.gauge || 0) / ((w && w.gaugeMax) || 100)) });
+          const GT = (w && w.ghostT != null) ? w.ghostT : 0; // 👻 残像が残る秒数（0＝効力が終わったらパッと消える。残す場合も、薄れずに同じ強さのまま、時間が来たらパッと消える）
+          { const ST = (w && w.shardT != null) ? w.shardT : 0; if (ST > 0) this._ancientShatter(pl.x, pl.y, sh.a, this._ancientCol((A.gauge || 0) / ((w && w.gaugeMax) || 100)), ST); } // 💥 効力が終わったら、パリーンと砕けて、破片がその場に残る
+          if (GT > 0) A.ghosts.push({ hx: this._ancientHexes(pl.x, pl.y, sh.a), a: sh.a, life: GT, max: GT, c: this._ancientCol((A.gauge || 0) / ((w && w.gaugeMax) || 100)) });
           A.shield = null;
         }
       }
@@ -17351,8 +17366,14 @@ class GameScene extends Phaser.Scene {
     for (let i = A.ghosts.length - 1; i >= 0; i--) { // 残像（輪郭だけ、少し広がりながら消える）
       const q = A.ghosts[i]; q.life -= dt; if (q.life <= 0) { A.ghosts.splice(i, 1); continue; }
       const k = q.life / q.max, al = k * k, gr = 1; // 位置も大きさも変えず、弱い光のまま静かに消える
-      const ga = Math.pow(k, 1.5); // 最初の1フレームと同じ強さから、ゆっくり弱まる
+      const ga = 1; // 薄れさせない（同じ強さのまま、時間が来たらパッと消える）
       const qc = q.c || this._ancientCol(0); for (const h of q.hx.slice(1)) { g.lineStyle(5, qc.o, 0.28 * ga); this._ancientPoly(g, h.x, h.y, h.r * 1.14, q.a, false); g.fillStyle(qc.f, 0.8 * ga); g.lineStyle(2, qc.s, 0.95 * ga); this._ancientPoly(g, h.x, h.y, h.r, q.a, true); }
+    }
+    for (let i = (A.shards || []).length - 1; i >= 0; i--) { // 💥 砕けた破片：勢いよく散って、すぐ減速してその場に止まる。薄れずに、時間が来たらパッと消える
+      const q = A.shards[i]; q.t += dt; if (q.t >= q.life) { A.shards.splice(i, 1); continue; }
+      const kd = Math.exp(-dt * 5); q.vx *= kd; q.vy *= kd; q.vr *= kd; q.x += q.vx * dt; q.y += q.vy * dt; q.rot += q.vr * dt;
+      const co = Math.cos(q.rot), si = Math.sin(q.rot); g.fillStyle(q.c.f, 0.6); g.lineStyle(1.5, q.c.s, 0.9); g.beginPath();
+      q.p.forEach((v, j) => { const X = q.x + v[0] * co - v[1] * si, Y = q.y + v[0] * si + v[1] * co; if (j === 0) g.moveTo(X, Y); else g.lineTo(X, Y); }); g.closePath(); g.fillPath(); g.strokePath();
     }
     const cur = A.shield;
     if (cur && pl) { // 出ている間のシールド
