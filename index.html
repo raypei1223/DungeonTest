@@ -6016,8 +6016,8 @@ function applyWeaponLevel(base, level) {
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
 const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
-const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
-const GLITCH_TEST_GAUGE_FULL = true; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
+const GLITCH_TEST_ATK = 'warp'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
+const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
 const GLITCH_TSAR = { flyT: 7, v0: 40, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, afterT: 1.6 }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆風が広がりきるまでの秒数／afterT＝その後の余韻の秒数
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
 const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
@@ -6032,7 +6032,7 @@ const GLITCH_WARP = {
   hell: { stay: 15, demonDy: TILE * 4.5, hp: 999999 }, // 🔥 地獄（実際の地獄マップと同じ見た目・作りの部屋）：stay＝転送されてから戻るまで(秒)／demonDy＝悪魔がプレイヤーの何px上にいるか(画面の上の端に収まる位置)／hp＝悪魔のHP(倒せない)
   lounge: { stay: 20, hp: 999999, firstBomb: 2, detonator: [9.5, 2.5] }, // 💬 交流ルーム：stay＝戻るまでの上限(秒。ふつうは爆弾が全部起爆したら戻る)／hp＝デトネーターのHP(倒せない)／firstBomb＝最初に爆弾をまくまでの秒／detonator＝デトネーターの位置(部屋の左上からのマス)
   angel: { stay: 60, hp: 999999, openCount: 3, angel: [18.5, 5] }, // 🪽 天使の調伏の儀：stay＝戻るまでの上限(秒)／hp＝天使のHP(倒せない)／openCount＝天使が最初の技（A4_OPENING の頭から）を何回出したら戻るか／angel＝天使の位置(部屋の左上からのマス。本物の儀式部屋と同じ)
-  wolf: { stay: 20, hp: 999999, simahar: [26.5, 18.5] }, // 🐺 人狼広場（人狼ゲームの元のマップの広場。左に転送され、右にシマハルがいる）：stay＝戻るまでの秒（時間で戻る）／hp＝シマハルのHP(倒せない)／simahar＝シマハルの位置(部屋の左上からのマス)
+  wolf: { stay: 20, hp: 999999, simahar: [27, 19] }, // 🐺 人狼広場（人狼ゲームの元のマップの広場。左に転送され、右にシマハルがいる）：stay＝戻るまでの秒（時間で戻る）／hp＝シマハルのHP(倒せない)／simahar＝シマハルの位置(部屋の左上からのマス)
   holy: { stay: 15, hp: 999999, snakes: [[9.5, 4.5], [23.5, 4.5]] }, // ✨ 聖域：stay＝戻るまでの秒（時間で戻る）／hp＝ウロボロスの頭のHP(倒せない)／snakes＝2匹のウロボロスの位置(部屋の左上からのマス)
   chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
 };
@@ -9159,7 +9159,7 @@ class GameScene extends Phaser.Scene {
   }
   // 🐺 パターン 'wolf'：人狼ゲームの元のマップ（版1）の広場（草地・半径 PVP.werewolf.plazaR のまるい広場。まわりは岩）の左あたりへ転送される。右にシマハルがいる。stay 秒（20秒）たつと戻る。
   //   まわりの岩は壊せる（シマハルのビームなど）。壊れた所は、人狼マップの「道」と同じ茶色い土の地面になる（_gwWolfFloor）。戻る時は領域ぜんぶ岩へ戻る（_warpClear）。
-  _gwPat_wolf_room() { return { w: 41, h: 37, spawn: [14.5, 18.5], look: 'glitchWolf' }; } // 広場の中心は部屋の真ん中 (20.5, 18.5)。転送先は広場の左寄り（中心から6マス左）。広場から出る道を作れるよう、広場（直径18）よりひとまわり以上広い
+  _gwPat_wolf_room() { return { w: 42, h: 38, spawn: [15, 19], look: 'glitchWolf' }; } // 広場の中心は部屋の真ん中 (21, 19)＝マスの角（本物の人狼マップと同じ。偶数の大きさにして、円の上下左右に1マスだけ出っ張るのを防ぐ）。転送先は広場の左寄り（中心から6マス左）。広場から出る道を作れるよう、広場（直径18）よりひとまわり以上広い
   _gwPat_wolf_terrain(gw, rx, ry, w, h) { // 広場のまるい形の外は、岩のまま（壊せる）。ただし、広場から家の方向へ放射状に出る道（人狼マップの版1と同じ：幅 roadW・家の数 houses）は残す。道は部屋の端の1マス手前までで行き止まり（まわりは岩）
     const grid = this.dungeon.grid, Wv = PVP.werewolf, R = Wv.plazaR, N = Wv.houses, rw = Wv.roadW / 2, cx = w / 2, cy = h / 2;
     const dirs = []; for (let k = 0; k < N; k++) { const a = -Math.PI / 2 + Math.PI * 2 * k / N; dirs.push([Math.cos(a), Math.sin(a)]); } // 0番が真上、時計回り（元のマップと同じ）
