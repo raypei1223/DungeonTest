@@ -650,6 +650,15 @@
     #wwVote.wwVoteFront { z-index: 262 !important; left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important; transform: none !important; width: auto !important; min-width: 0 !important; max-width: none !important;
       max-height: 68vh !important; max-height: 68dvh !important; box-sizing: border-box; border-radius: 14px 14px 0 0 !important; border-width: 2px !important; padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 12px) !important; background: rgba(8,10,28,0.97) !important; }
   }
+  /* 🟩 グリッチの称号（glitch: true）：赤とシアンの色ずれ＋ときどきの切れ込み・ちらつき（文字の位置は動かさない） */
+  @keyframes titleGlitchFx {
+    0%, 84%, 100% { text-shadow: 0 0 8px #2aff5a; clip-path: none; opacity: 1; }
+    86% { text-shadow: 2px 0 #ff2a4a, -2px 0 #2affff, 0 0 8px #2aff5a; clip-path: inset(0 0 55% 0); opacity: 0.85; }
+    88% { text-shadow: -2px 0 #ff2a4a, 2px 0 #2affff, 0 0 8px #2aff5a; clip-path: inset(45% 0 0 0); opacity: 1; }
+    90% { text-shadow: 1px 0 #ff2a4a, -1px 0 #2affff, 0 0 8px #2aff5a; clip-path: none; opacity: 0.6; }
+    93% { text-shadow: 0 0 8px #2aff5a; clip-path: none; opacity: 1; }
+  }
+  .titleGlitch { animation: titleGlitchFx 2.6s steps(1, end) infinite; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.70.0/phaser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> <!-- 🌌 エンディングの3Dの十字架用 -->
@@ -6023,10 +6032,10 @@ const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
 const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
 const GLITCH_TEST_ATK = ""; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
-const GLITCH_TEST_GAUGE_FULL = true; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
-const GLITCH_TSAR = { flyT: 7, v0: 40, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, invBand: 240, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／creep＝白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
+const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
+const GLITCH_TSAR = { flyT: 7, v0: 40, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, invBand: 240, landTile: { x: 42, y: 22 }, walkSpeedK: 0.5, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／creep＝白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
-const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1, endShake: 0.8 }; // endShake＝最後の飛び込みのあと、最後のウィンドウが揺れ続けてから崩れ始めるまでの秒（長くすると揺れる時間が延びる）／ // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
+const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.6, burrowSpeed: TILE * 8, burrowWobble: 5, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間／stayT＝飛び出す前に、潜ったサメが止まる（その窓が揺れる）時間（秒）
 // 🔀 ランサムウェア：サメが姿を現して「感染」させると、プレイヤーは t 秒のあいだ、移動の操作（または攻撃スティック。両方のこともある）が上下左右反転する。反転したスティックの周りにはノイズが走る。サメ自身は castT 秒だけその場で止まってから、また泳ぎ回る。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'ransom'。（武器が使えなくなるのは、フォークボム中：_ransomLock）
 const GLITCH_RANSOM = { t: 30, castT: 1.6, aimP: 0.35, bothP: 0.2 }; // t＝反転の秒数／castT＝サメがその場で止まる秒数／aimP＝攻撃スティック（右）だけが反転する確率／bothP＝両方のスティックが反転する確率（残りは、移動スティック（左）だけ）
 // 🌀 ワープ：サメが姿を現したあと、プレイヤーの足元にウィンドウが出て（castT 秒）、最北戦線の発信機の上あたりへ転送される。そこでパターンごとの敵と戦い（今は 'chargers'＝円状に並んだチャージャーが突進）、終わったら（returnDelay 秒後）元の場所へ戻る。maxStay 秒たてば、何があっても戻す。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'warp'。
@@ -6065,6 +6074,13 @@ const GLITCH_COMBO = {
   count: 3,          // 追撃の回数
   rushT: 2.0,        // 1回あたりの追いかける時間（秒）。既存の追撃は4.5秒
   gap: 0.55          // 1回が終わってから、潜って、同じ場所からまた姿を現し始めるまでの時間（秒）
+};
+// 🏃 追撃（rush・連撃）の開始時に、プレイヤーに近すぎたら、いったん離れてから突進してくる
+const GLITCH_BACKOFF = {
+  near: TILE * 5,    // 突進を始める時、これより近かったら一旦離れる
+  far: TILE * 8,     // ここまで離れたら、突進を始める
+  speedK: 5,         // 離れる速さ（S.speed の何倍か）
+  maxT: 1.5          // 離れる時間の上限（壁際などで離れきれなくても、この秒数で突進に移る）
 };
 // 🥤 グリッチの攻撃「シェルゲーム」の調整値（秒・px。_sgUpdate の流れの順）
 const GLITCH_SHELL = {
@@ -6238,12 +6254,39 @@ const PLAYER_TITLES = [
   { key: 'end',          name: '終焉',       color: '#ff7a1a', desc: '敵を累計10万体倒す' },
   { key: 'gale',         name: '疾風',       color: '#5fe3a1', desc: '10階層を2分以内にクリアする（悪魔装飾・ルーレットなし）' }, // シードは問わない（固定シードでも、ランダムでも取れる）
   { key: 'soulslash',    name: '離魂斬り',   color: '#ffffff', outline: '#ff2030', desc: '斬り合いで主人公を倒す' }, // 白い字＋赤いふち（主人公の赤い目の色）
+  { key: 'debugger',     name: 'Debugger',   color: '#c8ffd6', outline: '#2aff5a', desc: 'グリッチを倒す' }, // 床に浮かぶ文字（グリッチの緑の光る文字）と同じ感じ：明るい緑がかった白い字＋緑のふち・光
+  { key: 'err404',       name: 'ERR_404',    color: '#c8ffd6', outline: '#2aff5a', glitch: true, desc: '準備中' }, // 🟩 入手処理は準備中（どこからも付与しない）。glitch: true＝名前にグリッチの見た目（色ずれ・ちらつき・文字化け）が付く
 ];
 function playerTitleByKey(k) { return (typeof k === 'string' && PLAYER_TITLES.find(t => t.key === k)) || null; }
 // 称号の光（text-shadow用）：他の称号と同じ1重の光。色は、outline があればそれ、無ければ color
 function titleGlowCss(t, px) { return '0 0 ' + px + 'px ' + (t.outline || t.color); }
 // ゲーム中（Phaserの文字）：称号の色とふちの色を付け直す。ふちは outline があればその色、無ければ黒（太さは他の称号と同じ）
-function applyTitleTextStyle(txt, t) { txt.setColor(t.color); txt.setStroke(t.outline || '#000000', 3); }
+function applyTitleTextStyle(txt, t) { txt.setColor(t.color); if (t.glitch) { txt.setStroke(t.outline || '#000000', 0); txt.setShadow(0, 0, t.outline || t.color, 8, false, true); } else { txt.setStroke(t.outline || '#000000', 3); txt.setShadow(0, 0, '#000000', 0, false, false); } } // glitch＝ホームと同じ、ふち無しの緑の光（色ずれ・切れ込みは titleGlitchTick）
+// 🟩 グリッチの称号（glitch: true）の見た目：DOMは class titleGlitch（CSSの色ずれ・ちらつき）＋ときどき文字化け。ゲーム内の文字（Phaser）は titleGlitchTick を毎フレーム呼ぶ
+const TITLE_GLITCH_CH = '█▓▒░#@%&01?/<>{}';
+function titleGlitchScramble(str) { const a = Array.from(str), idx = []; a.forEach((c, i) => { if (c !== ' ' && c !== '「' && c !== '」') idx.push(i); }); const n = Math.min(idx.length, 1 + Math.floor(Math.random() * 2)); for (let k = 0; k < n; k++) a[idx[Math.floor(Math.random() * idx.length)]] = TITLE_GLITCH_CH[Math.floor(Math.random() * TITLE_GLITCH_CH.length)]; return a.join(''); }
+function titleGlitchTick(txt, def) { // ゲーム内（通信プレイの頭上）の称号：ホームの見た目（CSS titleGlitchFx）と同じ。周期2.6秒のうち 86〜93% の間だけ、赤とシアンの色ずれ＋上半分／下半分だけの切れ込み＋ちらつき。ほかに110msごとに12%で文字化け。緑の光は applyTitleTextStyle。位置を決めたあとに毎フレーム呼ぶ
+  if (!txt || !txt.scene) return;
+  const gg = txt._gg;
+  if (!def || !def.glitch) { if (gg) { gg.forEach(g => g.setVisible(false)); txt.setAlpha(1); } return; }
+  const sc = txt.scene, now = performance.now();
+  if (!txt._gg) { // 色ずれ用の、赤とシアンの重ね文字（光らせて重ねる）
+    const mk = c => sc.add.text(0, 0, txt.text, { fontSize: txt.style.fontSize, fontFamily: txt.style.fontFamily, fontStyle: txt.style.fontStyle, color: c }).setOrigin(0.5).setAlpha(0).setVisible(false).setBlendMode(Phaser.BlendModes.ADD);
+    txt._gg = [mk('#ff2a4a'), mk('#2affff')];
+    txt.once('destroy', () => { (txt._gg || []).forEach(g => { try { g.destroy(); } catch (e) { /* 破棄済み */ } }); });
+  }
+  const [gr, gc] = txt._gg;
+  if (now - (txt._glT || 0) > 110) { txt._glT = now; txt._glStr = Math.random() < 0.12 ? titleGlitchScramble(def.name) : null; } // 文字化け（ホームと同じ頻度）
+  const str = txt._glStr || def.name; if (txt.text !== str) txt.setText(str);
+  const p = ((now / 1000) % 2.6) / 2.6, k = p >= 0.86 && p < 0.88 ? 1 : p >= 0.88 && p < 0.90 ? 2 : p >= 0.90 && p < 0.93 ? 3 : 0; // ホームのキーフレームと同じ区切り
+  const O = [0, 2, -2, 1][k], A = [1, 0.5, 0.55, 0.6][k]; // 色ずれ(px)／本体の濃さ（切れ込みは setCrop だと解像度ぶん文字が大きくなるため使わず、濃さを落として代用）
+  const zm = (sc.cameras.main.zoom || 1), res = txt.style.resolution || 1;
+  txt.setAlpha(A);
+  [gr, gc].forEach((g, i) => { if (g.text !== str) g.setText(str); if ((g.style.resolution || 1) !== res) g.setResolution(res); g.setDepth(txt.depth + 0.01); g.x = txt.x + (i === 0 ? O : -O) / zm; g.y = txt.y; g.setAlpha(k ? 0.9 : 0); g.setVisible(txt.visible && k > 0); });
+}
+setInterval(() => { // DOMの称号（.titleGlitch）：ときどき文字化けして、すぐ戻る（再描画で文字が変わっていたら、新しい文字を元にする）
+  try { document.querySelectorAll('.titleGlitch').forEach(el => { const g = el._gl || (el._gl = { orig: el.textContent, shown: el.textContent }); if (el.textContent !== g.shown) { g.orig = el.textContent; g.shown = el.textContent; } const bad = el.textContent === g.orig && Math.random() < 0.12; const nx = bad ? titleGlitchScramble(g.orig) : g.orig; if (el.textContent !== nx) { el.textContent = nx; g.shown = nx; } }); } catch (e) {}
+}, 110);
 // 称号を入手済みにする。新しく入手した時だけ、その定義を返す（すでに持っていれば null）
 function grantPlayerTitle(key) {
   const def = playerTitleByKey(key); if (!def) return null;
@@ -6833,7 +6876,7 @@ class GameScene extends Phaser.Scene {
       app.hellTest = false;
       if (!this.mp && !this.pvp && !this.frontline && !this.bossRush) { this.hell = true; this._hellDest = this.floor; this._hellT0 = performance.now(); }
     }
-    this.glitchBoss = !this.mp && !!app.bossRush && !!app.glitchBoss; this._glitchWon = false; // 📺 グリッチのボスの挑戦（装飾品なし。倒すとリザルト）
+    this.glitchBoss = !this.mp && !!app.bossRush && !!app.glitchBoss; this._glitchWon = false; this._tsarSlow = false; // 📺 グリッチのボスの挑戦（装飾品なし。倒すとリザルト）
     this.rushWeaponKey = ((!this.mp && (app.bossRush || app.arms4Ritual || app.vsHero)) || app.frontline || app.pvp) ? (app.rushWeaponKey || null) : null;
     // ボスラッシュでは選んだ武器のLv.5でスタートする（デベロッパーモードの開始武器と同じ仕組みを流用）
     this.devWeaponKey = this.rushWeaponKey || app.devWeaponKey || null;
@@ -7534,6 +7577,7 @@ class GameScene extends Phaser.Scene {
         const zm = (this.cameras.main.zoom || 1), tres = Math.max(1, Math.min(4, Math.ceil(zm * Math.min(2, window.devicePixelRatio || 1))));
         if (rp._tres !== tres) { rp._tres = tres; rp.titleLabel.setResolution(tres); }
         rp.titleLabel.x = Math.round(rp.gfx.x * zm) / zm; rp.titleLabel.y = Math.round((rp.gfx.y - 40) * zm) / zm;
+        titleGlitchTick(rp.titleLabel, td);
       }
       rp.hpBarBg.x = rp.gfx.x; rp.hpBarBg.y = rp.gfx.y - 20;
       rp.hpBarFill.x = rp.gfx.x; rp.hpBarFill.y = rp.gfx.y - 20;
@@ -8453,30 +8497,34 @@ class GameScene extends Phaser.Scene {
     this._sharkInit(); // 🦈 本体（サメ）を部屋に出す
     this._glitchIntro(); // 📟 戦いの最初に、床へ緑色のエラーメッセージを出す
   }
-  _glitchIntro() { // 📟 グリッチ戦の最初の演出：プレイヤーの足元の床に、緑に輝くシステムのエラーメッセージが左揃えで打ち出される（エラーコード → 「削除をプレイヤーに委ね、データベースの最上位ティアの武器『古代魔法』を付与する」という意味の英文）。しばらく出たあと、ノイズで崩れながら消える
+  _glitchIntro(opt) { // opt（省略可）＝{ text＝出す英文／hold＝打ち終わってから残る秒／onDone＝消え終わったあとの処理 }。省くと最初の演出。撃破後の「削除完了」メッセージにも使う（プレイヤーのいる部屋の足元に出す）
+    // 📟 グリッチ戦の最初の演出：プレイヤーの足元の床に、緑に輝くシステムのエラーメッセージが左揃えで打ち出される（エラーコード → 「削除をプレイヤーに委ね、データベースの最上位ティアの武器『古代魔法』を付与する」という意味の英文）。しばらく出たあと、ノイズで崩れながら消える
     //   見た目：明るい緑の文字＋にじむ光（加算合成）＋赤とシアンの色ずれ（グリッチ本体と同じ）＋末尾の点滅カーソル＋ときどきのちらつき
-    const room = this.dungeon && this.dungeon.rooms[0]; if (!room) return;
+    const pl0 = this.player, rms = (this.dungeon && this.dungeon.rooms) || [];
+    const inRm = (opt && pl0 && rms.find(r => pl0.x >= r.x * TILE && pl0.x < (r.x + r.w) * TILE && pl0.y >= r.y * TILE && pl0.y < (r.y + r.h) * TILE)), room = inRm || rms[0], free = !!(opt && pl0 && !inRm); // 撃破後は、プレイヤーのいる部屋。部屋の外（free）なら、部屋に寄せず足元にそのまま出す
+    if (!room) { if (opt && opt.onDone) opt.onDone(); return; } // 部屋が無ければ、メッセージは出さずに次へ
     if (this._glitchIntroStop) this._glitchIntroStop(); // 前の演出が残っていれば片付ける
-    const full = 'ERROR 0xDEAD_C0DE: FATAL EXCEPTION\n> UNRECOVERABLE CORRUPTION DETECTED\n> DELETION DELEGATED TO THE PLAYER.\n> GRANTING THE TOP-TIER WEAPON IN THE DATABASE:\n> "ANCIENT MAGIC"';
-    const CPS = 38, HOLD = 4.5, FADE = 0.9; // 文字を打つ速さ（文字/秒）／打ち終わってから残る秒数／消えるまでの秒数
+    const full = (opt && opt.text) || 'ERROR 0xDEAD_C0DE: FATAL EXCEPTION\n> UNRECOVERABLE CORRUPTION DETECTED\n> DELETION DELEGATED TO THE PLAYER.\n> GRANTING THE TOP-TIER WEAPON IN THE DATABASE:\n> "ANCIENT MAGIC"';
+    const CPS = 38, HOLD = (opt && opt.hold != null) ? opt.hold : 4.5, FADE = 0.9; // 文字を打つ速さ（文字/秒）／打ち終わってから残る秒数／消えるまでの秒数
     const WW = Math.max(160, Math.min(380, room.w * TILE - 48)); // 文字の折り返し幅
     const base = { fontSize: '12px', fontFamily: 'monospace', align: 'left', wordWrap: { width: WW } };
-    const mk = (color, depth, extra) => this.add.text(0, 0, '', Object.assign({}, base, { color }, extra || {})).setOrigin(0, 0).setDepth(depth).setVisible(false); // 左揃え・左上を基準。床の層（血だまり3.5・サメ4より下）
+    const dz = opt ? 0.6 : 0; /* 撃破後は、ツァーリ・ボンバの焼け跡の層（3.4／3.45）に隠れないよう手前へ */ const mk = (color, depth, extra) => this.add.text(0, 0, '', Object.assign({}, base, { color }, extra || {})).setOrigin(0, 0).setDepth(depth + dz).setVisible(false); // 左揃え・左上を基準。床の層（血だまり3.5・サメ4より下）
     const gl = mk('#2aff5a', 3.16).setShadow(0, 0, '#2aff5a', 22, true, true).setBlendMode(Phaser.BlendModes.ADD); // いちばん下：大きくにじむ緑の光
     const rd = mk('#ff2a4a', 3.18).setBlendMode(Phaser.BlendModes.ADD), cy = mk('#2affff', 3.18).setBlendMode(Phaser.BlendModes.ADD); // 赤とシアンの色ずれ（左右に1.5pxずらす）
     const layers = [gl, rd, cy], OFF = [0, -1.5, 1.5]; // 実体の文字の層は無し（光る文字＋色ずれのみ）
-    let t = 0, gt = 0, bx = 0, by = 0, placed = false; const J = '█▓▒░#@%&01?/<>{}';
+    let t = 0, gt = 0, bx = 0, by = 0, placed = false, done = false, typed = false; const J = '█▓▒░#@%&01?/<>{}';
     const upd = (time, delta) => {
       t += Math.min(delta / 1000, 0.1); gt -= delta / 1000;
-      if (!gl.scene) return;
+      if (!gl.scene) { stop(); if (opt && opt.onDone && !done) { done = true; opt.onDone(); } return; } // 文字が消えていても、次へ進めて止まらないようにする
       if (!placed) { // 最初の1フレームで、プレイヤーの足元の地面に置く（以後は動かない＝床に書かれた文字）
         const pl = this.player, L0 = room.x * TILE + 8, R0 = (room.x + room.w) * TILE - 8, T0 = room.y * TILE + 8, B0 = (room.y + room.h) * TILE - 8;
         gl.setText(full); const h = gl.height; gl.setText(''); // 全文の高さを測る（壁にかからないように位置を寄せるため）
         const px = pl ? pl.x : (L0 + R0) / 2, py = pl ? pl.y + (pl.radius || 12) + 4 : (T0 + B0) / 2;
-        bx = Math.max(L0, Math.min(px - 12, R0 - WW)); by = Math.max(T0, Math.min(py, B0 - h));
+        if (free) { bx = px - WW / 2; by = py; } else { bx = Math.max(L0, Math.min(px - 12, R0 - WW)); by = Math.max(T0, Math.min(py, B0 - h)); }
         layers.forEach((q, i) => { q.setPosition(bx + OFF[i], by); q.setVisible(true); }); placed = true;
       }
       const tEnd = full.length / CPS + HOLD, typing = t * CPS < full.length, fading = t > tEnd;
+      if (!typing && !typed) { typed = true; if (opt && opt.onTyped) opt.onTyped(); } // 全部打ち終わった瞬間（1回だけ）
       const n = Math.min(full.length, Math.floor(t * CPS)); let out = full.slice(0, n);
       if (gt <= 0) { gt = 0.07; gl._gl = []; for (let i = 0; i < 3; i++) if (Math.random() < 0.5) gl._gl.push(Math.floor(Math.random() * Math.max(1, n))); } // ときどき、数文字がバグった記号に入れ替わる
       if (gl._gl && !typing) { const ch = out.split(''); for (const k of gl._gl) if (ch[k] && ch[k] !== '\n' && ch[k] !== ' ') ch[k] = J[Math.floor(Math.random() * J.length)]; out = ch.join(''); }
@@ -8485,7 +8533,7 @@ class GameScene extends Phaser.Scene {
       const u = fading ? Math.min(1, (t - tEnd) / FADE) : 0, fl = Math.max(0.35, 0.9 + 0.1 * Math.sin(t * 38) - (Math.random() < 0.06 ? 0.45 : 0)), fa = (1 - u) * (u > 0 && Math.random() < 0.25 ? 0.5 : 1); // ちらつき（ときどき一瞬暗くなる）／消える時のちらつき
       gl.setAlpha(fl * fa); rd.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1)); cy.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1));
       if (u > 0) { const j = (Math.random() - 0.5) * 6 * u; layers.forEach((q, i) => q.x = bx + OFF[i] + j); } // 消える時は、横にずれる
-      if (u >= 1) stop();
+      if (u >= 1) { stop(); if (opt && opt.onDone && !done) { done = true; opt.onDone(); } } // 消え終わったら、次の処理へ
     };
     const stop = () => { this.events.off('update', upd); layers.forEach(q => { try { if (q.scene) q.destroy(); } catch (e) { /* 破棄済み */ } }); if (this._glitchIntroStop === stop) this._glitchIntroStop = null; };
     this._glitchIntroStop = stop;
@@ -8785,10 +8833,23 @@ class GameScene extends Phaser.Scene {
       S.bend *= Math.max(0, 1 - dt * 4); S.ph += dt * Math.PI * 2 * S.beat * 0.8;
       S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
     } else if (m0 === 'rush') { // 🦈 追撃：姿を現したまま、高速でプレイヤーを追いかける（曲がる速さは控えめなので、横に動けば避けられる）
+      if (S.rushBack) { // 🏃 近すぎる時：プレイヤーと反対向きへ泳いで距離を取る（離れている間は追撃の時間も減らさない）
+        S.rushBackT += dt; S.mt += dt;
+        if (!plOk || S.rushBackT >= GLITCH_BACKOFF.maxT || Math.hypot(plr.x - S.x, plr.y - S.y) >= GLITCH_BACKOFF.far) { S.rushBack = false; }
+        else {
+          const away = Math.atan2(S.y - plr.y, S.x - plr.x), tn = S.turn * 2, d = wrap(away - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d));
+          S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5);
+          const tv = S.speed * GLITCH_BACKOFF.speedK; S.v += (tv - S.v) * Math.min(1, dt * 6);
+          S.ph += dt * Math.PI * 2 * S.beat * 3.2;
+          S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+        }
+      }
+      if (!S.rushBack) {
       if (plOk && (!S.rushFixed || Math.abs(wrap(Math.atan2(plr.y - S.y, plr.x - S.x) - S.a)) < Math.PI / 2)) { const want = Math.atan2(plr.y - S.y, plr.x - S.x), tn = S.rushFixed ? GLITCH_SHELL.homeTurn : S.turn * 1.5, d = wrap(want - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d)); S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5); }
       const tv = S.speed * (S.rushFixed ? GLITCH_SHELL.dashK : 7) * (0.9 + 0.1 * Math.cos(S.ph * 2)) * (1 - 0.25 * Math.abs(S.bend)); S.v += (tv - S.v) * Math.min(1, dt * 6);
       S.ph += dt * Math.PI * 2 * S.beat * 3.2;
       S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+      }
     } else if (m0 === 'aim' || m0 === 'cdive') { // 🟩 その場で止まって、プレイヤーの方へ鼻先を向ける（🔁 連撃の潜っている間も同じ）。最後の0.55秒は向きを固定する
       S.v *= Math.max(0, 1 - dt * 6);
       if (plOk && !S.aimFired) { const nx = S.x + Math.cos(S.a) * S.len * 0.5, ny = S.y + Math.sin(S.a) * S.len * 0.5, d = wrap(Math.atan2(plr.y - ny, plr.x - nx) - S.a); S.a += Math.max(-3 * dt, Math.min(3 * dt, d)); }
@@ -8826,7 +8887,7 @@ class GameScene extends Phaser.Scene {
     const splashBurst = (n, pt = fbP) => { for (let i = 0; i < n && S.splash.length < 420; i++) S.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] }); };
     S.mt -= dt;
     if (m0 === 'fin') {
-      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = ['shoot', 'rush', 'shell', 'wave', this._fork ? 'shoot' : 'fork', 'combo', this._ransomT > 0 ? 'shoot' : 'ransom', 'warp']; S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
+      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', this._ransomT > 0 ? 'rush' : 'ransom', 'warp']; S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
        S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, S.atk === 'combo' ? { x: S.x, y: S.y } : fbP); } else S.mt = 2; } // しばらく泳ぎ回ったら、距離に関係なくその場で姿を現して、追撃を始める
     } else if (m0 === 'chase') {
       if (!plOk || S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 追いつけない・見失ったら、泳ぎ回りに戻る
@@ -8840,8 +8901,8 @@ class GameScene extends Phaser.Scene {
         else if (S.atk === 'ransom') { this._ransomStart(S); splashBurst(24); } // 🔀 ランサムウェア：移動の操作が一定時間反転（_ransomStart）
         else if (S.atk === 'warp') { this._warpStart(S); splashBurst(24); } // 🌀 ワープ：足元にウィンドウが出て、最北戦線の発信機の上へ転送（_warpStart〜_warpPhase）
         else if (S.atk === 'wave') { S.mode = 'wave'; S.mt = 99; S.wv = { t: 0, ph: 'turn', fire: false, fired: false, sd: Math.random() < 0.5 ? 1 : -1, b0: 0 }; splashBurst(24); } // 🌊 波：尾をプレイヤーへ向けて、扇ぐように振る（_sharkWaveMove〜_sharkWaveUpdate）
-        else if (S.atk === 'combo') { if (!S.cb) S.cb = { left: GLITCH_COMBO.count }; S.cb.left--; S.mode = 'rush'; S.mt = GLITCH_COMBO.rushT; S.rushHit = false; S.rushFixed = false; splashBurst(24); } // 🔁 連撃：追撃を1回（残り回数を1つ減らす）
-        else { S.mode = 'rush'; S.mt = 4.5; S.rushHit = false; S.rushFixed = false; splashBurst(24); } // 追撃：高速で追いかける（4.5秒間）
+        else if (S.atk === 'combo') { if (!S.cb) S.cb = { left: GLITCH_COMBO.count }; S.cb.left--; S.mode = 'rush'; S.mt = GLITCH_COMBO.rushT; S.rushHit = false; S.rushFixed = false; S.rushBack = plOk && Math.hypot(plr.x - S.x, plr.y - S.y) < GLITCH_BACKOFF.near; S.rushBackT = 0; splashBurst(24); } // 🔁 連撃：追撃を1回（残り回数を1つ減らす）
+        else { S.mode = 'rush'; S.mt = 4.5; S.rushHit = false; S.rushFixed = false; S.rushBack = plOk && Math.hypot(plr.x - S.x, plr.y - S.y) < GLITCH_BACKOFF.near; S.rushBackT = 0; splashBurst(24); } // 追撃：高速で追いかける（4.5秒間）
       }
     } else if (m0 === 'aim') { // 🟩 射撃：溜めながら狙う(1.25秒)→向きを固定(0.55秒)→発射→少し止まって潜る
       if (!S.aimFired && S.mt <= 0 && plOk) {
@@ -8888,7 +8949,7 @@ class GameScene extends Phaser.Scene {
           S.mode = 'retreat'; S.mt = 1.2; S.retA = S.a + Math.PI; S.v *= 0.2;
         } else { pl.x = q.x; pl.y = q.y; S.lastFree = { x: q.x, y: q.y }; S.bloodT = (S.bloodT || 0) - dt; if (S.bloodT <= 0) { S.bloodT = 0.05; this._sharkBlood(q.x, q.y, 0.25); } }
       }
-      if (S.mode === 'rush' && !S.rushHit) { // 鼻先だけが当たり判定：古代魔法でパリィできるのも、噛みつくのも鼻先
+      if (S.mode === 'rush' && !S.rushHit && !S.rushBack) { // 鼻先だけが当たり判定：古代魔法でパリィできるのも、噛みつくのも鼻先
         const t0 = shp.sp[0], t1 = shp.sp[1], bm = Math.hypot(t1.x - t0.x, t1.y - t0.y) || 1, hr = TILE * 0.25 * S.sc; // 判定の円は、前端が見た目の鼻先に一致するよう、半径の分だけ後ろにずらす（半径も鼻の細さに合わせて小さく）
         const q = { x: t0.x + (t1.x - t0.x) / bm * hr, y: t0.y + (t1.y - t0.y) / bm * hr };
         if (this._ancientBlocks(q.x, q.y, hr)) { S.rushHit = true; S.mode = 'retreat'; S.mt = 1.2; S.retA = S.a + Math.PI; this._ancientParryFx(q.x, q.y); } // 🛡 パリィ成功：ダメージなし。向きを変えて戻っていき、攻撃は終わる
@@ -8972,7 +9033,6 @@ class GameScene extends Phaser.Scene {
         try { this.cameras.main.flash(260, 60, 255, 120); this.cameras.main.centerOn(A.spawnX, A.spawnY); } catch (e) {}
         this.spawnBurst(A.spawnX, A.spawnY, 0x3dff85, 14);
         this.placeAlliesAtPlayer();
-        this.showBanner('🌀 転送', 1200);
         const enter = this['_gwPat_' + gw.pat + '_enter']; if (enter) enter.call(this, S, A);
       }
     } else if (gw.ph === 'fight') {
@@ -9119,7 +9179,6 @@ class GameScene extends Phaser.Scene {
     // 地獄の悪魔と同じ：根の攻撃は25階の悪魔と同じ。ただし「種」（壁に植える攻撃）だけはなし（この個体だけの複製）
     e.type = Object.assign({}, e.type, { _hellDark: true, seedBurst: null, rootsChase: Object.assign({}, base.rootsChase, { plantSeed: false }) });
     gw.ch.push(e); this.spawnBurst(x, y, 0xff3b1a, 16);
-    this.showBanner('🔥 地獄', 1500, '#ff8a5c');
   }
   _gwPat_hell_done(S, dt) { return false; } // 悪魔は倒せない。戻るのは stay 秒たった時（_warpPhase）
   _gwPat_hell_draw(A) { const g = this._gwTxG; if (g && g.scene) g.clear(); } // 火の粉は、地獄の間 毎フレーム _hellEmbers が描く（ふつうの地獄と共通）
@@ -9189,7 +9248,6 @@ class GameScene extends Phaser.Scene {
     const C = GLITCH_WARP.wolf, gw = S.gw;
     const e = this.s2TrialSpawn('simahar', A.x0 + C.simahar[0] * TILE, A.y0 + C.simahar[1] * TILE, 0); if (!e) return; // ふつうのダンジョンのボスと同じ作り方で、本物のシマハルを出す
     e.hp = e.maxHp = C.hp; gw.ch.push(e); this.spawnBurst(e.gfx.x, e.gfx.y, 0x8a2be2, 14);
-    this.showBanner('🐺 人狼広場', 1500, '#9bd36a');
   }
   _gwPat_wolf_done(S, dt) { return false; } // 倒せない。戻るのは stay 秒たった時（_warpPhase）
   // 🪽 パターン 'angel'：天使の調伏の儀の部屋（ボスラッシュと同じ36×24）へ転送される。ホームの「天使・調伏の儀」ボタンと同じく、導入演出（廊下・逃走・投げ飛ばし）は飛ばして、いきなり戦闘から。天使が最初の技（A4_OPENING の頭から openCount 回）を出し終えたら戻る（天使は倒せない）。
@@ -9199,7 +9257,6 @@ class GameScene extends Phaser.Scene {
     const e = this.s2TrialSpawn('arms4', A.x0 + C.angel[0] * TILE, A.y0 + C.angel[1] * TILE, 0); if (!e) return; // 調伏の儀と同じ作り方で、本物の天使を出す
     e.hp = e.maxHp = C.hp; e._introAnim = false; e.hpBar.setVisible(true);
     gw.a4 = e; gw.ch.push(e); this.spawnBurst(e.gfx.x, e.gfx.y, 0xffe58a, 14);
-    this.showBanner('🪽 天使・調伏の儀', 1500, '#ffe58a');
   }
   _gwPat_angel_done(S, dt) { // 天使が最初の技を openCount 回出して、その技が終わったら true（天使が消えていたらすぐ true）
     const gw = S.gw, a = gw && gw.a4, T = this._a4A; if (!a || a._removed || a.hp <= 0) return true;
@@ -9213,7 +9270,6 @@ class GameScene extends Phaser.Scene {
       const e = this.s2TrialSpawn('snake', A.x0 + q[0] * TILE, A.y0 + q[1] * TILE, i); if (!e) return; // ふつうのダンジョンのボスと同じ作り方で、本物のウロボロスを出す（胴体は頭が自分で作る）
       e.hp = e.maxHp = C.hp; gw.ch.push(e); this.spawnBurst(e.gfx.x, e.gfx.y, 0x8cf06a, 12);
     });
-    this.showBanner('✨ 聖域', 1500, '#ffe58a');
     this._gwPat_holy_draw(A);
   }
   _gwPat_holy_done(S, dt) { return false; } // 倒せない。戻るのは stay 秒たった時（_warpPhase）
@@ -9260,7 +9316,12 @@ class GameScene extends Phaser.Scene {
   _ransomLock() { const S = this._shark; return !!(S && ((S.mode === 'fork' && S.fk && this._fork) || (S.gw && S.gw.ph === 'fight'))); } // フォークボム中、または🌀ワープで転送されている間：武器が使えず、右スティックが壊れる
   _ransomStart(S) { // 🔀 ランサムウェア攻撃：サメが姿を現し終えたら、感染させる（_ransomT 秒、移動の操作が反転）。サメは castT 秒止まる（'ransom' モード）
     const R = GLITCH_RANSOM; S.mode = 'ransom'; S.mt = R.castT; this._ransomT = R.t; const rr = Math.random(); this._ransomMove = !(rr < R.aimP); this._ransomAim = rr < R.aimP + R.bothP; // どのスティックが反転するか：攻撃スティックだけ／両方／移動スティックだけ
-    try { this.cameras.main.flash(250, 255, 40, 40); this.cameras.main.shake(300, 0.006); } catch (e) {}
+    try { this._ransomInvFlash(); this.cameras.main.shake(300, 0.006); } catch (e) {} // 感染の瞬間：画面の色が一瞬反転する＋少し揺れる（以前の赤いフラッシュの代わり）
+  }
+  _ransomInvFlash() { // 🔀 感染の瞬間に、画面全体の色を一瞬だけ反転させる（白を「差の絶対値」で重ねる＝下の絵の色が反転する。ツァーリ・ボンバの色反転と同じ仕組み）。INV_MS＝反転している長さ(ミリ秒)
+    const INV_MS = 200, e = document.createElement('div');
+    e.style.cssText = 'position:fixed;inset:0;z-index:25;pointer-events:none;background:#fff;mix-blend-mode:difference;';
+    document.body.appendChild(e); setTimeout(() => { try { e.remove(); } catch (err) { /* 消えていれば何もしない */ } }, INV_MS);
   }
   _invMove() { return this._ransomT > 0 && this._ransomMove !== false; } // 🔀 移動スティックが反転しているか
   _invAim() { return this._ransomT > 0 && !!this._ransomAim; } // 🔀 攻撃スティックが反転しているか
@@ -9290,11 +9351,7 @@ class GameScene extends Phaser.Scene {
     if (ab) ab.classList.toggle('ransomInv', ia); if (mb) mb.classList.toggle('ransomInv', im); // 🔀 反転：スティックの枠が青白く光る
     this._stickNoise('mv', mb, im); this._stickNoise('aim', ab, ia); // 🔀 反転：周りにノイズ
     if (!!window.__aimInv !== ia) { window.__aimInv = ia; const av = window.aimVector; if (av && av.active) { av.x = -av.x; av.y = -av.y; } } // 攻撃スティックの入力の反転（入力の読み取り側 setupAimJoystick が見る）。引っ張ったまま切り替わっても、すぐ効く
-    if (show && (!this._ransomTxt || !this._ransomTxt.scene)) this._ransomTxt = this.add.text(this.scale.width / 2, 60, '', { fontSize: '22px', color: '#ff4d4d', backgroundColor: '#000000bb', padding: { x: 12, y: 6 }, align: 'center' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(1000);
-    if (this._ransomTxt && this._ransomTxt.scene) {
-      this._ransomTxt.setVisible(show);
-      if (show) { this._ransomTxt.setText([lock ? ((this._shark && this._shark.gw && this._shark.gw.ph === 'fight') ? '🔒 WARP：武器ロック中' : '🔒 RANSOMWARE：武器ロック中') : '', inv ? '🔀 ' + (im && ia ? '両方のスティック' : ia ? '攻撃スティック' : '移動スティック') + '反転 ' + this._ransomT.toFixed(1) + ' 秒' : ''].filter(Boolean).join('\n')); this._ransomTxt.setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 90)); }
-    }
+    if (this._ransomTxt && this._ransomTxt.scene) this._ransomTxt.setVisible(false); // 赤い警告文（ロック／反転）は出さない
   }
   _forkStart(S) {
     const room = S.room, F = GLITCH_FORK, pl = this.player, plOk = !!pl && this.playerHp > 0, rx = room.x * TILE, ry = room.y * TILE, rw = room.w * TILE, rh = room.h * TILE;
@@ -9411,7 +9468,7 @@ class GameScene extends Phaser.Scene {
       }
     } else if (f.ph === 'ldive') { // 背びれをウィンドウの中央へ寄せて、飲み込まれる
       S.x += (f.cur.x - fb.x) * Math.min(1, dt * 8); S.y += (f.cur.y - fb.y) * Math.min(1, dt * 8);
-      const lastLeap = f.k + 1 >= F.leaps; if (lastLeap && f.cur) f.cur.vib = true; /* 最後の1枚は、崩れる前に揺れ続ける（F.endShake 秒） */ if (S.dive >= 1 && f.t >= 0.3 + (lastLeap ? F.endShake : 0)) { S.fkHide = true; splashBurst(22, { x: f.cur.x, y: f.cur.y }); f.k++; f.ph = f.k >= F.leaps ? 'rise' : 'pause'; f.t = 0; }
+      if (S.dive >= 1 && f.t >= 0.3) { S.fkHide = true; splashBurst(22, { x: f.cur.x, y: f.cur.y }); f.k++; f.ph = f.k >= F.leaps ? 'rise' : 'pause'; f.t = 0; }
     } else if (f.ph === 'pause') { if (f.t >= F.leapPause) this._forkBurrowStart(f, S); // 少し間をおいて、また窓の下を動き回る
     } else { // rise：最後に飛び込んだウィンドウから浮かんで、泳ぎ回りに戻る
       const hp = f.cur || f.B; if (f.cur) f.cur.vib = false; if (f.tgt) f.tgt.tele = false;
@@ -16009,7 +16066,7 @@ class GameScene extends Phaser.Scene {
   // 🏷 称号を入手した時のバナー：「称号を獲得！」の下に、その称号だけの色で名前を出す
   showTitleBanner(t) {
     const b = document.getElementById('banner'); if (!b || !t) return;
-    b.innerHTML = '<span style="font-size:0.62em;color:#fff;">称号を獲得！</span>\n<span style="color:' + t.color + ';letter-spacing:0.12em;text-shadow:0 0 1.6vh ' + (t.outline || t.color) + ',0 0.3vh 0.3vh rgba(0,0,0,0.9);">「' + escapeHtml(t.name) + '」</span>';
+    b.innerHTML = '<span style="font-size:0.62em;color:#fff;">称号を獲得！</span>\n<span' + (t.glitch ? ' class="titleGlitch"' : '') + ' style="color:' + t.color + ';letter-spacing:0.12em;text-shadow:0 0 1.6vh ' + (t.outline || t.color) + ',0 0.3vh 0.3vh rgba(0,0,0,0.9);">「' + escapeHtml(t.name) + '」</span>';
     b.style.zIndex = '300'; b.style.top = '40vh'; b.style.color = ''; // 悪魔の問答・リザルト画面より手前の、画面の少し下
     b.style.display = 'block';
     clearTimeout(this._bannerTimeout);
@@ -17420,7 +17477,7 @@ class GameScene extends Phaser.Scene {
     if (S.sg) { try { this._sgFinish(S); } catch (e) {} } // 🥤 シェルゲーム：ダミーを消す
     if (this._fork || S.fk) { try { if (this._forkG && this._forkG.scene) this._forkG.destroy(); } catch (e) {} this._forkG = null; this._fork = null; S.fk = null; S.fkHide = false; } // 🪟 フォークボム：ウィンドウを全部消す
     this._ransomT = 0; // 🔀 ランサムウェア：移動の反転を解く
-    S.shots = []; S.defl = []; S.waves = []; S.mz = null; S.wv = null; S.cb = null; S.atk = null; S.noNose = false; S.rushFixed = false; S.aimFired = true; // 🟩弾・🌊波・🔁連撃も、その場でおしまい
+    S.shots = []; S.defl = []; S.waves = []; S.mz = null; S.wv = null; S.cb = null; S.atk = null; S.noNose = false; S.rushFixed = false; S.rushBack = false; S.aimFired = true; // 🟩弾・🌊波・🔁連撃も、その場でおしまい
     for (const gg of [this._sharkGS, this._sharkWG]) { try { if (gg && gg.scene) gg.clear(); } catch (e) {} }
   }
   _tsarSharkFlee() { // 🦈 サメを「逃げる」状態にする（フォークボム・ワープ・シェルゲーム・咥えている最中は、それが終わって泳ぎ回りに戻ってから）。逃げる向きは、この時の星と反対の向きに固定（一直線）
@@ -17563,7 +17620,7 @@ class GameScene extends Phaser.Scene {
     // ---- 白：画面全体が真っ白（サメは消えている）→ しばらくして、白がゆっくり引いていく ----
     const wu = (T.wu += dt), el = this._tsarWhiteEl;
     this._tsarInvWhite(wu - C.whiteHold); // 🌗 白が引く時：世界は反転したまま現れて、数回瞬いて元の色に戻る
-    if (!T.camBack && wu > 0.5) { T.camBack = true; if (Bn) { Bn.R = Infinity; this._tsarBurnUpdate(Bn, 0); } if (C.walkT > 0) { const sp = this._tsarOpenSpot(pl); if (sp) { pl.x = sp.x; pl.y = sp.y; if (pl.body && pl.body.reset) { try { pl.body.reset(sp.x, sp.y); } catch (e) {} } } } try { cam.startFollow(pl, true, 1, 1); cam.centerOn(pl.x, pl.y); } catch (e) {} if (Bn) Bn.R = Infinity; } // 真っ白で何も見えない間に、カメラを自分へ戻し、焼け跡を全部見せる
+    if (!T.camBack && wu > 0.5) { T.camBack = true; this._tsarSlow = true; /* 🐢 爆破後は、移動速度が GLITCH_TSAR.walkSpeedK 倍になる（リザルトまで） */ if (Bn) { Bn.R = Infinity; this._tsarBurnUpdate(Bn, 0); } if (C.walkT > 0) { const sp = this._tsarOpenSpot(pl); if (sp) { pl.x = sp.x; pl.y = sp.y; if (pl.body && pl.body.reset) { try { pl.body.reset(sp.x, sp.y); } catch (e) {} } } } try { cam.startFollow(pl, true, 1, 1); cam.centerOn(pl.x, pl.y); } catch (e) {} if (Bn) Bn.R = Infinity; } // 真っ白で何も見えない間に、カメラを自分へ戻し、焼け跡を全部見せる
     if (T.camBack && !T.fading && wu >= C.whiteHold) { T.fading = true; if (el) { el.style.transition = 'opacity ' + C.whiteFade + 's ease-out'; el.style.opacity = '0'; } }
     if (T.fading && Bn) for (let i = 0; i < 8; i++) { const q = Bn.tiles[Math.floor(Math.random() * Bn.tiles.length)]; if (!q) continue; Bn.parts.push({ x: q.tx * TILE + Math.random() * TILE, y: q.ty * TILE + Math.random() * TILE, vx: (Math.random() - 0.5) * 40, vy: -(30 + Math.random() * 110), life: 1 + Math.random() * 1.6, max: 2.6, s: 2 + Math.random() * 3, ash: false }); } // 白が引くにつれ、焼けた床から火の粉が舞い上がる
     if (T.fading && wu >= C.whiteHold + C.whiteFade + 0.2) { // 白が引ききった：walkT 秒、焼け野原を歩き回れる → そのあと終了
@@ -17589,7 +17646,9 @@ class GameScene extends Phaser.Scene {
     const on = fu < 0.9 || (fu >= 1.05 && fu < 1.2) || (fu >= 1.4 && fu < 1.5); this._tsarInvFull(on);
   }
   _tsarInvKill() { const e = this._tsarInv; this._tsarInv = null; if (e) { try { e.remove(); } catch (err) {} } }
-  _tsarOpenSpot(pl) { // 🚶 いちばん広い空き地の「真ん中」を探す：残っている壁（マップの外周・ワープ用の遠い領域・範囲外）から、いちばん遠い床（同じ遠さなら、プレイヤーに近いほう）。これなら、数秒歩き回っても壁が画面に入りにくい
+  _tsarOpenSpot(pl) { // 🚶 GLITCH_TSAR.landTile（マス座標）があれば、そこへ固定（床になっていなければ、下の自動探索）。null で自動
+    { const F = GLITCH_TSAR.landTile, gr = this.dungeon && this.dungeon.grid; if (F && gr && gr[F.y] && gr[F.y][F.x] !== 0 && gr[F.y][F.x] !== undefined) return { x: (F.x + 0.5) * TILE, y: (F.y + 0.5) * TILE }; }
+    // 自動探索： // 🚶 いちばん広い空き地の「真ん中」を探す：残っている壁（マップの外周・ワープ用の遠い領域・範囲外）から、いちばん遠い床（同じ遠さなら、プレイヤーに近いほう）。これなら、数秒歩き回っても壁が画面に入りにくい
     const dg = this.dungeon, W = dg.width, H = dg.height, Z = dg.glitchZone, grid = dg.grid, INF = 1e9, D = new Int32Array(W * H);
     for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) D[ty * W + tx] = (grid[ty][tx] === 0 || (Z && tx >= Z.x - 1 && tx <= Z.x + Z.w && ty >= Z.y - 1 && ty <= Z.y + Z.h)) ? 0 : INF; // 壁（と遠い領域）＝0
     const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? 0 : D[y * W + x]; // 範囲の外も壁
@@ -17597,8 +17656,10 @@ class GameScene extends Phaser.Scene {
     for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) { const a = y * W + x; if (D[a] === 0) continue; D[a] = Math.min(D[a], at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + 1, at(x - 1, y + 1) + 1); } // 後ろから
     let mx = 0; for (let a = 0; a < W * H; a++) if (D[a] > mx) mx = D[a];
     if (mx < 2) return null; // 広い所が無い：その場のまま
-    let best = -1, bd = Infinity;
-    for (let a = 0; a < W * H; a++) { if (D[a] !== mx) continue; const tx = a % W, ty = (a - tx) / W, d = Math.hypot((tx + 0.5) * TILE - pl.x, (ty + 0.5) * TILE - pl.y); if (d < bd) { bd = d; best = a; } }
+    let best = -1, bd = Infinity, sx = 0, sy = 0, cnt = 0; // 同じ遠さのマスが広く並ぶ時は、その「かたまりの真ん中」を選ぶ（プレイヤーに近い端だと、片側の壁がすぐ近くになるため）
+    for (let a = 0; a < W * H; a++) { if (D[a] !== mx) continue; sx += a % W; sy += Math.floor(a / W); cnt++; }
+    const mcx = sx / cnt, mcy = sy / cnt;
+    for (let a = 0; a < W * H; a++) { if (D[a] !== mx) continue; const tx = a % W, ty = (a - tx) / W, d = Math.hypot(tx - mcx, ty - mcy); if (d < bd) { bd = d; best = a; } }
     const bx = best % W, by = (best - bx) / W; return { x: (bx + 0.5) * TILE, y: (by + 0.5) * TILE };
   }
 
@@ -28453,7 +28514,8 @@ class GameScene extends Phaser.Scene {
         if (this._myTitleRes !== tres || this._myTitleTxt._res0 !== true) { this._myTitleRes = tres; this._myTitleTxt._res0 = true; this._myTitleTxt.setResolution(tres); }
         this._myTitleTxt.x = Math.round(this.player.x * zm) / zm; this._myTitleTxt.y = Math.round((this.player.y - 40) * zm) / zm;
         this._myTitleTxt.setVisible(!this.isGhost);
-      } else if (this._myTitleTxt && this._myTitleTxt.scene) this._myTitleTxt.setVisible(false);
+        titleGlitchTick(this._myTitleTxt, td);
+      } else if (this._myTitleTxt && this._myTitleTxt.scene) { this._myTitleTxt.setVisible(false); if (this._myTitleTxt._gg) this._myTitleTxt._gg.forEach(g => g.setVisible(false)); }
     }
     // 弾数がある武器は、リロード中の表示が出ていない間、同じ位置（プレイヤーの頭上）に「残弾/最大弾数」を出す。
     // マジックボム（chargeBomb）と召喚術（summon）は、装填数が常に1発の特殊武器なので出さない。
@@ -28558,6 +28620,7 @@ class GameScene extends Phaser.Scene {
     // （半減期で最終的にchargeSlowMin倍まで近づく。0にはならず、最低限は動ける）。
     let moveSpeed = this.speed * (this.accKey === 'snow' ? 1.1 : 1); // 雪の結晶：移動速度+10%
     if (this.pvpCrownSlowed()) moveSpeed *= 0.5; // PvP：相手の王冠の魔法陣に触れている
+    if (this._tsarSlow) moveSpeed *= GLITCH_TSAR.walkSpeedK; // 🐢 グリッチ撃破の爆破後：ゆっくり歩く
     if (this.weapon && this.weapon.chargeBomb && this.charge && this.charge.active) {
       const w = this.weapon;
       const halfLife = w.chargeSlowHalfLife || 2.5;
@@ -32380,10 +32443,12 @@ class GameScene extends Phaser.Scene {
     }
     if (this.bossRush && this.glitchBoss) { // 📺 グリッチのボスを倒したら、そのままリザルト画面（GLITCH）へ
       if (!this._glitchWon) {
-        this._glitchWon = true; this.transitioning = true; this.hideBossUi();
+        this._glitchWon = true; this.playerInvuln = Math.max(this.playerInvuln || 0, 9999); this.hideBossUi(); /* 暗転し切るまでゲームは止めない（動ける・演出も動き続ける）。transitioning はリザルトを開く直前に立てる */
         this.showBanner('GLITCH 撃破', 1500);
-        this.cameras.main.fadeOut(1200, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => { this.cameras.main.resetFX(); this.showResult(); });
+        // 📟 今までリザルトへ暗転していたタイミングで、最初と同じように足元の床へメッセージを出す → 消えて少し間をおいてから、暗転してリザルトへ
+        const GOAL = { delay: 1200, hold: 6.0, gap: 600, toBlack: 4.5 }; /* toBlack＝打ち終わってから暗転が始まるまで(秒)。元の「残る3秒＋消える0.9秒＋間0.6秒」と同じ。hold(文字が残る秒)を伸ばしても、暗転の始まりは変わらない（文字は暗転の中で消える） */ // 撃破からメッセージが出るまで(ミリ秒)／打ち終わってから残る秒／メッセージが消えてから暗転が始まるまで(ミリ秒)
+        let went = false; const toResult = () => { if (went) return; went = true; this.cameras.main.fadeOut(1200, 0, 0, 0); this.cameras.main.once('camerafadeoutcomplete', () => { this.transitioning = true; this.cameras.main.resetFX(); this.showResult(); }); };
+        this.time.delayedCall(GOAL.delay, () => this._glitchIntro({ text: 'DELETION COMPLETE.\n> GRANTING A TITLE AS A REWARD\n> TO THE PLAYER.', hold: GOAL.hold, onTyped: () => { if (!this.isDevMode) this.earnTitle('debugger', 2200); this.time.delayedCall(GOAL.toBlack * 1000, toResult); } /* 🏷 称号「Debugger」：メッセージが全部出たところで付与（デベロッパーモードは除く） */, onDone: () => this.time.delayedCall(GOAL.gap, toResult) }));
       }
       return;
     }
@@ -34678,7 +34743,7 @@ function renderTitlePickBtn() {
   titlePickBtn.appendChild(document.createTextNode('称号：'));
   const nm = document.createElement('span');
   nm.textContent = def ? def.name : 'なし';
-  if (def) { nm.style.color = def.color; nm.style.textShadow = titleGlowCss(def, 8); nm.style.fontWeight = 'bold'; }
+  if (def) { nm.style.color = def.color; nm.style.textShadow = titleGlowCss(def, 8); nm.style.fontWeight = 'bold'; if (def.glitch) nm.classList.add('titleGlitch'); }
   titlePickBtn.appendChild(nm);
   titlePickBtn.classList.remove('has');
 }
@@ -34689,7 +34754,7 @@ function openTitleModal() {
   const has = t => s.titles[t.key] === true, ordered = PLAYER_TITLES.filter(has).concat(PLAYER_TITLES.filter(t => !has(t)));
   list.innerHTML = ordered.map(t => has(t)
     ? '<div class="titleRow' + (cur === t.key ? ' sel' : '') + '" data-key="' + escapeHtml(t.key) + '">'
-      + '<div class="tName" style="color:' + t.color + ';text-shadow:' + titleGlowCss(t, 8) + '">' + escapeHtml(t.name) + '</div>'
+      + '<div class="tName' + (t.glitch ? ' titleGlitch' : '') + '" style="color:' + t.color + ';text-shadow:' + titleGlowCss(t, 8) + '">' + escapeHtml(t.name) + '</div>'
       + '<div class="tDesc">' + escapeHtml(t.desc) + '</div>'
       + '<div class="tState">' + (cur === t.key ? '✔ 装備中' : 'タップで装備') + '</div></div>'
     : '<div class="titleRow locked" data-key="' + escapeHtml(t.key) + '">'
@@ -34712,7 +34777,7 @@ renderTitlePickBtn();
 function showLobbyTitleToast(defs) {
   let el = document.getElementById('titleToast');
   if (!el) { el = document.createElement('div'); el.id = 'titleToast'; document.body.appendChild(el); }
-  el.innerHTML = '<div style="font-size:12px;color:#fff;">称号を獲得！</div>' + defs.map(d => '<div style="color:' + d.color + ';text-shadow:' + titleGlowCss(d, 10) + ';">「' + escapeHtml(d.name) + '」</div>').join('');
+  el.innerHTML = '<div style="font-size:12px;color:#fff;">称号を獲得！</div>' + defs.map(d => '<div' + (d.glitch ? ' class="titleGlitch"' : '') + ' style="color:' + d.color + ';text-shadow:' + titleGlowCss(d, 10) + ';">「' + escapeHtml(d.name) + '」</div>').join('');
   el.style.display = 'block'; clearTimeout(el._t); el._t = setTimeout(() => { el.style.display = 'none'; }, 3800);
   try { renderTitlePickBtn(); } catch (e) {}
 }
