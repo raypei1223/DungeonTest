@@ -6017,6 +6017,7 @@ const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
 const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
 const GLITCH_TEST_ATK = 'warp'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
+const GLITCH_TEST_GAUGE_FULL = true; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
 const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
 // 🔀 ランサムウェア：サメが姿を現して「感染」させると、プレイヤーは t 秒のあいだ、移動の操作が上下左右反転する。サメ自身は castT 秒だけその場で止まってから、また泳ぎ回る。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'ransom'。（武器が使えなくなるのは、フォークボム中：_ransomLock）
@@ -17168,8 +17169,9 @@ class GameScene extends Phaser.Scene {
     if (!A.g || !A.g.scene) A.g = this.add.graphics().setDepth(20);
     const g = A.g, w = this.weapon, pl = this.player; g.clear(); A.time += dt; A.cd -= dt;
     const on = !!(w && w.type === 'ancient' && pl && !this.isGhost && !this.isDowned && !this.transitioning && !this._ransomLock());
+    this._ancGaugeUI(on, A, w); // 🔷 画面下のゲージ／「魔法をえがく」ボタン／シンボル描画の更新
     if (on) {
-      const held = IS_TOUCH_DEVICE ? !!(window.aimVector && window.aimVector.active) : this.input.activePointer.isDown; let angle = A.angle || this.facingAngle || 0;
+      const held = !A.draw && (IS_TOUCH_DEVICE ? !!(window.aimVector && window.aimVector.active) : this.input.activePointer.isDown); let angle = A.angle || this.facingAngle || 0; // 🔷 A.draw＝シンボルを描いている間は、スティックの操作でシールドは張らない
       if (IS_TOUCH_DEVICE) { const aim = window.aimVector; if (aim && aim.active && (aim.x !== 0 || aim.y !== 0)) angle = Math.atan2(aim.y, aim.x); }
       else { const pt = this.input.activePointer, wp = this.cameras.main.getWorldPoint(pt.x, pt.y); angle = Phaser.Math.Angle.Between(pl.x, pl.y, wp.x, wp.y); }
       if (held) { A.held = true; A.angle = angle; }
@@ -17214,6 +17216,97 @@ class GameScene extends Phaser.Scene {
       const q = A.sp[i]; q.life -= dt; if (q.life <= 0) { A.sp.splice(i, 1); continue; }
       q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.94; q.vy *= 0.94; const k = q.life / q.max, s = q.s * (0.5 + k);
       g.lineStyle(1.5, 0xffffff, k); g.lineBetween(q.x - s, q.y, q.x + s, q.y); g.lineBetween(q.x, q.y - s, q.x, q.y + s);
+    }
+  }
+  // ================= 🔷 古代魔法：パリィゲージ → シンボルを描いて発動 =================
+  // 流れ：パリィ成功でゲージがたまる（_ancientParryFx）→ 満タンで画面下に「魔法をえがく」ボタン → 押すと時間がほぼ止まり、画面に一筆でシンボルを描く → 合っていれば発動（ゲージは0に戻る）／違えば何も起きず描き直せる（ゲージは減らない）。
+  // 新しいシンボルを足す時は、この ANC_SYMBOLS に1行足すだけ（pts＝一筆の通過点を 0〜1 の範囲で。上が0、下が1）。効果は _ancientCast(key) の中で key ごとに書く。
+  get ANC_SYMBOLS() { return [
+    { key: 'thunder', name: '雷', pts: [[0.7, 0], [0, 0.5], [1, 0.5], [0.3, 1]] }, // ⚡ 一番上 → 左の真ん中 → 横へ右の真ん中 → 一番下
+  ]; }
+  _ancResample(p, n) { // 点列を、線の長さで等間隔の n 個に並べ直す
+    let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); if (L === 0) return null;
+    const step = L / (n - 1), out = [p[0].slice()], q = p.map(a => a.slice()); let acc = 0;
+    for (let i = 1; i < q.length; i++) {
+      let d = Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]);
+      while (acc + d >= step && d > 0) { const t = (step - acc) / d, nx = q[i - 1][0] + t * (q[i][0] - q[i - 1][0]), ny = q[i - 1][1] + t * (q[i][1] - q[i - 1][1]); out.push([nx, ny]); q.splice(i, 0, [nx, ny]); d = Math.hypot(q[i + 1][0] - nx, q[i + 1][1] - ny); acc = 0; i++; }
+      acc += d;
+    }
+    while (out.length < n) out.push(q[q.length - 1].slice()); return out.slice(0, n);
+  }
+  _ancRecognize(pts) { // 描いた線がどのシンボルか。返り値 { ok, key, why }。向き（描き始めの位置）も見る＝下から描いたら別物。しきい値 THR を小さくするほど厳しい（雑な手書きで0.09以下、ほかの形は0.17以上）
+    const THR = 0.15, MIN_H = 90;
+    if (!pts || pts.length < 4) return { ok: false, why: 'short' };
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+    const w = x1 - x0, h = y1 - y0; if (h < MIN_H || w < h * 0.2) return { ok: false, why: 'small' }; // 小さすぎる／細すぎる線は判定しない
+    const r = this._ancResample(pts, 48); if (!r) return { ok: false, why: 'short' };
+    const nr = r.map(p => [(p[0] - x0) / w, (p[1] - y0) / h]); let best = null;
+    for (const s of this.ANC_SYMBOLS) { const t = this._ancResample(s.pts, 48); let d = 0; for (let i = 0; i < 48; i++) d += Math.hypot(nr[i][0] - t[i][0], nr[i][1] - t[i][1]); d /= 48; if (!best || d < best.d) best = { key: s.key, d }; }
+    return best && best.d <= THR ? { ok: true, key: best.key } : { ok: false, why: 'miss' };
+  }
+  _ancGaugeUI(show, A, w) { // 画面下のゲージ（DOM）。満タンのときだけボタンが出る
+    let el = this._ancG;
+    if (!show) { if (el) el.root.style.display = 'none'; if (A && A.draw) this._ancDrawEnd(A, false); return; }
+    if (!el || !el.root.isConnected) {
+      const root = document.createElement('div'); root.id = 'ancGauge';
+      root.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 1.2vh);width:min(56vw,420px);z-index:25;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:0.8vh;font-family:sans-serif;';
+      const btn = document.createElement('div'); btn.textContent = '✍ 魔法をえがく';
+      btn.style.cssText = 'display:none;pointer-events:auto;cursor:pointer;touch-action:none;padding:1vh 3vh;font-size:max(2.6vh,14px);font-weight:bold;color:#fff;background:rgba(40,20,90,0.85);border:2px solid #c9a8ff;border-radius:2vh;box-shadow:0 0 14px #9b6bff;animation:ancPulse 0.9s ease-in-out infinite alternate;';
+      const track = document.createElement('div'); track.style.cssText = 'width:100%;height:max(1.6vh,9px);box-sizing:border-box;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.45);border-radius:99px;overflow:hidden;';
+      const fill = document.createElement('div'); fill.style.cssText = 'height:100%;width:0%;border-radius:99px;transition:width .18s;'; track.appendChild(fill);
+      root.appendChild(btn); root.appendChild(track); document.body.appendChild(root);
+      if (!document.getElementById('ancStyle')) { const st = document.createElement('style'); st.id = 'ancStyle'; st.textContent = '@keyframes ancPulse{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.06);filter:brightness(1.4)}}'; document.head.appendChild(st); }
+      btn.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); const a = this._anc; if (a && (a.gauge || 0) >= ((this.weapon && this.weapon.gaugeMax) || 100)) this._ancDrawStart(a); }; // スマホでスティックを押さえたまま別の指で押しても反応する
+      el = this._ancG = { root, btn, fill };
+      const off = () => { if (this._anc && this._anc.draw) this._ancDrawEnd(this._anc, false); root.remove(); this._ancG = null; }; this.events.once('shutdown', off); this.events.once('destroy', off);
+    }
+    const gm = (w && w.gaugeMax) || 100; if (GLITCH_TEST_GAUGE_FULL) A.gauge = gm; // テスト：常に満タン
+    const fr = Math.max(0, Math.min(1, (A.gauge || 0) / gm)), full = fr >= 1, c = this._ancientCol(fr).s;
+    el.root.style.display = 'flex'; el.fill.style.width = (fr * 100).toFixed(1) + '%'; el.fill.style.background = '#' + (c >>> 0).toString(16).padStart(6, '0'); // 色はシールドと同じ（溜まるほど水色→紫）
+    el.fill.style.boxShadow = full ? '0 0 10px 2px #fff' : 'none'; el.btn.style.display = (full && !A.draw) ? 'block' : 'none';
+    if (A.draw) { // 描いている間：時間をほぼ止める（実時間で最大 DRAW_SEC 秒）
+      const d = A.draw, left = d.sec - (performance.now() - d.t0) / 1000; this._gSlowT = 0.7; // 🐌 パリィ後のスローと同じ仕組みを保ち続ける（終わると自然に元の速さへ戻る）
+      d.bar.style.width = Math.max(0, left / d.sec * 100) + '%'; if (left <= 0) this._ancDrawEnd(A, false);
+    }
+  }
+  _ancDrawStart(A) { // シンボルを描くモードに入る
+    if (A.draw) return; A.held = false;
+    const ov = document.createElement('div'); ov.id = 'ancDraw'; ov.style.cssText = 'position:fixed;inset:0;z-index:60;background:rgba(10,6,34,0.45);touch-action:none;user-select:none;-webkit-user-select:none;';
+    const cv = document.createElement('canvas'), dpr = Math.min(2, window.devicePixelRatio || 1), W = window.innerWidth, H = window.innerHeight; cv.width = W * dpr; cv.height = H * dpr; cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;touch-action:none;';
+    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+    const msg = document.createElement('div'); msg.style.cssText = 'position:absolute;top:3vh;left:50%;transform:translateX(-50%);color:#fff;font:bold max(3vh,16px) sans-serif;text-shadow:0 0 8px #9b6bff;white-space:nowrap;pointer-events:none;'; msg.textContent = '一筆でシンボルを描け';
+    const barW = document.createElement('div'); barW.style.cssText = 'position:absolute;top:9vh;left:50%;transform:translateX(-50%);width:min(50vw,360px);height:6px;background:rgba(255,255,255,0.2);border-radius:9px;overflow:hidden;pointer-events:none;'; const bar = document.createElement('div'); bar.style.cssText = 'height:100%;width:100%;background:#c9a8ff;'; barW.appendChild(bar);
+    const x = document.createElement('div'); x.textContent = '✕'; x.style.cssText = 'position:absolute;top:2vh;right:2vh;width:6vh;height:6vh;display:flex;align-items:center;justify-content:center;color:#fff;font:bold 3vh sans-serif;background:rgba(0,0,0,0.5);border:1px solid #fff;border-radius:50%;cursor:pointer;';
+    ov.appendChild(cv); ov.appendChild(msg); ov.appendChild(barW); ov.appendChild(x); document.body.appendChild(ov);
+    const D = A.draw = { ov, cv, ctx, msg, bar, pts: [], id: null, t0: performance.now(), sec: 6, W, H, key: null };
+    const guide = () => { // うすい手本（雷）。いらなければ SHOW_GUIDE を false に
+      const SHOW_GUIDE = true; ctx.clearRect(0, 0, W, H); if (!SHOW_GUIDE) return;
+      const s = this.ANC_SYMBOLS[0], gh = Math.min(H * 0.6, 340), gw = gh * 0.55, ox = W / 2 - gw / 2, oy = H / 2 - gh / 2 + H * 0.04;
+      ctx.save(); ctx.setLineDash([8, 10]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); s.pts.forEach((p, i) => { const px = ox + p[0] * gw, py = oy + p[1] * gh; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(ox + s.pts[0][0] * gw, oy, 8, 0, 6.2832); ctx.fill(); ctx.restore(); // 始点（上）に丸
+    }; D.guide = guide; guide();
+    const pt = ev => [ev.clientX, ev.clientY];
+    cv.onpointerdown = ev => { ev.preventDefault(); if (D.id !== null) return; D.id = ev.pointerId; D.pts = [pt(ev)]; try { cv.setPointerCapture(ev.pointerId); } catch (e) {} guide(); };
+    cv.onpointermove = ev => { if (ev.pointerId !== D.id) return; const p = pt(ev), q = D.pts[D.pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) < 2) return; D.pts.push(p);
+      ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(160,120,255,0.55)'; ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); };
+    const up = ev => { if (ev.pointerId !== D.id) return; D.id = null; const res = this._ancRecognize(D.pts);
+      if (res.ok) { this._ancDrawEnd(A, true, res.key); return; }
+      D.msg.textContent = res.why === 'small' || res.why === 'short' ? 'もっと大きく、一筆で' : 'ちがう…もう一度'; D.pts = []; setTimeout(() => { if (A.draw === D) guide(); }, 350); }; // 失敗：少し見せてから消し、描き直せる（制限時間内）
+    cv.onpointerup = up; cv.onpointercancel = up;
+    x.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); this._ancDrawEnd(A, false); };
+    D.onKey = ev => { if (ev.key === 'Escape') this._ancDrawEnd(A, false); }; window.addEventListener('keydown', D.onKey);
+  }
+  _ancDrawEnd(A, ok, key) { // 描くモードを終える（ok＝成功して発動）
+    const D = A.draw; if (!D) return; A.draw = null; window.removeEventListener('keydown', D.onKey); D.ov.remove();
+    if (ok) this._ancientCast(key, A);
+  }
+  _ancientCast(key, A) { // ✨ 発動。ゲージは使い切る。★効果はまだ未定★ いまは演出（画面のフラッシュと名前の表示）だけ。シンボルごとの効果は、ここの switch に書き足す
+    const sym = this.ANC_SYMBOLS.find(s => s.key === key); A.gauge = 0; A.gFlash = 0.6;
+    try { this.cameras.main.flash(220, 210, 225, 255); } catch (e) {}
+    const t = document.createElement('div'); t.textContent = '⚡ ' + (sym ? sym.name : key); t.style.cssText = 'position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(0.6);z-index:61;pointer-events:none;color:#fff;font:bold 8vh sans-serif;text-shadow:0 0 18px #9b6bff,0 0 40px #5b8bff;opacity:0;transition:transform .35s,opacity .35s;'; document.body.appendChild(t);
+    requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translate(-50%,-50%) scale(1)'; }); setTimeout(() => { t.style.opacity = '0'; }, 700); setTimeout(() => t.remove(), 1100);
+    switch (key) {
+      case 'thunder': /* TODO: 雷の効果（未定） */ break;
+      default: break;
     }
   }
   updateMagicBombCharge(dt) {
