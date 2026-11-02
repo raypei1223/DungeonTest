@@ -4255,18 +4255,15 @@ function addDemonRooms(d, n) {
   d.height = d.grid.length; d.demonRooms = rooms;
   return d;
 }
-// 🌀 グリッチ戦のワープ攻撃用：ボスの部屋の右の遠く（GLITCH_WARP.arenaGap マス先）に、最北戦線と同じ大きさの廊下を足す（rooms には入れない＝普段は岩に囲まれていて、行き来できない）。
-// d.glitchArena＝廊下の範囲(px)と発信機の位置(txX,txY)と、転送されてくる場所(spawnX,spawnY＝発信機の7マス上)。
+// 🌀 グリッチ戦のワープ攻撃用：ボスの部屋の右の遠く（GLITCH_WARP.arenaGap マス先）に、転送先の部屋を作るための岩の領域（zoneW×zoneH マス）を確保する。床は作らない（rooms にも入れない）。
+// 床は、ワープの転送の時にパターンが決めた大きさで作り（_warpBuildRoom）、戻る時に壁へ戻す（_warpClear）。d.glitchZone＝領域（マス）。
 function addGlitchWarpArena(d) {
-  const F = FRONTLINE, wall = F.wallThickness, W0 = d.width, H0 = d.height;
-  const bx = W0 + GLITCH_WARP.arenaGap, W = bx + F.corridorW + wall * 2, H = Math.max(H0, F.corridorH + wall * 2);
+  const Zw = GLITCH_WARP.zoneW, Zh = GLITCH_WARP.zoneH, W0 = d.width, H0 = d.height;
+  const bx = W0 + GLITCH_WARP.arenaGap, W = bx + Zw + 6, H = Math.max(H0, Zh + 6);
   for (let y = 0; y < H0; y++) { const row = d.grid[y]; for (let x = W0; x < W; x++) row.push(0); }
   for (let y = H0; y < H; y++) d.grid.push(Array(W).fill(0));
-  const x0 = bx + wall, y0 = wall;
-  for (let y = y0; y < y0 + F.corridorH; y++) for (let x = x0; x < x0 + F.corridorW; x++) d.grid[y][x] = 1;
-  const txX = (x0 + F.corridorW / 2) * TILE, txY = (wall + F.corridorH - 3) * TILE + TILE / 2;
   d.width = W; d.height = H;
-  d.glitchArena = { x0: x0 * TILE, y0: y0 * TILE, x1: (x0 + F.corridorW) * TILE, y1: (y0 + F.corridorH) * TILE, txX, txY, spawnX: txX, spawnY: txY - TILE * 7 };
+  d.glitchZone = { x: bx + 3, y: 3, w: Zw, h: Zh };
   return d;
 }
 function addRitualRoom(d) {
@@ -6018,16 +6015,19 @@ function applyWeaponLevel(base, level) {
 // ============== Phaserシーン ==============
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
-const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
+const GLITCH_TEST_WARP = 'hell'; // テストでワープの行き先を固定する時：'chargers' / 'hell'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
+const GLITCH_TEST_ATK = 'warp'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
 const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
 // 🔀 ランサムウェア：サメが姿を現して「感染」させると、プレイヤーは t 秒のあいだ、移動の操作が上下左右反転する。サメ自身は castT 秒だけその場で止まってから、また泳ぎ回る。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'ransom'。（武器が使えなくなるのは、フォークボム中：_ransomLock）
 const GLITCH_RANSOM = { t: 8, castT: 1.6 };
 // 🌀 ワープ：サメが姿を現したあと、プレイヤーの足元にウィンドウが出て（castT 秒）、最北戦線の発信機の上あたりへ転送される。そこでパターンごとの敵と戦い（今は 'chargers'＝円状に並んだチャージャーが突進）、終わったら（returnDelay 秒後）元の場所へ戻る。maxStay 秒たてば、何があっても戻す。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'warp'。
-//   パターンを増やす時：メソッド _gwPat_<名前>_enter(S, A)（転送された直後に敵などを出す）と _gwPat_<名前>_done(S, dt)（終わったら true を返す）を作って、patterns に名前を足す。転送先の広さ・発信機の位置は dungeon.glitchArena（addGlitchWarpArena）。
+//   パターンを増やす時：メソッドを4つ作って、patterns に名前を足す。 _gwPat_<名前>_room()（部屋の大きさ { w, h（マス。最大 zoneW×zoneH）, spawn:[x,y]（転送されてくる場所。部屋の左上からのマス）, tx:[x,y]（任意：飾りの位置） }）／_gwPat_<名前>_enter(S, A)（転送された直後に敵などを出す。A＝部屋の範囲と位置(px)）／_gwPat_<名前>_done(S, dt)（終わったら true）／_gwPat_<名前>_draw(A)（任意：飾りの絵。毎フレーム）。部屋の床は、転送する時に岩の領域(dungeon.glitchZone＝addGlitchWarpArena)へ作り、戻る時に壁へ戻す。
 const GLITCH_WARP = {
   castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 40,
-  patterns: ['chargers'],
+  zoneW: 48, zoneH: 40, // 転送先の部屋を作れる領域の大きさ（マス）。ボス部屋（36×24）より広めに余裕を持たせてある。パターンの部屋はこの中の真ん中に作る
+  patterns: ['chargers', 'hell'],
+  hell: { stay: 15, demonDy: TILE * 4.5, hp: 999999 }, // 🔥 地獄（実際の地獄マップと同じ見た目・作りの部屋）：stay＝転送されてから戻るまで(秒)／demonDy＝悪魔がプレイヤーの何px上にいるか(画面の上の端に収まる位置)／hp＝悪魔のHP(倒せない)
   chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
 };
 // 🌊 グリッチの攻撃「波」の調整値（秒・px。_sharkWaveMove／_sharkWaveUpdate の流れの順）
@@ -8904,26 +8904,45 @@ class GameScene extends Phaser.Scene {
   //   rise ：最後に飛び込んだウィンドウから浮かんで、泳ぎ回りに戻る。ウィンドウは時間では消えず、ここでサメが浮かんだ時点で崩れて消える
   // 当たり判定：ウィンドウは壁と同じで、入れない（縁にそって滑れる）。出た瞬間にそこにいたプレイヤーは、ダメージを受けて、2本の列のあいだの通り道へ横に押し出される（_forkCollide）。調整値は GLITCH_FORK、テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'fork'。
   // 🔒 フォークボム中（サメが fork モードの間）は、武器が使えない（通常攻撃・各特殊武器の入口がこれを見る）。同じ間、右スティックは壊れた見た目になる（_ransomHud）
-  // 🌀 ワープ攻撃：サメが姿を現し終えたら、足元にウィンドウを出す（プレイヤーに付いてくる）→ castT 秒後に転送 → パターンの戦い → 終わったら元の場所へ戻る。サメは潜ったまま動かない（'warp' モード）。
+  // 🌀 ワープ攻撃：サメが姿を現し終えたら、足元にウィンドウを出す（プレイヤーに付いてくる）→ castT 秒後に、パターンの部屋の床を作って転送 → パターンの戦い → 終わったら元の場所へ戻って、床を壁に戻す。サメは潜ったまま動かない（'warp' モード）。
   _warpStart(S) {
-    const A = this.dungeon && this.dungeon.glitchArena;
-    if (!this.player || !A) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; }
-    const W = GLITCH_WARP, pat = W.patterns[Math.floor(Math.random() * W.patterns.length)];
-    S.mode = 'warp'; S.mt = 99; S.gw = { ph: 'win', t: 0, pat, back: null, ch: [], endT: null, x: this.player.x, y: this.player.y };
+    if (!this.player || !(this.dungeon && this.dungeon.glitchZone)) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; }
+    const W = GLITCH_WARP, pat = (GLITCH_TEST_WARP && W.patterns.includes(GLITCH_TEST_WARP)) ? GLITCH_TEST_WARP : W.patterns[Math.floor(Math.random() * W.patterns.length)];
+    S.mode = 'warp'; S.mt = 99; S.gw = { ph: 'win', t: 0, pat, back: null, ch: [], endT: null, x: this.player.x, y: this.player.y, A: null, tiles: [] };
     if (!this._gwG || !this._gwG.scene) this._gwG = this.add.graphics().setDepth(4.1); // プレイヤー(5)の下に出るウィンドウ
-    if (!this._gwTxG || !this._gwTxG.scene) this._gwTxG = this.add.graphics().setDepth(3); // 転送先の発信機
+    if (!this._gwTxG || !this._gwTxG.scene) this._gwTxG = this.add.graphics().setDepth(3); // 転送先の飾り
     try { this.cameras.main.shake(200, 0.004); } catch (e) {}
   }
+  _warpBuildRoom(S) { // パターンが決めた大きさの床を、岩の領域の真ん中に作る（戻す時は _warpClear）。A＝部屋の範囲と位置(px)
+    const Z = this.dungeon.glitchZone, gw = S.gw, grid = this.dungeon.grid, spec = this['_gwPat_' + gw.pat + '_room'].call(this);
+    const w = Math.min(Z.w, spec.w), h = Math.min(Z.h, spec.h), rx = Z.x + Math.floor((Z.w - w) / 2), ry = Z.y + Math.floor((Z.h - h) / 2);
+    for (let y = ry; y < ry + h; y++) for (let x = rx; x < rx + w; x++) if (grid[y] && grid[y][x] === 0) { grid[y][x] = 1; gw.tiles.push([x, y]); }
+    if (spec.hell) { // 🔥 地獄の部屋：外周の壁・岩・松明をパターンが置く。領域のまわりの岩も、赤黒く描き直す（戻す時に元へ）
+      const hk = this['_gwPat_' + gw.pat + '_terrain']; if (hk) hk.call(this, gw, rx, ry, w, h, spec);
+      this.dungeon.glitchHell = { x: Z.x - 3, y: Z.y - 3, w: Z.w + 6, h: Z.h + 6 };
+      this._queueWallRedraw(gw.tiles.concat(this._gwHellRect()));
+    } else this._queueWallRedraw(gw.tiles.slice());
+    const A = { x0: rx * TILE, y0: ry * TILE, x1: (rx + w) * TILE, y1: (ry + h) * TILE, spawnX: (rx + spec.spawn[0]) * TILE, spawnY: (ry + spec.spawn[1]) * TILE };
+    if (spec.tx) { A.txX = (rx + spec.tx[0]) * TILE; A.txY = (ry + spec.tx[1]) * TILE; }
+    gw.A = A;
+    return A;
+  }
+  _gwHellRect() { // 地獄の見た目にする領域のマス（dungeon.glitchHell。マップの中だけ）
+    const d = this.dungeon, gh = d && d.glitchHell, out = []; if (!gh) return out;
+    for (let y = Math.max(0, gh.y); y < Math.min(d.height, gh.y + gh.h); y++) for (let x = Math.max(0, gh.x); x < Math.min(d.width, gh.x + gh.w); x++) out.push([x, y]);
+    return out;
+  }
   _warpPhase(S, dt) {
-    const gw = S.gw, A = this.dungeon && this.dungeon.glitchArena, W = GLITCH_WARP, pl = this.player;
-    if (!gw || !A) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; }
+    const gw = S.gw, W = GLITCH_WARP, pl = this.player;
+    if (!gw || !(this.dungeon && this.dungeon.glitchZone)) { this._warpClear(); S.gw = null; S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; }
     const plOk = !!pl && this.playerHp > 0 && !this.isGhost;
     gw.t += dt;
     if (gw.ph === 'win') { // 足元のウィンドウ：ぽんと開いて、最後に縮みながら消える
       if (plOk) { gw.x = pl.x; gw.y = pl.y + 6; }
       this._warpDrawWin(gw);
       if (gw.t >= W.castT) {
-        if (!plOk) { this._warpClear(); S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; } // 転送の前に力尽きた
+        if (!plOk) { this._warpClear(); S.gw = null; S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; } // 転送の前に力尽きた
+        const A = this._warpBuildRoom(S);
         gw.back = { x: pl.x, y: pl.y }; gw.ph = 'fight'; gw.t = 0;
         if (this._gwG && this._gwG.scene) this._gwG.clear();
         this.interruptBandage();
@@ -8931,21 +8950,20 @@ class GameScene extends Phaser.Scene {
         try { this.cameras.main.flash(260, 60, 255, 120); this.cameras.main.centerOn(A.spawnX, A.spawnY); } catch (e) {}
         this.spawnBurst(A.spawnX, A.spawnY, 0x3dff85, 14);
         this.placeAlliesAtPlayer();
-        this.showBanner('🌀 転送：最北戦線', 1200);
+        this.showBanner('🌀 転送', 1200);
         const enter = this['_gwPat_' + gw.pat + '_enter']; if (enter) enter.call(this, S, A);
       }
     } else if (gw.ph === 'fight') {
-      this._warpDrawTx(A);
+      const dr = this['_gwPat_' + gw.pat + '_draw']; if (dr) dr.call(this, gw.A);
       const chk = this['_gwPat_' + gw.pat + '_done'];
       const done = !plOk || (chk ? chk.call(this, S, dt) : true);
       if (done && gw.endT == null) gw.endT = gw.t; // 終わった：returnDelay 秒だけ待ってから戻る
-      if ((gw.endT != null && gw.t >= gw.endT + W.returnDelay) || gw.t >= W.maxStay) this._warpReturn(S, plOk);
+      if ((gw.endT != null && gw.t >= gw.endT + W.returnDelay) || gw.t >= ((W[gw.pat] && W[gw.pat].stay) || W.maxStay)) this._warpReturn(S, plOk); // パターンごとに stay があればその秒数で戻る
     }
   }
-  _warpReturn(S, plOk) { // 元の場所へ戻る：敵を片づけて、転送前の位置へ（壁の中なら部屋の真ん中）。戻ったあとは、泳ぎ回りに戻る
-    const gw = S.gw, A = this.dungeon.glitchArena, pl = this.player;
-    this._warpClear();
-    if (plOk && pl && gw && gw.back && pl.x >= A.x0 - TILE * 2) { // 転送先にいる時だけ戻す（力尽きて部屋に戻された後などは、動かさない）
+  _warpReturn(S, plOk) { // 元の場所へ戻る：先にプレイヤーを戻してから、敵を片づけて床を壁に戻す（壁の中なら部屋の真ん中へ）。戻ったあとは、泳ぎ回りに戻る
+    const gw = S.gw, A = gw && gw.A, pl = this.player;
+    if (plOk && pl && gw && gw.back && A && pl.x >= A.x0 - TILE * 2) { // 転送先にいる時だけ戻す（力尽きて部屋に戻された後などは、動かさない）
       let nx = gw.back.x, ny = gw.back.y;
       if (this.circleHitsWall(nx, ny, pl.radius || 10)) { const rm = this.dungeon.rooms[0]; nx = (rm.x + rm.w / 2) * TILE; ny = (rm.y + rm.h / 2) * TILE; }
       this.interruptBandage();
@@ -8954,12 +8972,15 @@ class GameScene extends Phaser.Scene {
       this.spawnBurst(nx, ny, 0x3dff85, 14);
       this.placeAlliesAtPlayer();
     }
+    this._warpClear();
     S.gw = null; S.mode = 'fin'; S.mt = 3 + Math.random() * 3; S.wpT = 0;
   }
-  _warpClear() { // ウィンドウ・発信機の絵・転送先の敵を片づける（何も無ければ何もしない）
+  _warpClear() { // ウィンドウ・飾りの絵・転送先の敵を片づけて、作った床を壁に戻す（何も無ければ何もしない）
     const S = this._shark, gw = S && S.gw;
     if (gw && gw.ch) for (const e of gw.ch) { if (!e) continue; if (!e._removed) this.rtRemoveEnemy(e); const i = this.enemies.indexOf(e); if (i >= 0) this.enemies.splice(i, 1); }
     if (gw) gw.ch = [];
+    if (gw && gw.tiles && gw.tiles.length) { const grid = this.dungeon && this.dungeon.grid; if (grid) { for (const t of gw.tiles) grid[t[1]][t[0]] = 0; this._queueWallRedraw(gw.tiles.slice()); } gw.tiles = []; }
+    const dg = this.dungeon; if (dg && dg.glitchHell) { const hz = this._gwHellRect(); delete dg.glitchHell; delete dg.torches; this._queueWallRedraw(hz); } // 🔥 地獄の見た目・松明を元へ
     if (this._gwG && this._gwG.scene) this._gwG.clear();
     if (this._gwTxG && this._gwTxG.scene) this._gwTxG.clear();
   }
@@ -8980,15 +9001,16 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(0x0b3d18, 0.9 * a); g.fillRect(px, py, pw, ph);
     g.fillStyle(0x3dff85, 0.95 * a); g.fillRect(px, py, pw * Math.min(1, age / W.castT), ph);
   }
-  _warpDrawTx(A) { // 転送先の発信機（最北戦線のものに似せた飾り。台座・アンテナ・緑のコア・広がる電波の輪）
-    const g = this._gwTxG; if (!g || !g.scene) return; g.clear();
+  // 🌀 パターン 'chargers'：転送された直後、プレイヤーを中心に円状にチャージャーが並ぶ。appear 秒たつと全員が突進の溜めを始めて、突進する。全員の突進が終わる（または倒す）と終わり。
+  _gwPat_chargers_room() { return { w: 14, h: 24, spawn: [7, 14.5], tx: [7, 21.5] }; } // 最北戦線の廊下（幅14）の、発信機のあたりの下の24マス。転送先は発信機の7マス上
+  _gwPat_chargers_draw(A) { // 発信機の飾り（最北戦線のものに似せた：台座・アンテナ・緑のコア・広がる電波の輪）
+    const g = this._gwTxG; if (!g || !g.scene || A.txX == null) return; g.clear();
     const t = this.time.now, x = A.txX, y = A.txY, pulse = 0.5 + 0.5 * Math.sin(t / 260);
     for (let i = 0; i < 3; i++) { const k = (t / 1400 + i / 3) % 1; g.lineStyle(2, 0x3dff85, 0.35 * (1 - k)); g.strokeCircle(x, y - 26, 14 + k * 70); }
     g.fillStyle(0x23303a, 1); g.fillRect(x - 18, y + 2, 36, 14);
     g.fillStyle(0x3b4a56, 1); g.fillRect(x - 3, y - 30, 6, 34);
     g.fillStyle(0x3dff85, 0.6 + 0.4 * pulse); g.fillCircle(x, y - 32, 7);
   }
-  // 🌀 パターン 'chargers'：転送された直後、プレイヤーを中心に円状にチャージャーが並ぶ。appear 秒たつと全員が突進の溜めを始めて、突進する。全員の突進が終わる（または倒す）と終わり。
   _gwPat_chargers_enter(S, A) {
     const C = GLITCH_WARP.chargers, gw = S.gw, base = ENEMY_TYPES.find(o => o.key === 'charger'); if (!base) return;
     this._gwSeq = (this._gwSeq || 0) + 1;
@@ -9008,6 +9030,50 @@ class GameScene extends Phaser.Scene {
       if (e.state === 'dash') { e._gwD = true; all = false; } else if (!e._gwD) all = false;
     }
     return all;
+  }
+  // 🔥 パターン 'hell'：転送先は、上の壁が画面に入らないほど縦に深い部屋の真ん中あたり。プレイヤーの少し上（画面の上の端）に悪魔がいて、根で攻めてくる。stay 秒（15秒）たつと元の場所へ戻る。悪魔は倒せない。
+  _gwPat_hell_room() { return { w: 44, h: 36, spawn: [22, 18], hell: true }; } // 実際の地獄マップと同じ見た目・作り（赤い土・外周の壁・岩・松明）。上の壁まで16マス（＝512px。画面の半分の高さ200pxより遠い）
+  _gwPat_hell_terrain(gw, rx, ry, w, h) { // 地獄マップ（generateHellMap）と同じ作り：外周 HELL.border マスの壁／7マスごとに一定確率で1〜3マス四方の岩／松明（道に沿って蛇行）。スタートと悪魔のまわりには岩を置かない
+    const H = HELL, B = H.border, grid = this.dungeon.grid, sp = this._gwPat_hell_room().spawn, sx = sp[0], sy = sp[1];
+    const seed = Math.floor(Math.random() * 100000), hash = (a, b) => (((Math.imul(a + seed, 73856093) ^ Math.imul(b, 19349663)) >>> 0) % 1000); // 毎回ちがう岩の並び
+    const keep = new Uint8Array(w * h);
+    const mark = (x0, y0, ww, hh) => { for (let y = Math.max(0, y0); y < Math.min(h, y0 + hh); y++) for (let x = Math.max(0, x0); x < Math.min(w, x0 + ww); x++) keep[y * w + x] = 1; };
+    mark(sx - 8, sy - 8, 17, 17); // スタート付近（本物の地獄と同じ17×17）
+    const dy = GLITCH_WARP.hell.demonDy / TILE; mark(Math.round(sx) - 4, Math.round(sy - dy) - 4, 9, 9); // 悪魔のまわり
+    const spx = (sx + 0.5) * TILE, spy = (sy + 0.5) * TILE, torches = [];
+    const addT = (px, py, ph) => { torches.push({ x: rx * TILE + px, y: ry * TILE + py, ph }); mark(Math.floor(px / TILE) - 1, Math.floor(py / TILE) - 1, 3, 3); };
+    const Lpx = (h - B - 3 - sy) * TILE; // 下の壁へ向かう道（本物では扉へ向かう道）
+    for (let t = 0; t <= Lpx; t += 24) mark(Math.floor(spx / TILE) - 1, Math.floor((spy + t) / TILE) - 1, 3, 3);
+    for (let k = 0, t = 200; t <= Lpx; k++, t += 200) { const taper = Math.min(1, (Lpx - t) / 900 + 0.35), off = 260 * taper * Math.sin(k * 0.27) + (k % 2 ? -60 : 60) * taper; addT(spx - off, spy + t, hash(k, 9) / 100); }
+    for (let k = 0; k < 6; k++) { const ang = k * Math.PI / 3 + 0.5; addT(spx + Math.cos(ang) * 9 * TILE, spy + Math.sin(ang) * 9 * TILE, hash(k + 50, 4) / 100); } // 悪魔と戦う広場を照らす松明
+    for (const f of [-2, 2]) addT(spx + f * TILE, spy - dy * TILE + TILE, hash(f + 70, 4) / 100); // 悪魔の両わきの松明（本物の扉の両わきと同じ）
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < B || y < B || x >= w - B || y >= h - B) grid[ry + y][rx + x] = 0; // 外周の壁
+    for (let by = B + 1; by < h - B - 3; by += 7) for (let bx = B + 1; bx < w - B - 3; bx += 7) { // 岩
+      const hh = hash(bx * 3 + 1, by * 5 + 2); if (hh >= H.rockChance) continue;
+      const size = 1 + (hh % 3), ox = (hh >> 2) % 4, oy = (hh >> 4) % 4;
+      for (let y = by + oy; y < by + oy + size; y++) for (let x = bx + ox; x < bx + ox + size; x++) { if (x < B || y < B || x >= w - B || y >= h - B || keep[y * w + x]) continue; grid[ry + y][rx + x] = 0; }
+    }
+    this.dungeon.torches = torches; // 松明は、毎フレーム dungeon.torches から描かれる（戻る時に消す）
+  }
+  _gwPat_hell_enter(S, A) {
+    const C = GLITCH_WARP.hell, gw = S.gw, base = ENEMY_TYPES.find(o => o.key === 'demon'); if (!base) return;
+    this._gwSeq = (this._gwSeq || 0) + 1;
+    const x = A.spawnX, y = A.spawnY - C.demonDy;
+    const e = this.rtMakeEnemy('demon', x, y, 'gw_' + this._gwSeq + '_d', C.hp, C.hp, base.damage); if (!e) return;
+    // 地獄の悪魔と同じ：根の攻撃は25階の悪魔と同じ。ただし「種」（壁に植える攻撃）だけはなし（この個体だけの複製）
+    e.type = Object.assign({}, e.type, { _hellDark: true, seedBurst: null, rootsChase: Object.assign({}, base.rootsChase, { plantSeed: false }) });
+    gw.ch.push(e); this.spawnBurst(x, y, 0xff3b1a, 16);
+    this.showBanner('🔥 地獄', 1500, '#ff8a5c');
+  }
+  _gwPat_hell_done(S, dt) { return false; } // 悪魔は倒せない。戻るのは stay 秒たった時（_warpPhase）
+  _gwPat_hell_draw(A) { // 火の粉を昇らせる（床・岩・松明は、本物の地獄と同じ描き方）
+    const g = this._gwTxG; if (!g || !g.scene) return; g.clear();
+    const t = this.time.now, w = A.x1 - A.x0, h = A.y1 - A.y0;
+    for (let i = 0; i < 40; i++) {
+      const k = (t / 3600 + i * 0.37) % 1, fx = (i * 0.6180339) % 1;
+      const x = A.x0 + fx * w + Math.sin(t / 700 + i) * 10, y = A.y1 - k * h;
+      g.fillStyle(0xff7a2a, 0.7 * (1 - k)); g.fillCircle(x, y, 2.5);
+    }
   }
   _ransomLock() { const S = this._shark; return !!(S && S.mode === 'fork' && S.fk && this._fork); }
   _ransomStart(S) { // 🔀 ランサムウェア攻撃：サメが姿を現し終えたら、感染させる（_ransomT 秒、移動の操作が反転）。サメは castT 秒止まる（'ransom' モード）
@@ -15358,10 +15424,12 @@ class GameScene extends Phaser.Scene {
       return (r << 16) | (gr << 8) | b;
     };
     let any = false;
+    const gh = dungeon.glitchHell; // 🔥 グリッチ戦のワープ「地獄」の間だけ、その領域の中を地獄の見た目で描く
     for (let y = y0; y < y1; y++) {
       const row = dungeon.grid[y];
       for (let x = x0; x < x1; x++) {
         const t = (dungeon.ghostFloor && dungeon.ghostFloor.tiles[y * dungeon.width + x]) ? 0 : (row[x] === 0 && dungeon.hutFurn && dungeon.hutFurn[y * dungeon.width + x]) ? 1 : row[x]; // 👻 隠し通路・隠し部屋は、歩けるが床としては描かない（見た目は壁） // 小屋の家具は、当たり判定はあるが見た目は床（家具の絵は _drawHut が描く）
+        const hl = dungeon.hell || (gh && x >= gh.x && x < gh.x + gh.w && y >= gh.y && y < gh.y + gh.h); // このマスは地獄の見た目か
         if (t === 1 || t === 3) {
           any = true;
           // 出口に近いほど白っぽく、遠ざかるにつれて通常の床色へ徐々に戻る
@@ -15373,10 +15441,10 @@ class GameScene extends Phaser.Scene {
           if (t === 3) k = 1;
           const red = this.nextIsBoss; // ボス階への出口は白ではなく赤く染める
           const inHut = dungeon.hut && x >= dungeon.hut.x && x < dungeon.hut.x + dungeon.hut.w && y >= dungeon.hut.y && y < dungeon.hut.y + dungeon.hut.h; // 小屋の中は木の床
-          const base = dungeon.lounge ? 0xe6e6ec : dungeon.party ? (((x + y) & 1) ? 0xf1e6cf : 0xecd5dc) : dungeon.hell ? [0x7b3b2a, 0x84412e, 0x70352a][((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0) % 3] : dungeon.holy ? 0xf6ecc8 : dungeon.snow ? (inHut ? 0x9a7650 : 0xc9d6e6) : (dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f); // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
-          g.fillStyle(lerpColor(base, red ? 0xb02a2a : dungeon.hell ? 0xe0a040 : 0x9a9aaa, k), 1);
+          const base = dungeon.lounge ? 0xe6e6ec : dungeon.party ? (((x + y) & 1) ? 0xf1e6cf : 0xecd5dc) : hl ? [0x7b3b2a, 0x84412e, 0x70352a][((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0) % 3] : dungeon.holy ? 0xf6ecc8 : dungeon.snow ? (inHut ? 0x9a7650 : 0xc9d6e6) : (dungeon.werewolf ? this.wwFloorColor(x, y) : 0x33333f); // 人狼ゲームのマップだけ、広場・道・家で床の色を変える
+          g.fillStyle(lerpColor(base, red ? 0xb02a2a : hl ? 0xe0a040 : 0x9a9aaa, k), 1);
           g.fillRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
-          g.lineStyle(t === 3 ? 2 : 1, lerpColor(dungeon.lounge ? 0xd0d0d8 : dungeon.party ? 0xdccfba : dungeon.hell ? 0x5e2a1d : dungeon.holy ? 0xe3d297 : dungeon.snow ? (inHut ? 0x7d5d3b : 0xb6c5d8) : 0x26262e, red ? 0xff6b6b : dungeon.hell ? 0xffd070 : 0xdcdce8, k), 1);
+          g.lineStyle(t === 3 ? 2 : 1, lerpColor(dungeon.lounge ? 0xd0d0d8 : dungeon.party ? 0xdccfba : hl ? 0x5e2a1d : dungeon.holy ? 0xe3d297 : dungeon.snow ? (inHut ? 0x7d5d3b : 0xb6c5d8) : 0x26262e, red ? 0xff6b6b : hl ? 0xffd070 : 0xdcdce8, k), 1);
           g.strokeRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
         } else if (dungeon.party && t === 0) { // 🎉 パーティールーム：壁（上の2行は飾りの壁・そのほかは水色。真ん中のテーブルの下地もここ）
           any = true;
@@ -15397,7 +15465,7 @@ class GameScene extends Phaser.Scene {
             g.fillStyle(0x000000, 1); g.fillRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
             g.lineStyle(isAltar ? 2 : 1, isAltar ? 0xe2c978 : 0x8fa6ff, isAltar ? 0.9 : 0.5); g.strokeRect(x * TILE - ox, y * TILE - oy, TILE, TILE); // ふちは、柱は淡い青・祭壇は金色の細い線
           }
-        } else if (dungeon.hell && t === 0) { // 🔥 地獄：岩と外周の壁を、焦げた赤黒いブロックで描く
+        } else if (hl && t === 0) { // 🔥 地獄：岩と外周の壁を、焦げた赤黒いブロックで描く
           any = true;
           g.fillStyle(0x3a1812, 1); g.fillRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
           g.lineStyle(1, 0x220c08, 1); g.strokeRect(x * TILE - ox, y * TILE - oy, TILE, TILE);
