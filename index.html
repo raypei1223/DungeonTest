@@ -9006,6 +9006,7 @@ class GameScene extends Phaser.Scene {
     if (this._gwG && this._gwG.scene) this._gwG.clear();
     if (this._gwTxG && this._gwTxG.scene) this._gwTxG.clear();
     if (this._gwTblG && this._gwTblG.scene) this._gwTblG.clear(); // 💬 交流ルームのテーブル・扉の飾り
+    if (this._gwTxGlow && this._gwTxGlow.scene) this._gwTxGlow.clear(); // 📡 発信機の光
     if (this._gwTblTx) { try { this._gwTblTx.destroy(); } catch (err) { /* 破棄済み */ } this._gwTblTx = null; }
   }
   _warpDrawWin(gw) { // 足元のウィンドウ（フォークボムと同じ、緑のタイトルバーの窓）。下には転送の進み具合のバー
@@ -9027,13 +9028,22 @@ class GameScene extends Phaser.Scene {
   }
   // 🌀 パターン 'chargers'：転送された直後、プレイヤーを中心に円状にチャージャーが並ぶ。appear 秒たつと全員が突進の溜めを始めて、突進する。全員の突進が終わる（または倒す）と終わり。
   _gwPat_chargers_room() { return { w: 14, h: 24, spawn: [7, 14.5], tx: [7, 21.5] }; } // 最北戦線の廊下（幅14）の、発信機のあたりの下の24マス。転送先は発信機の7マス上
-  _gwPat_chargers_draw(A) { // 発信機の飾り（最北戦線のものに似せた：台座・アンテナ・緑のコア・広がる電波の輪）
+  _gwPat_chargers_draw(A) { // 発信機の飾り：最北戦線の本物（drawTransmitter）と同じ絵（台座・支柱・アンテナ・コア・光・広がる電波の輪）
     const g = this._gwTxG; if (!g || !g.scene || A.txX == null) return; g.clear();
-    const t = this.time.now, x = A.txX, y = A.txY, pulse = 0.5 + 0.5 * Math.sin(t / 260);
-    for (let i = 0; i < 3; i++) { const k = (t / 1400 + i / 3) % 1; g.lineStyle(2, 0x3dff85, 0.35 * (1 - k)); g.strokeCircle(x, y - 26, 14 + k * 70); }
-    g.fillStyle(0x23303a, 1); g.fillRect(x - 18, y + 2, 36, 14);
-    g.fillStyle(0x3b4a56, 1); g.fillRect(x - 3, y - 30, 6, 34);
-    g.fillStyle(0x3dff85, 0.6 + 0.4 * pulse); g.fillCircle(x, y - 32, 7);
+    if (!this._gwTxGlow || !this._gwTxGlow.scene) this._gwTxGlow = this.add.graphics().setDepth(3).setBlendMode(Phaser.BlendModes.ADD);
+    const glow = this._gwTxGlow; glow.clear();
+    const time = this.time.now, x = A.txX, y = A.txY, pulse = 0.5 + 0.5 * Math.sin(time / 260), core = 0x3dff85;
+    g.fillStyle(0x1e2a24, 1); g.fillRoundedRect(x - 22, y + 8, 44, 14, 4);
+    g.lineStyle(2, 0x3f6b52, 1); g.strokeRoundedRect(x - 22, y + 8, 44, 14, 4);
+    g.fillStyle(0x2c3f35, 1); g.fillRect(x - 7, y - 2, 14, 12);
+    g.lineStyle(3, 0xa6ffc4, 1); g.lineBetween(x, y - 8, x, y - 30);
+    g.fillStyle(core, 1); g.fillCircle(x, y - 32, 4 + pulse * 1.5);
+    g.fillStyle(core, 1); g.fillCircle(x, y, 11);
+    g.lineStyle(2, 0xffffff, 0.75); g.strokeCircle(x, y, 11);
+    glow.fillStyle(0x2dff7a, 0.08 + 0.07 * pulse); glow.fillCircle(x, y, 50 + pulse * 6);
+    glow.fillStyle(0x2dff7a, 0.16 + 0.10 * pulse); glow.fillCircle(x, y, 26);
+    glow.fillStyle(0x2dff7a, 0.22); glow.fillCircle(x, y - 32, 13);
+    for (let i = 0; i < 3; i++) { const ph = ((time / 1800) + i / 3) % 1; glow.lineStyle(2, 0x5dffa0, 0.45 * (1 - ph)); glow.strokeCircle(x, y - 32, 10 + ph * 72); }
   }
   _gwPat_chargers_enter(S, A) {
     const C = GLITCH_WARP.chargers, gw = S.gw, base = ENEMY_TYPES.find(o => o.key === 'charger'); if (!base) return;
@@ -9108,13 +9118,23 @@ class GameScene extends Phaser.Scene {
     e.label = this.add.text(x, y - base.radius - 22, 'ボス', { fontSize: '12px', color: '#ffd54c', fontStyle: 'bold', fontFamily: 'sans-serif' }).setOrigin(0.5).setDepth(4);
     // 本物の交流ルームと同じ飾り（真ん中の白いテーブルと影・下の扉と星。入口（ポータル）や同期はなし）
     const tg = (this._gwTblG && this._gwTblG.scene) ? this._gwTblG : (this._gwTblG = this.add.graphics().setDepth(0.6)); tg.clear();
-    const tx0 = A.x0 + 6 * TILE, ty0 = A.y0 + 4 * TILE, dx = A.x0 + 8 * TILE, dy = A.y1;
-    tg.fillStyle(0x000000, 0.12); tg.fillRect(tx0 + 4, ty0 + 10, 192, 40);
-    tg.fillStyle(0xffffff, 1); tg.fillRect(tx0, ty0 + 4, 192, 40);
-    tg.fillStyle(0xa0522d, 1); tg.fillRect(dx, dy, 64, 32); tg.fillStyle(0xe0c58a, 1); tg.fillRect(dx - 2, dy, 3, 32); tg.fillRect(dx + 63, dy, 3, 32);
+    const dx = A.x0 + 8 * TILE, dy = A.y1;
     if (this._gwTblTx) { try { this._gwTblTx.destroy(); } catch (err) { /* 破棄済み */ } }
     this._gwTblTx = this.add.text(dx + 32, dy + 16, '⭐', { fontSize: '14px', fontFamily: 'sans-serif', fontStyle: 'bold', color: '#ffffff' }).setOrigin(0.5).setResolution(2).setDepth(1);
+    this._gwPat_lounge_draw(A);
     gw.ch.push(e); this.spawnBurst(x, y, 0x9aa3ad, 12);
+  }
+  _gwPat_lounge_draw(A) { // 🪑 テーブル・扉の飾りは、下の壁のマスが残っているところだけ描く（爆発で壁が削れたら、白い部分も一緒に消える）。毎フレーム
+    const tg = this._gwTblG; if (!tg || !tg.scene || !A) return; tg.clear();
+    const grid = this.dungeon.grid, rx = Math.round(A.x0 / TILE), ry = Math.round(A.y0 / TILE), rh = Math.round((A.y1 - A.y0) / TILE);
+    const wall = (x, y) => !!(grid[y] && grid[y][x] === 0), ty0 = (ry + 4) * TILE;
+    const bar = (gx, r, c, a0, a1, dxx) => { const lo = Math.max(a0, 32 * r), hi = Math.min(a1, 32 * r + 32); if (hi > lo) tg.fillRect(gx * TILE + dxx, ty0 + lo, TILE, hi - lo); }; // 机（影は +4,+10／白は +0,+4。高さ40）を、マスごとに切り取って描く
+    tg.fillStyle(0x000000, 0.12); for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) if (wall(rx + 6 + c, ry + 4 + r)) bar(rx + 6 + c, r, c, 10, 50, 4);
+    tg.fillStyle(0xffffff, 1); for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) if (wall(rx + 6 + c, ry + 4 + r)) bar(rx + 6 + c, r, c, 4, 44, 0);
+    const d0 = wall(rx + 8, ry + rh), d1 = wall(rx + 9, ry + rh), dx = (rx + 8) * TILE, dy = (ry + rh) * TILE; // 下の扉
+    tg.fillStyle(0xa0522d, 1); if (d0) tg.fillRect(dx, dy, TILE, TILE); if (d1) tg.fillRect(dx + TILE, dy, TILE, TILE);
+    tg.fillStyle(0xe0c58a, 1); if (d0) tg.fillRect(dx - 2, dy, 3, 32); if (d1) tg.fillRect(dx + 63, dy, 3, 32);
+    if (this._gwTblTx && this._gwTblTx.scene) this._gwTblTx.setVisible(d0 && d1);
   }
   _gwPat_lounge_done(S, dt) { // この部屋にある敵の爆弾が、まかれたあと全部起爆したら true（1回まかれて、起爆し終わるまで）
     const Z = this.dungeon.glitchZone, gw = S.gw; if (!Z || !gw) return true;
