@@ -9437,7 +9437,7 @@ class GameScene extends Phaser.Scene {
     const alive = w => w.kill == null || (Fk && Fk.clock < w.kill);
     const cols = Fk ? ['A', 'B'].filter(c => (Fk.cols[c] || []).some(alive)) : [];
     if (!cols.length) { f.ph = 'rise'; f.t = 0; return; }
-    const alt = f.col === 'A' ? 'B' : f.col === 'B' ? 'A' : null, cn = (alt && cols.includes(alt)) ? alt : cols[Math.floor(Math.random() * cols.length)], col = Fk.cols[cn], w0 = col[0], last = col.length - 1; // 🔁 飛び出す列は、前回と反対側の列を、交互に選ぶ（最初だけランダム。片方の列が無ければ残っている方）
+    const alt = f.col === 'A' ? 'B' : f.col === 'B' ? 'A' : null, cn = (alt && cols.includes(alt)) ? alt : (cols.length === 2 ? (Fk.cols.A[0].x > Fk.cols.B[0].x ? 'A' : 'B') : cols[0]), col = Fk.cols[cn], w0 = col[0], last = col.length - 1; // 🔁 飛び出す列は、前回と反対側の列を、交互に選ぶ（最初だけ、右側の列から。片方の列が無ければ残っている方）
     f.lead = Math.random() < F.leadP; // 🎯 先読み：leadP の確率で、leadT 秒あとのプレイヤーの位置を基準にする
     const ref = plOk ? ((f.lead && f.pv) ? { x: pl.x + f.pv.x * F.leadT, y: pl.y + f.pv.y * F.leadT } : pl) : S;
     const idx = ((ref.x - w0.x) * F.stepX + (ref.y - w0.y) * F.stepY) / (F.stepX * F.stepX + F.stepY * F.stepY); // プレイヤーを通る、列に直角な線上の窓の位置（枚数。小数）
