@@ -276,6 +276,10 @@
     animation: ransomBase 0.45s steps(1, end) infinite reverse;
   }
   #aimJoystickBase.ransomGlitch #aimJoystickKnob { animation: ransomKnob 0.55s steps(1, end) infinite; }
+  /* 🔀 ランサムウェアの操作反転：反転しているスティックは、枠が青白く光り、周りにノイズが走る（_ransomHud／_stickNoise）。壊れた見た目（🔒）とは別の要素なので、同じスティックに両方かかれば、両方出る */
+  #joystickBase.ransomInv, #aimJoystickBase.ransomInv { border-color: rgba(0,255,255,0.85); box-shadow: 0 0 1.6vh rgba(0,255,255,0.7); }
+  #aimJoystickBase.ransomGlitch.ransomInv { border-color: rgba(255,40,40,0.9); box-shadow: -0.7vh 0 0 rgba(255,0,0,0.6), 0.7vh 0 0 rgba(0,255,255,0.6), 0 0 1.6vh rgba(0,255,255,0.7); }
+  .stickNoise { position: fixed; z-index: 16; pointer-events: none; display: none; } /* 🔀 スティックの周りにちらつく、ノイズのブロック（キャンバス。_stickNoise が描く） */
 
   #rotateHint {
     display: none; position: fixed; inset: 0; z-index: 250; /* ロビー(100)や各種オーバーレイ(〜140)より前に出して、縦向きだと必ず見えるようにする */
@@ -955,6 +959,7 @@ const IS_LOW_SPEC_GRASS = IS_LOW_SPEC || IS_TOUCH_DEVICE;
 // window.aimVector は「今どの方向を狙っているか」をゲーム側の向き表示に使うための値。
 // 離した瞬間に 'weaponRelease' カスタムイベントを発火し、GameScene側でその角度に攻撃する。
 window.aimVector = { x: 0, y: 0, active: false };
+window.__aimInv = false; // 🔀 ランサムウェアで攻撃スティックが反転している間 true（見た目のノブは指のとおり動き、ゲームに渡る向きだけが逆になる）
 (function setupAimJoystick() {
   if (!IS_TOUCH_DEVICE) return;
   const zone = document.getElementById('aimJoystickZone');
@@ -982,8 +987,9 @@ window.aimVector = { x: 0, y: 0, active: false };
     const angle = Math.atan2(dy, dx);
     knob.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
     const norm = rawDist || 1;
-    window.aimVector.x = (dist / b.maxDist) * (dx / norm);
-    window.aimVector.y = (dist / b.maxDist) * (dy / norm);
+    const sg = window.__aimInv ? -1 : 1;
+    window.aimVector.x = sg * (dist / b.maxDist) * (dx / norm);
+    window.aimVector.y = sg * (dist / b.maxDist) * (dy / norm);
     window.aimVector.active = true;
     lastAngle = angle;
     lastDist = rawDist;
@@ -994,7 +1000,7 @@ window.aimVector = { x: 0, y: 0, active: false };
     window.aimVector.active = false;
     activeId = null;
     if (lastDist >= lastMaxDist * DEAD_ZONE_RATIO) {
-      window.dispatchEvent(new CustomEvent('weaponRelease', { detail: { angle: lastAngle } }));
+      window.dispatchEvent(new CustomEvent('weaponRelease', { detail: { angle: lastAngle + (window.__aimInv ? Math.PI : 0) } }));
     }
     lastDist = 0;
   }
@@ -6016,13 +6022,13 @@ function applyWeaponLevel(base, level) {
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
 const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
-const GLITCH_TEST_ATK = 'warp'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
-const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
-const GLITCH_TSAR = { flyT: 7, v0: 40, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, afterT: 1.6 }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆風が広がりきるまでの秒数／afterT＝その後の余韻の秒数
+const GLITCH_TEST_ATK = ""; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
+const GLITCH_TEST_GAUGE_FULL = true; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
+const GLITCH_TSAR = { flyT: 7, v0: 40, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, invBand: 240, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／creep＝白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
-const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
-// 🔀 ランサムウェア：サメが姿を現して「感染」させると、プレイヤーは t 秒のあいだ、移動の操作が上下左右反転する。サメ自身は castT 秒だけその場で止まってから、また泳ぎ回る。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'ransom'。（武器が使えなくなるのは、フォークボム中：_ransomLock）
-const GLITCH_RANSOM = { t: 8, castT: 1.6 };
+const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 0.6, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0.3, burrowSpeed: TILE * 8, burrowWobble: 5, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: TILE * 40, accT: 0.15, leapDamage: 40, leapPause: 0.1, endShake: 0.8 }; // endShake＝最後の飛び込みのあと、最後のウィンドウが揺れ続けてから崩れ始めるまでの秒（長くすると揺れる時間が延びる）／ // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間
+// 🔀 ランサムウェア：サメが姿を現して「感染」させると、プレイヤーは t 秒のあいだ、移動の操作（または攻撃スティック。両方のこともある）が上下左右反転する。反転したスティックの周りにはノイズが走る。サメ自身は castT 秒だけその場で止まってから、また泳ぎ回る。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'ransom'。（武器が使えなくなるのは、フォークボム中：_ransomLock）
+const GLITCH_RANSOM = { t: 30, castT: 1.6, aimP: 0.35, bothP: 0.2 }; // t＝反転の秒数／castT＝サメがその場で止まる秒数／aimP＝攻撃スティック（右）だけが反転する確率／bothP＝両方のスティックが反転する確率（残りは、移動スティック（左）だけ）
 // 🌀 ワープ：サメが姿を現したあと、プレイヤーの足元にウィンドウが出て（castT 秒）、最北戦線の発信機の上あたりへ転送される。そこでパターンごとの敵と戦い（今は 'chargers'＝円状に並んだチャージャーが突進）、終わったら（returnDelay 秒後）元の場所へ戻る。maxStay 秒たてば、何があっても戻す。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'warp'。
 //   パターンを増やす時：メソッドを4つ作って、patterns に名前を足す。 _gwPat_<名前>_room()（部屋の大きさ { w, h（マス。最大 zoneW×zoneH）, spawn:[x,y]（転送されてくる場所。部屋の左上からのマス）, tx:[x,y]（任意：飾りの位置） }）／_gwPat_<名前>_enter(S, A)（転送された直後に敵などを出す。A＝部屋の範囲と位置(px)）／_gwPat_<名前>_done(S, dt)（終わったら true）／_gwPat_<名前>_draw(A)（任意：飾りの絵。毎フレーム）。部屋の床は、転送する時に岩の領域(dungeon.glitchZone＝addGlitchWarpArena)へ作り、戻る時に壁へ戻す。
 const GLITCH_WARP = {
@@ -8757,6 +8763,7 @@ class GameScene extends Phaser.Scene {
   }
   _sharkUpdate(t, dt) {
     const S = this._shark, g = this._sharkG; if (!S || !g || !g.scene) return;
+    if (S.tsarGone) { g.clear(); if (this._sharkG0) this._sharkG0.clear(); if (this._sharkG2) this._sharkG2.clear(); return; } // ☢ ツァーリ・ボンバで消えたサメ：動かず、描かない
     dt = Math.min(dt, 0.1); S.age += dt; this._bloodUpdate(dt); const R = Math.random, wrap = d => Math.atan2(Math.sin(d), Math.cos(d)), N = 22;
     // --- 泳ぐ：泳ぎ先へ向かって、弧を描いて曲がる。壁が近ければ避ける。尾をひと振りするごとに、ぐっと進む ---
     // --- 🦈 状態：'fin'（背びれで泳ぎ回る）→'chase'（追ってくる）→'emerge'（水しぶきが飛び散り、体が出る）→'rush'（一定時間、姿を現したまま高速で追ってくる）→潜って'fin'へ戻る ---
@@ -8797,6 +8804,7 @@ class GameScene extends Phaser.Scene {
       const tv = S.speed * 3.5 * (0.9 + 0.1 * Math.cos(S.ph * 2)) * (1 - 0.25 * Math.abs(S.bend)); S.v += (tv - S.v) * Math.min(1, dt * 4);
       S.ph += dt * Math.PI * 2 * S.beat * 2.2;
       S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+    } else if (m0 === 'flee') { this._tsarFleeMove(S, dt); // ☢ ツァーリ・ボンバ：星から、必死で泳いで逃げる
     } else if (m0 === 'wave') { this._sharkWaveMove(S, dt, plOk, plr); // 🌊 波：尾をプレイヤーへ向けて、扇ぐように振る
     } else if (m0 === 'fork') { this._forkMove(S, dt, plOk, plr); // 🪟 フォークボム中の泳ぎ（ウィンドウへ向かう）
     }
@@ -9251,16 +9259,41 @@ class GameScene extends Phaser.Scene {
   a4WarpOn() { const S = this._shark, gw = S && S.gw; return (gw && gw.pat === 'angel' && gw.ph === 'fight' && gw.A) ? gw : null; } // 🪽 グリッチ戦のワープ「天使」の戦闘中だけ、その状態を返す
   _ransomLock() { const S = this._shark; return !!(S && ((S.mode === 'fork' && S.fk && this._fork) || (S.gw && S.gw.ph === 'fight'))); } // フォークボム中、または🌀ワープで転送されている間：武器が使えず、右スティックが壊れる
   _ransomStart(S) { // 🔀 ランサムウェア攻撃：サメが姿を現し終えたら、感染させる（_ransomT 秒、移動の操作が反転）。サメは castT 秒止まる（'ransom' モード）
-    const R = GLITCH_RANSOM; S.mode = 'ransom'; S.mt = R.castT; this._ransomT = R.t;
+    const R = GLITCH_RANSOM; S.mode = 'ransom'; S.mt = R.castT; this._ransomT = R.t; const rr = Math.random(); this._ransomMove = !(rr < R.aimP); this._ransomAim = rr < R.aimP + R.bothP; // どのスティックが反転するか：攻撃スティックだけ／両方／移動スティックだけ
     try { this.cameras.main.flash(250, 255, 40, 40); this.cameras.main.shake(300, 0.006); } catch (e) {}
   }
-  _ransomHud() { // 武器ロック中・操作反転中だけ、画面上部に赤い警告を出す（右スティックの乱れはロック中だけ。スマホ）
-    const lock = this._ransomLock(), inv = this._ransomT > 0, show = lock || inv;
-    if (lock !== this._ransomOn) { this._ransomOn = lock; const b = document.getElementById('aimJoystickBase'); if (b) b.classList.toggle('ransomGlitch', lock); }
+  _invMove() { return this._ransomT > 0 && this._ransomMove !== false; } // 🔀 移動スティックが反転しているか
+  _invAim() { return this._ransomT > 0 && !!this._ransomAim; } // 🔀 攻撃スティックが反転しているか
+  _stickNoise(key, base, on) { // 🔀 反転しているスティックの周りに、四角いノイズのブロックをちらつかせる（0.08秒ごとに、数・位置・大きさ・色が入れ替わる。ときどき横に伸びたブロックも出る）。スティック本体の見た目（壊れた見た目など）とは別の要素なので、別の効果が同時にかかっても、両方が見える
+    const E = this._snEls || (this._snEls = {}); let el = E[key];
+    const r = on && base ? base.getBoundingClientRect() : null;
+    if (!r || r.width < 2) { if (el) el.style.display = 'none'; return; }
+    if (!el || !el.isConnected) { el = E[key] = document.createElement('canvas'); el.className = 'stickNoise'; el._t = 0; document.body.appendChild(el); }
+    const w = Math.round(Math.min(480, r.width * 1.6)), st = el.style;
+    st.left = (r.left + r.width / 2 - w / 2) + 'px'; st.top = (r.top + r.height / 2 - w / 2) + 'px'; st.width = w + 'px'; st.height = w + 'px'; st.display = 'block';
+    if (el.width !== w) { el.width = w; el.height = w; el._t = 0; }
+    const now = performance.now(); if (now - el._t < 80) return; el._t = now; // ちらつきは、0.08秒ごとに入れ替える
+    const g = el.getContext('2d'), R = Math.random, c = w / 2, u = Math.max(2, w / 90), COL = ['#00ffff', '#ff00c8', '#ffffff', '#2aff5a', '#00ffff']; g.clearRect(0, 0, w, w);
+    const n = 14 + Math.floor(R() * 16); // ブロックの数は毎回変わる
+    for (let k = 0; k < n; k++) {
+      const an = R() * Math.PI * 2, rad = c * (0.5 + R() * 0.5), sz = u * (1 + Math.floor(R() * 4)) * (R() < 0.15 ? 2 : 1), x = Math.round((c + Math.cos(an) * rad - sz / 2) / u) * u, y = Math.round((c + Math.sin(an) * rad - sz / 2) / u) * u; // 格子に合わせて置く＝ブロックらしく
+      g.globalAlpha = 0.45 + R() * 0.55; g.fillStyle = COL[Math.floor(R() * COL.length)];
+      if (R() < 0.22) g.fillRect(x, y, sz * (2 + Math.floor(R() * 4)), Math.max(u, sz * 0.4)); // 横に伸びたブロック（走査線のずれ）
+      else g.fillRect(x, y, sz, sz);
+    }
+    g.globalAlpha = 1;
+  }
+  _ransomHud() { // 武器ロック中・操作反転中だけ、画面上部に赤い警告を出す。スティックには、効果ごとの見た目をつける（ロック＝右スティックが壊れた見た目／反転＝そのスティックの周りにノイズ。同じスティックに両方かかれば、両方出る）
+    const lock = this._ransomLock(), im = this._invMove(), ia = this._invAim(), inv = this._ransomT > 0, show = lock || inv;
+    const ab = document.getElementById('aimJoystickBase'), mb = document.getElementById('joystickBase');
+    if (lock !== this._ransomOn) { this._ransomOn = lock; if (ab) ab.classList.toggle('ransomGlitch', lock); } // 🔒 武器ロック：攻撃スティックが壊れたように乱れる
+    if (ab) ab.classList.toggle('ransomInv', ia); if (mb) mb.classList.toggle('ransomInv', im); // 🔀 反転：スティックの枠が青白く光る
+    this._stickNoise('mv', mb, im); this._stickNoise('aim', ab, ia); // 🔀 反転：周りにノイズ
+    if (!!window.__aimInv !== ia) { window.__aimInv = ia; const av = window.aimVector; if (av && av.active) { av.x = -av.x; av.y = -av.y; } } // 攻撃スティックの入力の反転（入力の読み取り側 setupAimJoystick が見る）。引っ張ったまま切り替わっても、すぐ効く
     if (show && (!this._ransomTxt || !this._ransomTxt.scene)) this._ransomTxt = this.add.text(this.scale.width / 2, 60, '', { fontSize: '22px', color: '#ff4d4d', backgroundColor: '#000000bb', padding: { x: 12, y: 6 }, align: 'center' }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(1000);
     if (this._ransomTxt && this._ransomTxt.scene) {
       this._ransomTxt.setVisible(show);
-      if (show) { this._ransomTxt.setText([lock ? ((this._shark && this._shark.gw && this._shark.gw.ph === 'fight') ? '🔒 WARP：武器ロック中' : '🔒 RANSOMWARE：武器ロック中') : '', inv ? '🔀 操作反転 ' + this._ransomT.toFixed(1) + ' 秒' : ''].filter(Boolean).join('\n')); this._ransomTxt.setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 90)); }
+      if (show) { this._ransomTxt.setText([lock ? ((this._shark && this._shark.gw && this._shark.gw.ph === 'fight') ? '🔒 WARP：武器ロック中' : '🔒 RANSOMWARE：武器ロック中') : '', inv ? '🔀 ' + (im && ia ? '両方のスティック' : ia ? '攻撃スティック' : '移動スティック') + '反転 ' + this._ransomT.toFixed(1) + ' 秒' : ''].filter(Boolean).join('\n')); this._ransomTxt.setAlpha(0.6 + 0.4 * Math.sin(this.time.now / 90)); }
     }
   }
   _forkStart(S) {
@@ -9378,7 +9411,7 @@ class GameScene extends Phaser.Scene {
       }
     } else if (f.ph === 'ldive') { // 背びれをウィンドウの中央へ寄せて、飲み込まれる
       S.x += (f.cur.x - fb.x) * Math.min(1, dt * 8); S.y += (f.cur.y - fb.y) * Math.min(1, dt * 8);
-      if (S.dive >= 1 && f.t >= 0.3) { S.fkHide = true; splashBurst(22, { x: f.cur.x, y: f.cur.y }); f.k++; f.ph = f.k >= F.leaps ? 'rise' : 'pause'; f.t = 0; }
+      const lastLeap = f.k + 1 >= F.leaps; if (lastLeap && f.cur) f.cur.vib = true; /* 最後の1枚は、崩れる前に揺れ続ける（F.endShake 秒） */ if (S.dive >= 1 && f.t >= 0.3 + (lastLeap ? F.endShake : 0)) { S.fkHide = true; splashBurst(22, { x: f.cur.x, y: f.cur.y }); f.k++; f.ph = f.k >= F.leaps ? 'rise' : 'pause'; f.t = 0; }
     } else if (f.ph === 'pause') { if (f.t >= F.leapPause) this._forkBurrowStart(f, S); // 少し間をおいて、また窓の下を動き回る
     } else { // rise：最後に飛び込んだウィンドウから浮かんで、泳ぎ回りに戻る
       const hp = f.cur || f.B; if (f.cur) f.cur.vib = false; if (f.tgt) f.tgt.tele = false;
@@ -17270,9 +17303,69 @@ class GameScene extends Phaser.Scene {
     const gm = (w && w.gaugeMax) || 100; if (GLITCH_TEST_GAUGE_FULL) A.gauge = gm; // テスト：常に満タン
     const fr = Math.max(0, Math.min(1, (A.gauge || 0) / gm)), full = fr >= 1, c = this._ancientCol(fr).s;
     el.root.style.display = 'flex'; el.fill.style.width = (fr * 100).toFixed(1) + '%'; el.fill.style.background = '#' + (c >>> 0).toString(16).padStart(6, '0'); // 色はシールドと同じ（溜まるほど水色→紫）
-    el.fill.style.boxShadow = full ? '0 0 10px 2px #fff' : 'none';
+    el.fill.style.boxShadow = full ? '0 0 10px 2px #fff' : 'none'; this._ancSigilTick(A, full); // 🔯 満タンになったら、部屋の真ん中の床に「このシンボルを描け」の指示文を出す
     const can = true; // 🔷 ゲージが何％でも、真ん中の帯は常に描ける状態（ボタンなし）。足りない時は、描き終わりに「魔力がたりない」と出る
     if (can && !A.draw) this._ancDrawStart(A); else if (!can && A.draw) this._ancDrawEnd(A, false);
+  }
+  _ancSigilTick(A, full) { // 🔯 パリィゲージが満タンになった瞬間に1回だけ、床に指示文を出す（グリッチ戦だけ）。満タンでなくなったら（魔法を使ったら）消える
+    if (!full) { A.sigilSeen = false; A.sigilPend = false; if (this._ancSigilEnd) this._ancSigilEnd(); return; }
+    if (!this.glitchBoss) return;
+    if (!A.sigilSeen) { A.sigilSeen = true; A.sigilPend = true; }
+    if (!A.sigilPend) return;
+    const pl = this.player, rooms = (this.dungeon && this.dungeon.rooms) || [];
+    const room = pl && rooms.find(r => pl.x >= r.x * TILE && pl.x < (r.x + r.w) * TILE && pl.y >= r.y * TILE && pl.y < (r.y + r.h) * TILE);
+    if (!room) return; // 今いる場所が部屋の外（ワープ先など）なら、部屋に戻ってから出す
+    A.sigilPend = false; this._ancSigilHint(room);
+  }
+  _ancSigilHint(room) { // 🔯 部屋の真ん中の床に、緑に輝く文字で「一番上＝英文／その下＝なぞる紋章（アスキーアート）／その下＝技名」を打ち出す。見た目は最初の床文字（_glitchIntro）と同じ（緑の光＋赤とシアンの色ずれ＋ちらつき）
+    if (this._ancSigilStop) this._ancSigilStop(); // 前の指示文が残っていれば片付ける
+    const W = 32, pad = q => { const n = W - q.length, l = Math.floor(n / 2); return ' '.repeat(l) + q + ' '.repeat(n - l); };
+    const ART = [
+      '               ######          ',
+      '      #####    #    #####      ',
+      '    ####       #       ####    ',
+      '   ###         #         ###   ',
+      '  ##           #           ##  ',
+      ' ##            #            ## ',
+      '###            #            ###',
+      '###            #            ###',
+      '###            #            ###',
+      ' ##            #            ## ',
+      '  ##           #           ##  ',
+      '   ###         #         ###   ',
+      '    ####       #       ####    ',
+      '      #####    #    #####      ',
+      '          ###########          '
+    ]; // 紋章（ANC_SYMBOLS の 'tsar'）：上が少し欠けた円＋真ん中の縦線。真上の少し左から描き始め、反時計回りに一周して真上まで来て、そこから真下へ線を下ろす
+    const full = [pad('> DRAW THIS SIGIL IN ONE STROKE:'), pad(''), ...ART.map(pad), pad(''), pad('Tsar Bomba')].join('\n');
+    const CPS = 260, FADE = 0.9; // 文字を打つ速さ（文字/秒）／消えるまでの秒数。時間では消えず、魔法を使ってゲージが満タンでなくなるまで出し続ける
+    const lines = full.split('\n').length, fs = Math.max(8, Math.min(18, Math.floor(Math.min((room.h * TILE - 24) / (lines * 1.25), (room.w * TILE - 24) / (W * 0.62))))); // 文字の大きさ：部屋に収まる範囲で大きく（最大18px）
+    const base = { fontSize: fs + 'px', fontFamily: 'monospace', align: 'left' };
+    const mk = (color, depth, extra) => this.add.text(0, 0, '', Object.assign({}, base, { color }, extra || {})).setOrigin(0, 0).setDepth(depth).setVisible(false); // 床の層（血だまり3.5・サメ4より下）
+    const gl = mk('#2aff5a', 3.16).setShadow(0, 0, '#2aff5a', 22, true, true).setBlendMode(Phaser.BlendModes.ADD);
+    const rd = mk('#ff2a4a', 3.18).setBlendMode(Phaser.BlendModes.ADD), cy = mk('#2affff', 3.18).setBlendMode(Phaser.BlendModes.ADD);
+    const layers = [gl, rd, cy], OFF = [0, -1.5, 1.5], ccx = (room.x + room.w / 2) * TILE, ccy = (room.y + room.h / 2) * TILE; // 置く場所＝部屋の真ん中
+    let t = 0, gt = 0, bx = 0, by = 0, placed = false, fadeT = -1; const J = '█▓▒░#@%&01?/<>{}';
+    this._ancSigilEnd = () => { if (fadeT < 0) fadeT = 0; }; // 魔法を使った：消え始める
+    const upd = (time, delta) => {
+      const dt = Math.min(delta / 1000, 0.1); t += dt; gt -= dt;
+      if (!gl.scene) return;
+      if (!placed) { gl.setText(full); const w0 = gl.width, h0 = gl.height; gl.setText(''); bx = ccx - w0 / 2; by = ccy - h0 / 2; layers.forEach((q, i) => { q.setPosition(bx + OFF[i], by); q.setVisible(true); }); placed = true; } // 全文の大きさを測って、部屋の真ん中に置く（以後は動かない＝床に書かれた文字）
+      const typing = t * CPS < full.length;
+      if (fadeT >= 0) fadeT += dt;
+      const n = Math.min(full.length, Math.floor(t * CPS)); let out = full.slice(0, n);
+      if (gt <= 0) { gt = 0.09; gl._gl = []; for (let i = 0; i < 2; i++) if (Math.random() < 0.35) gl._gl.push(Math.floor(Math.random() * Math.max(1, n))); } // ときどき、1〜2文字がバグった記号に入れ替わる
+      if (gl._gl && !typing) { const ch = out.split(''); for (const k of gl._gl) if (ch[k] && ch[k] !== '\n' && ch[k] !== ' ') ch[k] = J[Math.floor(Math.random() * J.length)]; out = ch.join(''); }
+      if (typing) out += '█'; // 打っている間だけ、末尾にカーソル
+      layers.forEach(q => q.setText(out));
+      const u = fadeT >= 0 ? Math.min(1, fadeT / FADE) : 0, fl = Math.max(0.35, 0.9 + 0.1 * Math.sin(t * 38) - (Math.random() < 0.06 ? 0.45 : 0)), fa = (1 - u) * (u > 0 && Math.random() < 0.25 ? 0.5 : 1);
+      gl.setAlpha(fl * fa); rd.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1)); cy.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1));
+      if (u > 0) { const j = (Math.random() - 0.5) * 6 * u; layers.forEach((q, i) => q.x = bx + OFF[i] + j); } // 消える時は、横にずれる
+      if (u >= 1) stop();
+    };
+    const stop = () => { this.events.off('update', upd); layers.forEach(q => { try { if (q.scene) q.destroy(); } catch (e) { /* 破棄済み */ } }); if (this._ancSigilStop === stop) { this._ancSigilStop = null; this._ancSigilEnd = null; } };
+    this._ancSigilStop = stop; this.events.once('shutdown', stop);
+    this.events.on('update', upd);
   }
   _ancDrawStart(A) { // 真ん中の帯（左右のスティックの間）を、シンボルを描けるエリアにする。使える間は出しっぱなし。帯の外は触れるので、スティックで動きながら描ける
     if (A.draw) return; A.held = false;
@@ -17319,8 +17412,50 @@ class GameScene extends Phaser.Scene {
   }
   // ================= ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%使用） =================
   // 流れ：シンボルを描き終える → 自分の前に十字の星型の輝きが出る（瞬きながら、スティックでゆっくり曲げられて、だんだん加速する。この間、自分は動かず無敵）→ 壁に着く／flyT 秒たつ → その場で大爆発（白い閃光・広がる衝撃波・光の筋・火の粉）→ マップ全域の床が焼け野原になる（焼けた床はそのまま残り、熾火が揺らめき続ける）。調整値は GLITCH_TSAR。
-  // ★サメへのダメージは未実装（今のサメにはHPがないため）。爆風がサメに届いた瞬間の火花だけ出してある（_tsarUpdate の「サメ」の所に、ダメージや撃破を足す）。
+  // 🦈 サメは、星が出たら一直線に（壁も通り抜けて）逃げ出す（_tsarSharkFlee／_tsarFleeMove）。爆発したらカメラがサメへ移り、真っ白な光が逃げるサメをじわじわ飲み込む → 全部飲み込むと画面が真っ白になってサメは消える（_tsarWhite）→ 白が引くと焼け野原（_tsarFinish）。調整値の win が true なら、そのまま撃破。
   _tsarLerp(a, b, t) { const ar = a >> 16 & 255, ag = a >> 8 & 255, ab = a & 255, br = b >> 16 & 255, bg = b >> 8 & 255, bb = b & 255; return (Math.round(ar + (br - ar) * t) << 16) | (Math.round(ag + (bg - ag) * t) << 8) | Math.round(ab + (bb - ab) * t); }
+  _sharkCancelAttack() { // ☢ サメの技を途中でやめさせる（ツァーリ・ボンバ）：出ていたウィンドウ・ダミー・弾・波・転送先を全部片づけ、ワープ中ならプレイヤーを元の場所へ戻し、移動の反転も解く。何も出ていなければ何もしない
+    const S = this._shark; if (!S) return; const plOk = !!this.player && this.playerHp > 0;
+    if (S.gw) { try { this._warpReturn(S, plOk); } catch (e) {} } // 🌀 ワープ：プレイヤーを元の場所へ戻して、転送先の敵と床を片づける
+    if (S.sg) { try { this._sgFinish(S); } catch (e) {} } // 🥤 シェルゲーム：ダミーを消す
+    if (this._fork || S.fk) { try { if (this._forkG && this._forkG.scene) this._forkG.destroy(); } catch (e) {} this._forkG = null; this._fork = null; S.fk = null; S.fkHide = false; } // 🪟 フォークボム：ウィンドウを全部消す
+    this._ransomT = 0; // 🔀 ランサムウェア：移動の反転を解く
+    S.shots = []; S.defl = []; S.waves = []; S.mz = null; S.wv = null; S.cb = null; S.atk = null; S.noNose = false; S.rushFixed = false; S.aimFired = true; // 🟩弾・🌊波・🔁連撃も、その場でおしまい
+    for (const gg of [this._sharkGS, this._sharkWG]) { try { if (gg && gg.scene) gg.clear(); } catch (e) {} }
+  }
+  _tsarSharkFlee() { // 🦈 サメを「逃げる」状態にする（フォークボム・ワープ・シェルゲーム・咥えている最中は、それが終わって泳ぎ回りに戻ってから）。逃げる向きは、この時の星と反対の向きに固定（一直線）
+    const S = this._shark; if (!S || S.tsarGone || S.mode === 'flee') return;
+    if (S.sg || S.gw || this._fork || S.fk || ['fork', 'warp', 'sg', 'grab', 'ransom'].includes(S.mode)) this._sharkCancelAttack(); // 技の途中なら、終わるのを待たずにキャンセルして逃げる
+    const T = this._tsar; S.fleeA = T ? Math.atan2(S.y - T.y, S.x - T.x) : S.a;
+    S.mode = 'flee'; S.fleeStraight = false; S.wp = null; S.wpT = 0; S.atk = null; S.wv = null; S.cb = null; S.tailRot = 0; S.noNose = false; S.aimFired = true; S.fleeBurstT = 0;
+    this.spawnBurst(S.x, S.y, 0x9dffb4, 24); // 水しぶき（慌てて浮上）
+  }
+  _tsarFleeMove(S, dt) { // 🦈 爆発するまでは、星からなるべく遠い所へ、部屋の中を逃げ回る。爆発したら、星と反対の向きへ一直線に必死で泳ぐ（壁は通り抜ける）。尾を大慌てで振る
+    const T = this._tsar, wrap = d => Math.atan2(Math.sin(d), Math.cos(d));
+    if (T && T.ph === 'fly') { // 🏊 爆発前：部屋の中を泳ぎ回る（星から遠い泳ぎ先を選び続ける）
+      const R = Math.random, r = S.room, mg = Math.max(2, S.len / TILE * 0.4); S.wpT -= dt;
+      if (!S.wp || S.wpT <= 0 || Math.hypot(S.wp.x - S.x, S.wp.y - S.y) < TILE * 2.5 || Math.hypot(S.wp.x - T.x, S.wp.y - T.y) < TILE * 5) { // 泳ぎ先：部屋の床のうち、サメから離れていて、星からいちばん遠い所
+        let best = null, bd = -1;
+        for (let k = 0; k < 24; k++) { const x = (r.x + mg + R() * Math.max(1, r.w - 2 * mg)) * TILE, y = (r.y + mg + R() * Math.max(1, r.h - 2 * mg)) * TILE; if (this.isWall(x, y) || Math.hypot(x - S.x, y - S.y) < TILE * 5) continue; const d = Math.hypot(x - T.x, y - T.y); if (d > bd) { bd = d; best = { x, y }; } }
+        S.wp = best || { x: (r.x + r.w / 2) * TILE, y: (r.y + r.h / 2) * TILE }; S.wpT = 1 + R();
+      }
+      const tn0 = S.turn * 4.5, d0 = wrap(Math.atan2(S.wp.y - S.y, S.wp.x - S.x) - S.a), st0 = Math.max(-tn0 * dt, Math.min(tn0 * dt, d0));
+      S.a += st0; S.bend += (Math.max(-1, Math.min(1, st0 / (tn0 * dt || 1))) - S.bend) * Math.min(1, dt * 3.5);
+      const tv0 = S.speed * GLITCH_TSAR.roomK * (0.9 + 0.1 * Math.cos(S.ph * 2)) * (1 - 0.25 * Math.abs(S.bend)); S.v += (tv0 - S.v) * Math.min(1, dt * 3);
+      S.ph += dt * Math.PI * 2 * S.beat * 4.5;
+      S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+      const m = TILE * 1.5; S.x = Math.max(r.x * TILE + m, Math.min((r.x + r.w) * TILE - m, S.x)); S.y = Math.max(r.y * TILE + m, Math.min((r.y + r.h) * TILE - m, S.y)); // 部屋から出ない
+      S.fleeBurstT -= dt; if (S.fleeBurstT <= 0) { S.fleeBurstT = 0.12; this.spawnBurst(S.x - Math.cos(S.a) * S.len * 0.3, S.y - Math.sin(S.a) * S.len * 0.3, 0x2aff5a, 3); }
+      return;
+    }
+    if (!S.fleeStraight) { S.fleeStraight = true; S.fleeA = T ? Math.atan2(S.y - T.y, S.x - T.x) : S.a; this.spawnBurst(S.x, S.y, 0x9dffb4, 24); } // 爆発した：この瞬間の星と反対の向きに固定して、一直線に
+    const tn = S.turn * 4.5, d = wrap(S.fleeA - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d));
+    S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5);
+    const tv = S.speed * GLITCH_TSAR.fleeK * (0.9 + 0.1 * Math.cos(S.ph * 2)); S.v += (tv - S.v) * Math.min(1, dt * 3);
+    S.ph += dt * Math.PI * 2 * S.beat * 4.5;
+    S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
+    S.fleeBurstT -= dt; if (S.fleeBurstT <= 0) { S.fleeBurstT = 0.12; this.spawnBurst(S.x - Math.cos(S.a) * S.len * 0.3, S.y - Math.sin(S.a) * S.len * 0.3, 0x2aff5a, 3); } // 泳ぎの水しぶき
+  }
   _tsarSfx(kind, T) { // 効果音（Web Audio で合成。音が使えない環境では何もしない）
     try {
       const ctx = this.sound && this.sound.context; if (!ctx) return; if (ctx.state === 'suspended') ctx.resume();
@@ -17344,6 +17479,7 @@ class GameScene extends Phaser.Scene {
   }
   _tsarStart(A) { // 星を出す（自分の前。壁が近ければ手前に）
     const pl = this.player; if (!pl || !pl.scene || this._tsar) return;
+    this._sharkCancelAttack(); // 🦈 サメの技の途中なら、ここでキャンセル（ワープ中なら先に元の場所へ戻る）
     const C = GLITCH_TSAR, cam = this.cameras.main, ang = (A && A.angle) || this.facingAngle || 0;
     let d = TILE * 3; while (d > 6 && this.isWall(pl.x + Math.cos(ang) * d, pl.y + Math.sin(ang) * d)) d -= 6;
     const x = pl.x + Math.cos(ang) * d, y = pl.y + Math.sin(ang) * d;
@@ -17374,9 +17510,10 @@ class GameScene extends Phaser.Scene {
     const C = GLITCH_TSAR, cam = this.cameras.main, pl = this.player, now = this.time.now / 1000, g = T.g;
     if (!pl || !pl.scene || this.isGhost || this.isDowned || this.transitioning || this.playerHp <= 0) { this._tsarCleanup(false); return; }
     dt = Math.min(dt, 0.05); T.t += dt; this.playerInvuln = Math.max(this.playerInvuln || 0, 0.3); // 星を操作している間と爆発の間は無敵
+    this._tsarSharkFlee(); // 🦈 サメは、星が出たら逃げ出す
     g.clear();
     if (T.ph === 'fly') {
-      const m = this.jetMoveDir(); let dx = m.dx, dy = m.dy; if (this._ransomT > 0) { dx = -dx; dy = -dy; }
+      const m = this.jetMoveDir(); let dx = m.dx, dy = m.dy; if (this._invMove()) { dx = -dx; dy = -dy; }
       if (Math.hypot(dx, dy) > 0.2) { const want = Math.atan2(dy, dx), da = Math.atan2(Math.sin(want - T.ang), Math.cos(want - T.ang)), mx = C.turn * dt; T.ang += Math.max(-mx, Math.min(mx, da)); } // スティックを倒した向きへ、ゆっくり曲がる（離すとそのまま直進）
       T.v = Math.min(C.vMax, C.v0 + C.vAcc * T.t + C.vAcc2 * T.t * T.t); // だんだん加速
       const step = T.v * dt, n = Math.max(1, Math.ceil(step / 6)), r = C.rad; let hit = false;
@@ -17397,48 +17534,121 @@ class GameScene extends Phaser.Scene {
       if (hit || T.t >= C.flyT) this._tsarBoom(T);
       return;
     }
-    // ---- 爆発 ----
-    const u = (T.u += dt), Tb = C.blastT, kk = Math.min(1, u / Tb), e = 1 - Math.pow(1 - kk, 2.4), Rr = T.maxR * e + 2, fade = Math.pow(Math.max(0, 1 - u / (Tb + C.afterT)), 1.3), Bn = this._tsarBurn;
-    if (Bn) { Bn.R = Rr; if (u < Tb + C.afterT * 0.6) for (let i = 0; i < 7; i++) { const q = Bn.tiles[Math.floor(Math.random() * Bn.tiles.length)]; if (!q || q.d > Rr) continue; Bn.parts.push({ x: q.tx * TILE + Math.random() * TILE, y: q.ty * TILE + Math.random() * TILE, vx: (Math.random() - 0.5) * 40, vy: -(30 + Math.random() * 110), life: 1 + Math.random() * 1.6, max: 2.6, s: 2 + Math.random() * 3, ash: false }); } if (Bn.parts.length > 420) Bn.parts.splice(0, Bn.parts.length - 420); } // 舞い上がる火の粉
-    for (let i = 0; i < 8; i++) { const f = i / 7; g.fillStyle(this._tsarLerp(0xff4a10, 0xffffff, f), 0.11 * fade); g.fillCircle(T.x, T.y, Rr * (0.98 - f * 0.8)); } // 中心ほど白く、外ほど赤い火球
-    g.lineStyle(Math.max(6, 70 * (1 - e) + 10), 0xfff0c0, 0.7 * fade); g.strokeCircle(T.x, T.y, Rr); // 衝撃波の先頭（3重）
-    g.lineStyle(Math.max(4, 40 * (1 - e) + 6), 0xff8030, 0.55 * fade); g.strokeCircle(T.x, T.y, Rr * 0.92);
-    g.lineStyle(Math.max(3, 24 * (1 - e) + 4), 0xd02808, 0.45 * fade); g.strokeCircle(T.x, T.y, Rr * 0.8);
-    const rot = u * 0.35; for (let i = 0; i < 18; i++) { const an = rot + i * Math.PI * 2 / 18, hw = 0.035, RL = Rr * 1.15; g.fillStyle(0xffd890, 0.1 * fade); g.fillTriangle(T.x, T.y, T.x + Math.cos(an - hw) * RL, T.y + Math.sin(an - hw) * RL, T.x + Math.cos(an + hw) * RL, T.y + Math.sin(an + hw) * RL); } // 放射状の光の筋
-    this._tsarStar(g, T.x, T.y, 40 * (1 + 3 * e), fade, now);
-    T.dim.setAlpha(Math.max(0, 0.5 - u * 0.8));
-    const Sk = this._shark; if (Sk && !T.sharkHit && Math.hypot(Sk.x - T.x, Sk.y - T.y) <= Rr) { T.sharkHit = true; this.spawnBurst(Sk.x, Sk.y, 0xffa030, 40); /* TODO: サメへのダメージ・撃破はここ（今のサメにはHPがない） */ }
-    if (u >= Tb + C.afterT) { this._tsarCleanup(false); this.playerInvuln = Math.max(this.playerInvuln || 0, 1.5); }
+    // ---- 爆発：真っ白な光が広がって、逃げるサメをじわじわ飲み込む → 全部飲み込んだら画面が真っ白になり、サメは消える → 白が引くと、焼け野原 ----
+    const u = (T.u += dt), Bn = this._tsarBurn, Sk = this._shark;
+    if (T.bph === 'chase') {
+      const fl = !!(Sk && Sk.mode === 'flee' && !Sk.tsarGone && !T.capt); let shp = null;
+      if (fl) { // 光の縁は、サメ（体の点のうち、中心から最も遠い所）に向かって一気に追いつき、近づいたあとは creep の速さでじわじわ進む
+        shp = this._sharkShape(Sk, Sk.x, Sk.y - (Sk.z || 0), Sk.a, Sk.ph, Sk.bend); let far = 0;
+        for (let i = 0; i <= 22; i++) far = Math.max(far, Math.hypot(shp.sp[i].x - T.x, shp.sp[i].y - T.y) + shp.hw[i]);
+        const gap = far - T.R, cr = gap > C.creepGap ? (gap - C.creepGap) * 3 + C.creep : C.creep;
+        T.R += (Math.max(0, Sk.v) + cr) * dt; if (T.R >= far) { T.capt = true; T.hadShark = true; Sk.tsarGone = true; Sk.v = 0; } // 光がサメを全部飲み込んだ：サメは消えるが、光はそのまま広がり続ける（もう一度爆発はしない）
+        if (T.camShark) T.proxy.setPosition(Sk.x, Sk.y); // カメラはサメを追う
+      } else if (T.capt) { T.R += C.creep * dt; // 飲み込んだあとも、同じじわじわの速さで、画面が真っ白になるまで広がる
+      } else { T.R += 900 * dt; } // サメが逃げていない時（フォークボム・ワープ中など）は、ただ広がる
+      const R = T.R; if (Bn) Bn.R = R;
+      this._tsarInvChase(T, u, R); // 🌗 色反転：爆発の瞬間は画面全体が瞬き、そのあとは爆風の縁の少し外側が反転して見える
+      const k0 = Math.max(0, 1 - u * 0.8); this._tsarStar(g, T.x, T.y, 40 * (1 + 3 * Math.min(1, u)), k0, now); // 中心の星は、爆発とともに消えていく
+      for (let k = 6; k >= 1; k--) { g.fillStyle(0xffffff, 0.05); g.fillCircle(T.x, T.y, R + k * 60); } // 縁の外へにじむ光
+      g.fillStyle(0xffffff, 1); g.fillCircle(T.x, T.y, R); // 光の中は真っ白
+      g.lineStyle(14, 0xffffff, 1); g.strokeCircle(T.x, T.y, R);
+      const rot = u * 0.35; for (let i = 0; i < 18; i++) { const an = rot + i * Math.PI * 2 / 18, hw = 0.03, RL = R * 1.1; g.fillStyle(0xffffff, 0.14); g.fillTriangle(T.x, T.y, T.x + Math.cos(an - hw) * RL, T.y + Math.sin(an - hw) * RL, T.x + Math.cos(an + hw) * RL, T.y + Math.sin(an + hw) * RL); } // 縁の外へ伸びる光の筋
+      if (shp && Bn) for (let i = 0; i <= 22; i++) { const q = shp.sp[i]; if (Math.abs(Math.hypot(q.x - T.x, q.y - T.y) - R) < 50 && Math.random() < 0.6) Bn.parts.push({ x: q.x + (Math.random() - 0.5) * 16, y: q.y + (Math.random() - 0.5) * 16, vx: (Math.random() - 0.5) * 90, vy: -(40 + Math.random() * 120), life: 0.8 + Math.random() * 1.2, max: 2, s: 2 + Math.random() * 3, ash: false }); } // 光に触れた所から、欠片が舞い上がる
+      try { cam.shake(150, 0.004); } catch (e) {} // 低い震えが続く
+      T.dim.setAlpha(Math.max(0, 0.5 - u * 0.8));
+      const wv = cam.worldView; let cover = 0; for (const [cx, cy] of [[wv.x, wv.y], [wv.right, wv.y], [wv.x, wv.bottom], [wv.right, wv.bottom]]) cover = Math.max(cover, Math.hypot(cx - T.x, cy - T.y)); // 画面の四隅のうち、星からいちばん遠い所
+      if (((T.capt || !fl) && T.R >= cover + 40) || T.R >= T.maxR || u > 40) this._tsarWhite(T, !!T.hadShark); // 光が画面を全部覆った：ここで画面が真っ白になる
+      return;
+    }
+    // ---- 白：画面全体が真っ白（サメは消えている）→ しばらくして、白がゆっくり引いていく ----
+    const wu = (T.wu += dt), el = this._tsarWhiteEl;
+    this._tsarInvWhite(wu - C.whiteHold); // 🌗 白が引く時：世界は反転したまま現れて、数回瞬いて元の色に戻る
+    if (!T.camBack && wu > 0.5) { T.camBack = true; if (Bn) { Bn.R = Infinity; this._tsarBurnUpdate(Bn, 0); } if (C.walkT > 0) { const sp = this._tsarOpenSpot(pl); if (sp) { pl.x = sp.x; pl.y = sp.y; if (pl.body && pl.body.reset) { try { pl.body.reset(sp.x, sp.y); } catch (e) {} } } } try { cam.startFollow(pl, true, 1, 1); cam.centerOn(pl.x, pl.y); } catch (e) {} if (Bn) Bn.R = Infinity; } // 真っ白で何も見えない間に、カメラを自分へ戻し、焼け跡を全部見せる
+    if (T.camBack && !T.fading && wu >= C.whiteHold) { T.fading = true; if (el) { el.style.transition = 'opacity ' + C.whiteFade + 's ease-out'; el.style.opacity = '0'; } }
+    if (T.fading && Bn) for (let i = 0; i < 8; i++) { const q = Bn.tiles[Math.floor(Math.random() * Bn.tiles.length)]; if (!q) continue; Bn.parts.push({ x: q.tx * TILE + Math.random() * TILE, y: q.ty * TILE + Math.random() * TILE, vx: (Math.random() - 0.5) * 40, vy: -(30 + Math.random() * 110), life: 1 + Math.random() * 1.6, max: 2.6, s: 2 + Math.random() * 3, ash: false }); } // 白が引くにつれ、焼けた床から火の粉が舞い上がる
+    if (T.fading && wu >= C.whiteHold + C.whiteFade + 0.2) { // 白が引ききった：walkT 秒、焼け野原を歩き回れる → そのあと終了
+      if (!T.walk) { T.walk = true; T.wk = 0; if (this._tsarWhiteEl) { try { this._tsarWhiteEl.remove(); } catch (e) {} this._tsarWhiteEl = null; } }
+      T.wk += dt; if (T.wk >= C.walkT) this._tsarFinish(T);
+    }
+  }
+  _tsarInvEl() { // 🌗 色反転の幕（白を「差の絶対値」で重ねる＝下の絵の色が反転する）。白い光（z 26）より下に置く：光そのものが黒くならないように
+    if (this._tsarInv && this._tsarInv.isConnected) return this._tsarInv;
+    const e = this._tsarInv = document.createElement('div'); e.style.cssText = 'position:fixed;inset:0;z-index:25;pointer-events:none;background:#fff;mix-blend-mode:difference;display:none;'; document.body.appendChild(e); return e;
+  }
+  _tsarInvFull(on) { if (!(GLITCH_TSAR.invBand > 0) && on) return; const e = on ? this._tsarInvEl() : this._tsarInv; if (!e) return; e.style.webkitMaskImage = e.style.maskImage = 'none'; e.style.display = on ? 'block' : 'none'; } // 画面全体を反転する／しない
+  _tsarInvChase(T, u, R) { // 爆発〜光が広がる間：最初の0.5秒は画面全体が瞬く（ドン、の衝撃）／そのあとは、光の縁から外へ band の幅だけ反転して見える
+    const band = GLITCH_TSAR.invBand; if (!(band > 0)) return;
+    if (u < 0.5) { this._tsarInvFull((u < 0.12) || (u > 0.2 && u < 0.3) || (u > 0.38 && u < 0.45)); return; }
+    const cam = this.cameras.main, wv = cam.worldView, rc = this.game.canvas.getBoundingClientRect(), k = rc.width / wv.width, e = this._tsarInvEl();
+    const sx = rc.left + (T.x - wv.x) * k, sy = rc.top + (T.y - wv.y) * k, r0 = Math.max(0, R * k), r1 = r0 + band * k;
+    const m = 'radial-gradient(circle at ' + sx.toFixed(1) + 'px ' + sy.toFixed(1) + 'px, transparent ' + r0.toFixed(1) + 'px, #000 ' + (r0 + 6 * k).toFixed(1) + 'px, #000 ' + r1.toFixed(1) + 'px, transparent ' + (r1 + 70 * k).toFixed(1) + 'px)';
+    e.style.webkitMaskImage = e.style.maskImage = m; e.style.display = 'block';
+  }
+  _tsarInvWhite(fu) { // 白が引く時（fu＝白が引き始めてからの秒数。引き始める前は白の下で反転したまま待つ）：反転→ぱっと戻る→また反転→戻る…と瞬いて、元の色になる
+    if (!(GLITCH_TSAR.invBand > 0)) return;
+    const on = fu < 0.9 || (fu >= 1.05 && fu < 1.2) || (fu >= 1.4 && fu < 1.5); this._tsarInvFull(on);
+  }
+  _tsarInvKill() { const e = this._tsarInv; this._tsarInv = null; if (e) { try { e.remove(); } catch (err) {} } }
+  _tsarOpenSpot(pl) { // 🚶 いちばん広い空き地の「真ん中」を探す：残っている壁（マップの外周・ワープ用の遠い領域・範囲外）から、いちばん遠い床（同じ遠さなら、プレイヤーに近いほう）。これなら、数秒歩き回っても壁が画面に入りにくい
+    const dg = this.dungeon, W = dg.width, H = dg.height, Z = dg.glitchZone, grid = dg.grid, INF = 1e9, D = new Int32Array(W * H);
+    for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) D[ty * W + tx] = (grid[ty][tx] === 0 || (Z && tx >= Z.x - 1 && tx <= Z.x + Z.w && ty >= Z.y - 1 && ty <= Z.y + Z.h)) ? 0 : INF; // 壁（と遠い領域）＝0
+    const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? 0 : D[y * W + x]; // 範囲の外も壁
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const a = y * W + x; if (D[a] === 0) continue; D[a] = Math.min(D[a], at(x - 1, y) + 1, at(x, y - 1) + 1, at(x - 1, y - 1) + 1, at(x + 1, y - 1) + 1); } // 壁までの距離（8方向。マス数）：前から
+    for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) { const a = y * W + x; if (D[a] === 0) continue; D[a] = Math.min(D[a], at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + 1, at(x - 1, y + 1) + 1); } // 後ろから
+    let mx = 0; for (let a = 0; a < W * H; a++) if (D[a] > mx) mx = D[a];
+    if (mx < 2) return null; // 広い所が無い：その場のまま
+    let best = -1, bd = Infinity;
+    for (let a = 0; a < W * H; a++) { if (D[a] !== mx) continue; const tx = a % W, ty = (a - tx) / W, d = Math.hypot((tx + 0.5) * TILE - pl.x, (ty + 0.5) * TILE - pl.y); if (d < bd) { bd = d; best = a; } }
+    const bx = best % W, by = (best - bx) / W; return { x: (bx + 0.5) * TILE, y: (by + 0.5) * TILE };
+  }
+
+  _tsarWhite(T, hadShark) { // 光がサメを全部飲み込んだ：画面全体が真っ白になり、サメは消える
+    const C = GLITCH_TSAR, cam = this.cameras.main, Sk = this._shark;
+    T.bph = 'white'; T.wu = 0; T.camBack = false; T.fading = false; T.g.clear(); T.dim.setAlpha(0);
+    if (hadShark && Sk) { Sk.tsarGone = true; Sk.v = 0; Sk.mode = 'flee'; Sk.atk = null; this._sharkCancelAttack(); } // 死んだサメは、もう技を出さない（残っていた技の跡も消す）
+    try { if (this._tsarWhiteEl) this._tsarWhiteEl.remove(); const f = this._tsarWhiteEl = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;z-index:26;pointer-events:none;background:#fff;opacity:1;'; document.body.appendChild(f); } catch (e) {} // 光がもう画面を覆っているので、フェードなしでそのまま白に（轟音・揺れの再爆発はしない）
+  }
+  _tsarFinish(T) { // 白が引ききった：後片付け。win ならサメは撃破（GLITCH 撃破→結果画面）、そうでなければサメが戻ってくる（テスト用）
+    const C = GLITCH_TSAR, Sk = this._shark, win = !!(C.win && Sk && Sk.tsarGone), pos = Sk ? { x: Sk.x, y: Sk.y } : null;
+    if (Sk && !win) Sk.tsarGone = false;
+    this._tsarCleanup(false); this.playerInvuln = Math.max(this.playerInvuln || 0, 1.5);
+    if (win) this.onBossDefeated(pos, this.floor + '_boss');
   }
   _tsarBoom(T) { // 爆発の始まり：床の焼け跡を作り、閃光・震え・轟音・スローモーション
     const C = GLITCH_TSAR, cam = this.cameras.main;
-    T.ph = 'boom'; T.u = 0; T.sharkHit = false;
+    T.ph = 'boom'; T.bph = 'chase'; T.u = 0; T.R = 0;
     try { if (T.snd) { const ctx = this.sound.context; T.snd.g.gain.cancelScheduledValues(ctx.currentTime); T.snd.g.gain.setValueAtTime(0.0001, ctx.currentTime); T.snd.o.stop(); T.snd.lf.stop(); } } catch (e) {} T.snd = null;
     const B = this._tsarBuildBurn(T); T.maxR = B.far + TILE * 3;
+    { const Sk = this._shark; if (Sk && Sk.mode === 'flee') { T.camShark = true; T.proxy.setPosition(Sk.x, Sk.y); cam.startFollow(T.proxy, true, 0.12, 0.12); } } // 🎥 爆発したら、カメラは逃げるサメへ
     this._tsarSfx('boom', T);
-    try { cam.shake(C.blastT * 1000 + 2200, 0.03); cam.flash(160, 255, 255, 255); } catch (e) {}
+    try { cam.shake(C.blastT * 1000, 0.02); cam.flash(160, 255, 255, 255); } catch (e) {}
     if (this.glitchBoss) this._gSlowT = 0.7; // 🐌 パリィの時と同じ、爆発の瞬間だけ時間が止まりかけて、解けていく
-    try { // 画面いっぱいの白い閃光：しばらく真っ白 → ゆっくり引いていく
+    try { // 爆発の瞬間の白い閃光（すぐ引く。サメを飲み込みきった時の「真っ白」は _tsarWhite）
       if (this._tsarFlash) this._tsarFlash.remove(); const f = this._tsarFlash = document.createElement('div');
       f.style.cssText = 'position:fixed;inset:0;z-index:26;pointer-events:none;background:#fff;opacity:1;'; document.body.appendChild(f);
-      setTimeout(() => { f.style.transition = 'opacity 2.8s ease-out'; f.style.background = 'radial-gradient(circle at 50% 50%,#fff 0%,#ffd9a0 35%,#ff7a20 85%)'; f.style.opacity = '0'; }, 350);
-      setTimeout(() => { try { f.remove(); } catch (e) {} if (this._tsarFlash === f) this._tsarFlash = null; }, 3700);
+      setTimeout(() => { f.style.transition = 'opacity 0.7s ease-out'; f.style.opacity = '0'; }, 120);
+      setTimeout(() => { try { f.remove(); } catch (e) {} if (this._tsarFlash === f) this._tsarFlash = null; }, 1000);
     } catch (e) {}
   }
   _tsarBuildBurn(T) { // マップ全域の床を、焼け跡の層にする（ワープ用の遠い領域は除く）。爆風の広がりに合わせて、円形のマスクで少しずつ見せる
     this._tsarKillBurn();
-    const dg = this.dungeon, W = dg.width, H = dg.height, Z = dg.glitchZone, grid = dg.grid, SH = [0x0b0605, 0x120a07, 0x1a0f09, 0x23140b, 0x0e0707], tiles = [], by = SH.map(() => []), embers = []; let far = 0;
+    const dg = this.dungeon, W = dg.width, H = dg.height, Z = dg.glitchZone, grid = dg.grid, SH = [0x0b0605, 0x120a07, 0x1a0f09, 0x23140b, 0x0e0707], tiles = [], walls = [], by = SH.map(() => []), embers = []; let far = 0;
     for (let ty = 0; ty < H; ty++) { const row = grid[ty]; for (let tx = 0; tx < W; tx++) {
-      if (row[tx] === 0) continue; if (Z && tx >= Z.x - 1 && tx <= Z.x + Z.w && ty >= Z.y - 1 && ty <= Z.y + Z.h) continue;
-      const d = Math.hypot(tx * TILE + TILE / 2 - T.x, ty * TILE + TILE / 2 - T.y), q = { tx, ty, d }; tiles.push(q); by[Math.floor(Math.random() * SH.length)].push(q); if (d > far) far = d;
+      const wall = row[tx] === 0; if (wall && (tx <= 0 || ty <= 0 || tx >= W - 1 || ty >= H - 1 || (dg.mapTopY !== undefined && ty <= dg.mapTopY))) continue; // 外周の壁（マップの端）だけは残す
+      if (Z && tx >= Z.x - 1 && tx <= Z.x + Z.w && ty >= Z.y - 1 && ty <= Z.y + Z.h) continue;
+      const d = Math.hypot(tx * TILE + TILE / 2 - T.x, ty * TILE + TILE / 2 - T.y), q = { tx, ty, d }; if (wall) walls.push(q); tiles.push(q); by[Math.floor(Math.random() * SH.length)].push(q); if (d > far) far = d;
       if (Math.random() < 0.06 && embers.length < 900) for (let j = 0; j < 3; j++) embers.push({ x: tx * TILE + Math.random() * (TILE - 8), y: ty * TILE + Math.random() * (TILE - 4), w: 2 + Math.random() * 6, h: 2 + Math.random() * 2, d, ph: Math.random() * 6.28, c: [0xff5a10, 0xff8a20, 0xd02808][j] }); } }
     const g = this.add.graphics().setDepth(3.4), mg = this.make.graphics({ x: 0, y: 0, add: false }), eg = this.add.graphics().setDepth(3.45).setBlendMode(Phaser.BlendModes.ADD), pg = this.add.graphics().setDepth(11.2).setBlendMode(Phaser.BlendModes.ADD);
     for (let i = 0; i < SH.length; i++) { g.fillStyle(SH[i], 0.93); for (const q of by[i]) g.fillRect(q.tx * TILE, q.ty * TILE, TILE, TILE); }
     g.setMask(mg.createGeometryMask());
-    return this._tsarBurn = { g, mg, eg, pg, tiles, embers, parts: [], far, R: 0, cx: T.x, cy: T.y, masked: true, ashT: 9 };
+    walls.sort((a, b) => a.d - b.d); return this._tsarBurn = { g, mg, eg, pg, tiles, walls, wi: 0, embers, parts: [], far, R: 0, cx: T.x, cy: T.y, masked: true, ashT: 9 };
   }
   _tsarBurnUpdate(B, dt) { // 焼け跡の毎フレーム：マスクの広がり／熾火の揺らめき／火の粉と灰
     const now = this.time.now / 1000, cam = this.cameras.main;
+    if (B.walls && B.wi < B.walls.length) { // 🧱 爆風が届いた壁から順に消えて、焼けた床になる（外周の壁だけ残る）。R が Infinity なら残りを全部
+      const gr = this.dungeon.grid, ch = []; while (B.wi < B.walls.length && B.walls[B.wi].d <= B.R) { const q = B.walls[B.wi++]; if (gr[q.ty][q.tx] === 0) { gr[q.ty][q.tx] = 1; ch.push([q.tx, q.ty]); } }
+      if (ch.length) this._queueWallRedraw(ch);
+    }
     if (B.masked) { if (B.R >= B.far + TILE * 2) { try { B.g.clearMask(); B.mg.destroy(); } catch (e) {} B.masked = false; } else { B.mg.clear(); B.mg.fillStyle(0xffffff, 1); B.mg.fillCircle(B.cx, B.cy, B.R); } }
     B.eg.clear(); for (const e of B.embers) if (e.d <= B.R) { B.eg.fillStyle(e.c, 0.18 + 0.32 * (0.5 + 0.5 * Math.sin(now * 2.3 + e.ph))); B.eg.fillRect(e.x, e.y, e.w, e.h); } // 割れ目の熾火
     if (B.ashT > 0 && B.R >= B.far) { B.ashT -= dt; const wv = cam.worldView; for (let i = 0; i < 4; i++) B.parts.push({ x: wv.x + Math.random() * wv.width, y: wv.y + Math.random() * wv.height * 0.6, vx: (Math.random() - 0.2) * 30, vy: 20 + Math.random() * 40, life: 2 + Math.random() * 2, max: 4, s: 1.5 + Math.random() * 2, ash: true }); } // 降りしきる灰
@@ -17449,6 +17659,7 @@ class GameScene extends Phaser.Scene {
   _tsarKillBurn() { const B = this._tsarBurn; this._tsarBurn = null; if (!B) return; try { B.g.clearMask(); } catch (e) {} for (const o of [B.g, B.mg, B.eg, B.pg]) { try { o.destroy(); } catch (e) {} } }
   _tsarCleanup(full) { // 星・爆発の後片付け（full＝焼け跡の層も消す。シーンの終わり）。カメラはプレイヤーに戻す
     const T = this._tsar; this._tsar = null;
+    { const Sk = this._shark; if (Sk && Sk.mode === 'flee') { Sk.mode = 'fin'; Sk.mt = 3 + Math.random() * 2; Sk.wpT = 0; Sk.v = 0; } } // 🦈 逃げていたサメは、爆発が終わったら泳ぎ回りに戻る
     if (T) {
       try { if (T.snd) { T.snd.o.stop(); T.snd.lf.stop(); } } catch (e) {}
       for (const o of [T.proxy, T.g, T.dim]) { try { o.destroy(); } catch (e) {} }
@@ -17456,6 +17667,8 @@ class GameScene extends Phaser.Scene {
     }
     if (full) this._tsarKillBurn(); else if (this._tsarBurn) this._tsarBurn.R = Infinity; // 途中で終わっても、床は全部焼けた状態にする
     if (full && this._tsarFlash) { try { this._tsarFlash.remove(); } catch (e) {} this._tsarFlash = null; }
+    if (this._tsarWhiteEl) { try { this._tsarWhiteEl.remove(); } catch (e) {} this._tsarWhiteEl = null; }
+    this._tsarInvKill(); // 🌗 色反転の幕も片づける
   }
   updateMagicBombCharge(dt) {
     const w = this.weapon;
@@ -28328,10 +28541,10 @@ class GameScene extends Phaser.Scene {
     } else if (dx !== 0 && dy !== 0) {
       dx *= 0.7071; dy *= 0.7071;
     }
-    if (this._ransomT > 0) { this._ransomT -= delta / 1000; dx = -dx; dy = -dy; } // 🔀 ランサムウェア：感染中は、移動の操作が反転（残り時間もここで減らす）
+    if (this._ransomT > 0) { this._ransomT -= delta / 1000; if (this._ransomMove !== false) { dx = -dx; dy = -dy; } } // 🔀 ランサムウェア：感染中は、移動の操作が反転（残り時間もここで減らす）
     this._ransomHud();
     if (this._autoWalk) { const aw = this._autoWalkDir(); dx = aw.x; dy = aw.y; } // エンディングの続き：自動で歩く（操作は効かない）
-    if (this._tsar) { dx = 0; dy = 0; } // ☢ ツァーリ・ボンバ：星を操作している間は、自分は動かない（スティックは星の向きに使う）
+    if (this._tsar && !this._tsar.walk) { dx = 0; dy = 0; } // ☢ ツァーリ・ボンバ：星を操作している間は、自分は動かない（スティックは星の向きに使う）
     if (this.vsHero) { this._vhStep(dx, dy, dt * (this._vhTsEff == null ? 1 : this._vhTsEff)); dx = 0; dy = 0; } // ⚔ 斬り合い：画面の中なら、自由に動ける
     this._gTs = 1; if (this.glitchBoss && this._gSlowT > 0) { this._gSlowT -= delta / 1000; { const gu = Math.min(1, Math.max(0, 1 - this._gSlowT / 0.7)); this._gTs = 0.06 + 0.94 * gu * gu; } dx *= this._gTs; dy *= this._gTs; } // 🐌 パリィ後のスローモーション：速さの倍率（0.2→1）。自分の動きも遅くなる
     { // 🎨 パリィ後のスローモーション中：画面の色が薄くなり（彩度が下がり）、速さが戻るのに合わせて、なめらかに元の色へ戻る
