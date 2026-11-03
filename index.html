@@ -471,6 +471,9 @@
   #ticketMsg { min-height: 2.6em; margin: 6px 0; font-size: 13px; line-height: 1.5; }
   #ticketMsg.ok { color: #8dffb0; }
   #ticketMsg.ng { color: #ff9a9a; }
+  #ticketDiaryLink { display: inline-block; margin: 2px 0 8px; padding: 5px 12px; font-size: 12px; line-height: 1.2; color: #ffe9a8; text-decoration: none; border-radius: 999px; border: 1px solid rgba(255,220,120,0.55); background: rgba(255,220,120,0.12); -webkit-tap-highlight-color: transparent; }
+  #ticketDiaryLink:hover { border-color: rgba(255,220,120,0.9); }
+  #ticketDiaryLink:active { background: rgba(255,220,120,0.28); }
   #glitchTicketBtn { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 10px; padding: 10px 8px; font-size: 15px; font-weight: bold; color: #04210f; background: #2af08a; border: none; border-radius: 8px; cursor: pointer; }
   #titleModal { display: none; position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,0.72); align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; color: #e8e8f0; }
   #titleModal .lobbyBox { max-width: min(96vw, 440px); width: 100%; max-height: 92vh; overflow-y: auto; box-sizing: border-box; padding: 12px 16px; }
@@ -760,6 +763,7 @@
 <div id="ticketModal">
   <div class="lobbyBox">
     <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます<br>通常はホーム画面を開くと5%の確率で出現します</small></h1>
+    <a id="ticketDiaryLink" href="https://paypayultra.github.io/off/" target="_blank" rel="noopener noreferrer">📖 日記サイトを開く</a>
     <div id="ticketLeft"></div>
     <input type="text" id="ticketInput" placeholder="チケットのコードを貼り付け" autocomplete="off" autocapitalize="off" spellcheck="false">
     <button id="ticketUseBtn" type="button">使う</button>
@@ -6060,6 +6064,7 @@ const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
 const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
 const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
+const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
 const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
 const GLITCH_TSAR = { flyT: 7, v0: 40, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, invBand: 240, landTile: { x: 63, y: 63 }, fieldH: 128, invFadeT: 3.5, walkSpeedK: 1, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／creep＝白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
@@ -9142,7 +9147,7 @@ class GameScene extends Phaser.Scene {
     if (this.textures.exists(key)) return key;
     const font = 'bold 22px monospace', m = document.createElement('canvas').getContext('2d'); m.font = font;
     const tex = this.textures.createCanvas(key, Math.ceil(m.measureText(text).width) + 8, 32), c = tex.getContext('2d');
-    c.font = font; c.textBaseline = 'middle'; c.lineJoin = 'round'; c.lineWidth = 2.4; c.strokeStyle = color; c.strokeText(text, 4, 17); c.fillStyle = color; c.fillText(text, 4, 17); // 文字と同じ色でなぞって、太くする（別の色の縁取りではない）
+    c.font = font; c.textBaseline = 'middle'; c.lineJoin = 'round'; c.lineWidth = 1.2; c.strokeStyle = color; c.strokeText(text, 4, 17); c.fillStyle = color; c.fillText(text, 4, 17); // 文字と同じ色でなぞって、太くする（別の色の縁取りではない）
     tex.refresh(); return key;
   }
   _titleSprite(pool, n, key, x, y, th, ww, a, depth) { // 見出しの文字を、タイトルバーの左側に置く（右のボタンにかからないように縮める）。pool＝使い回す絵の入れ物／n＝何番目か
@@ -9164,7 +9169,7 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(0x03150a, 0.96 * a); g.fillRect(x, y, ww, hh);
     g.fillStyle(0x0b6b22, 0.95 * a); g.fillRect(x, y, ww, th);
     g.fillStyle(0x9dffb4, 0.8 * a); g.fillRect(x + 4, y + th * 0.3, th * 0.4, th * 0.4);
-    this._titleSprite(this._gwTitles || (this._gwTitles = []), 0, this._titleTex('TRANSFERRING', '#ff6b7f'), x + th * 0.4 + 8, y + th / 2, th, ww, a, 4.15); // 見出しの文字（転送中）
+    this._titleSprite(this._gwTitles || (this._gwTitles = []), 0, this._titleTex('TRANSFERRING', '#d6ecd9'), x + th * 0.4 + 8, y + th / 2, th, ww, a, 4.15); // 見出しの文字（転送中）
     const bs = th * 0.62, by = y + (th - bs) / 2;
     for (let b = 0; b < 3; b++) { const bx = x + ww - (b + 1) * (bs + 3) - 1; g.fillStyle(b === 0 ? 0xff2a55 : 0x1c8a38, 0.95 * a); g.fillRect(bx, by, bs, bs); }
     const pw = ww * 0.8, px = x + (ww - pw) / 2, py = y + th + (hh - th) * 0.5, ph = Math.max(3, hh * 0.08); // 転送の進み具合
@@ -9613,7 +9618,7 @@ class GameScene extends Phaser.Scene {
       g.fillStyle(0x03150a, 0.96 * a); g.fillRect(x, y, ww, hh); // 本体
       g.fillStyle(0x0b6b22, 0.95 * a); g.fillRect(x, y, ww, th); // タイトルバー
       g.fillStyle(0x9dffb4, 0.8 * a); g.fillRect(x + 4, y + th * 0.3, th * 0.4, th * 0.4); // タイトルの小さな印
-      if (w.ti == null) w.ti = (R() * GLITCH_FORK_TITLES.length) | 0; this._titleSprite(this._forkTitles || (this._forkTitles = []), tn++, this._titleTex(GLITCH_FORK_TITLES[w.ti], '#ff6b7f'), x + th * 0.4 + 8, y + th / 2, th, ww, a, 4.62); // 🚨 見出しの文字（警告）
+      if (w.ti == null) w.ti = (R() * GLITCH_FORK_TITLES.length) | 0; this._titleSprite(this._forkTitles || (this._forkTitles = []), tn++, this._titleTex(GLITCH_FORK_TITLES[w.ti], '#d6ecd9'), x + th * 0.4 + 8, y + th / 2, th, ww, a, 4.62); // 🚨 見出しの文字（警告）
       const bs = th * 0.62, by = y + (th - bs) / 2;
       for (let b = 0; b < 3; b++) { const bx = x + ww - (b + 1) * (bs + 3) - 1; g.fillStyle(b === 0 ? 0xff2a55 : 0x1c8a38, 0.95 * a); g.fillRect(bx, by, bs, bs); if (b === 0) { g.lineStyle(1, 0xffffff, 0.9 * a); g.lineBetween(bx + 2, by + 2, bx + bs - 2, by + bs - 2); g.lineBetween(bx + bs - 2, by + 2, bx + 2, by + bs - 2); } } // 右端が赤い「×」
       const ix = x + ww * 0.2, iy = y + th + (hh - th) * 0.5, is = Math.min(ww * 0.14, (hh - th) * 0.32); // 赤い警告マーク
@@ -17447,7 +17452,7 @@ class GameScene extends Phaser.Scene {
   _ancMinCost() { return Math.min(...this.ANC_SYMBOLS.map(s => s.cost == null ? 1 : s.cost)); } // いちばん安い技の必要量（これ以上たまったら描ける）
   get ANC_DRAW_SLOW() { return false; } // 描いている間のスローモーション（false＝止めない。スティックで動きながら描く）
   get ANC_SYMBOLS() { return [
-    { key: 'thunder', name: '雷', cost: 0.25, pts: [[0.7, 0], [0, 0.5], [1, 0.5], [0.3, 1]] }, // cost＝必要なゲージの割合（0.25＝1/4）。発動するとこの分だけ減る // ⚡ 一番上 → 左の真ん中 → 横へ右の真ん中 → 一番下
+    ...(GLITCH_THUNDER_ENABLED ? [{ key: 'thunder', name: '雷', cost: 0.25, pts: [[0.7, 0], [0, 0.5], [1, 0.5], [0.3, 1]] }] : []), // ⚡ 雷（GLITCH_THUNDER_ENABLED が true の時だけ）。cost＝必要なゲージの割合（0.25＝1/4）。一番上 → 左の真ん中 → 横へ右の真ん中 → 一番下
     { key: 'tsar', name: 'ツァーリ・ボンバ', cost: 1, thr: 0.18, pts: (() => { const a = []; for (let i = 0; i <= 34; i++) { const th = (250 - i * 10) * Math.PI / 180; a.push([0.5 + 0.5 * Math.cos(th), 0.5 + 0.5 * Math.sin(th)]); } a.push([0.5, 1]); return a; })() }, // ☢ ゲージ100%使用。一番上の少し左（真上から20°左）から描き始め、反時計回りに円をぐるっと一周して真上の点まで来て、そこから真下へ線を下ろして円を分断する（上が少し欠けた、縦線で割れた円）
   ]; }
   _ancResample(p, n) { // 点列を、線の長さで等間隔の n 個に並べ直す
@@ -17564,7 +17569,7 @@ class GameScene extends Phaser.Scene {
     const move = ev => { if (ev.pointerId !== D.id) return; const p = pt(ev), q = D.pts[D.pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) < 2) return; D.pts.push(p);
       ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(160,120,255,0.55)'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); };
     const up = ev => { if (ev.pointerId !== D.id) return; D.id = null; zone.style.background = 'rgba(190,150,255,0)'; const pts = D.pts; D.pts = []; setTimeout(() => { if (A.draw === D) ctx.clearRect(0, 0, W, H); }, 300);
-      const res = this._ancRecognize(pts); if (!res.ok) { if (pts.length > 6) say(res.why === 'small' || res.why === 'short' ? 'もっと大きく、一筆で' : 'ちがう…'); return; } // ちょんと触れただけでは何も言わない
+      const res = this._ancRecognize(pts); if (!res.ok) { if (pts.length > 6 && (res.why === 'small' || res.why === 'short')) say('もっと大きく、一筆で'); return; } // ちょんと触れただけでは何も言わない
       const sy = this.ANC_SYMBOLS.find(q => q.key === res.key), gm = (this.weapon && this.weapon.gaugeMax) || 100;
       if (sy && (A.gauge || 0) < (sy.cost == null ? 1 : sy.cost) * gm - 1e-6) { say('魔力がたりない'); return; }
       this._ancDrawEnd(A, true, res.key); };
