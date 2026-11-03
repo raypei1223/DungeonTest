@@ -4163,8 +4163,8 @@ const VS_HERO = { // ⚔ 斬り合いの調整値
   shakeHurtMs: 160,        // 　その揺れの長さ（ミリ秒）
   moveSmooth: 0.05         // 動き出し・止まりのなめらかさ（秒。0＝すぐ最高速／止まる。大きいほどぬるっと動く）
 };
-const PARTY_PORTAL_HERO = { i: -4, portal: true, hero: true, x: 320, y: 118 }; // ⚔ 斬り合いへの入口（入るとボス部屋へ飛ぶ。装飾品は全部持っていけない）
-const PARTY_PORTAL_GLITCH = { i: -8, portal: true, glitch: true, x: 440, y: 118 }; // 🟩 Glitch-Hardcore への入口（パーティールーム）：グリッチ戦とほぼ同じ。違いは、HPが常に1／シールドが自分の前の1枚だけ／倒すと称号 ERR_404
+const PARTY_PORTAL_HERO = { i: -4, portal: true, hero: true, x: 260, y: 118 }; // ⚔ 斬り合いへの入口（入るとボス部屋へ飛ぶ。装飾品は全部持っていけない）
+const PARTY_PORTAL_GLITCH = { i: -8, portal: true, glitch: true, x: 380, y: 118 }; // 🟩 Glitch-Hardcore への入口（パーティールーム）：グリッチ戦とほぼ同じ。違いは、HPが常に1／シールドが自分の前の1枚だけ／倒すと称号 ERR_404
 const PARTY_PORTAL_LGRASS = { i: -5, portal: true, lgrass: true, x: 280, y: 118 }; // 💬 交流ルーム：🌿 草原（ホラーの影が出ない。何も起こらない）
 const PARTY_PORTAL_LDUNGEON = { i: -6, portal: true, ldungeon: true, x: 360, y: 118 }; // 💬 交流ルーム：🕳 ダンジョン（ホラーで影に追いつかれてワープした直後から始まる）
 const PARTY_PORTAL_LSTAIRS = { i: -7, portal: true, lstairs: true, x: 200, y: 118 }; // 💬 交流ルーム：🪜 階段（無限に続く暗い階段を上っていく。踊り場ごとに階数の数字とドアがある）
@@ -16033,7 +16033,7 @@ class GameScene extends Phaser.Scene {
   updateHud() {
     const BASE_HP = 100, armorMax = Math.max(0, this.playerMaxHp - BASE_HP); // 🪖 鎧：最大HPのうち100を超える分が、下の追加バーになる
     const hp = Math.max(0, this.playerHp);
-    const pct = Math.min(1, hp / Math.min(this.playerMaxHp, BASE_HP)) * 100; // 通常バー：HPの下側100まで
+    const pct = this.glitchHard ? Math.min(1, hp / BASE_HP) * 100 : Math.min(1, hp / Math.min(this.playerMaxHp, BASE_HP)) * 100; // 通常バー：HPの下側100まで／🟩 Glitch-Hardcore：HPは1なので、100を基準にした「1」の細い線で見せる（満タンに見えない）
     const hpFillEl = document.getElementById('hpBarFill');
     hpFillEl.style.width = pct + '%';
     const arBg = document.getElementById('armorBarBg'), arFill = document.getElementById('armorBarFill');
