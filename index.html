@@ -35712,12 +35712,14 @@ function launchGame() {
   //   ・一度下げたら戻さない（切り替えのたびに画面が変わらないよう、効果の確認や画質の引き上げはしない）。
   if (window.POWER_SAVE.adaptiveRes) {
     const SLOW_MS = 22, NEED = 90, WIN = 240, ring = new Float32Array(WIN);
-    let n = 0, idx = 0, last = 0, quietUntil = 0, lastEval = 0;
-    const clear = (settle) => { n = 0; idx = 0; last = 0; quietUntil = performance.now() + settle; };
+    let n = 0, idx = 0, last = 0, quietUntil = 0, lastEval = 0, pend = false; // pend：重いと分かったが、画面が暗くなるのを待っている
+    const clear = (settle) => { n = 0; idx = 0; last = 0; pend = false; quietUntil = performance.now() + settle; };
     adaptReset = clear;
     const median = () => { const a = Array.from(ring.subarray(0, Math.min(n, WIN))).sort((x, y) => x - y); return a.length ? a[a.length >> 1] : 0; };
     // カメラが通常の倍率の時だけ段階を変える（演出中などで倍率が特別な間は待つ。演出が元の倍率を覚えているため）
     const camNormal = () => { const sc = game.scene.getScene('game'), c = sc && sc.cameras && sc.cameras.main; return !!c && Math.abs(c.zoom - window.GAME_VIEW_ZOOM) < 0.02 * window.GAME_VIEW_ZOOM; };
+    // 🌑 画質の段階を変えると画面がパッと切り替わって見えるので、階の移動・リザルトなどで画面がほぼ真っ暗（フェードの暗さ92%以上）になった瞬間まで待ってから変える
+    const screenDark = () => { const sc = game.scene.getScene('game'), c = sc && sc.cameras && sc.cameras.main, f = c && c.fadeEffect; return !!f && (f.isRunning || f.isComplete) && f.alpha >= 0.92; };
     const setLevel = (lv, why, m) => { console.info('[画質] 段階 ' + window.RENDER_LEVEL + ' → ' + lv + '（' + why + '、中央値 ' + m.toFixed(1) + 'ms）'); window.RENDER_LEVEL = lv; fitRender(); };
     document.addEventListener('visibilitychange', () => clear(3000));
     game.events.on('prerender', () => {
@@ -35725,10 +35727,14 @@ function launchGame() {
       if (document.hidden || t < quietUntil) { last = 0; return; }
       if (last) { const d = t - last; if (d < 200) { ring[idx] = d; idx = (idx + 1) % WIN; if (n < WIN) n++; } }
       last = t;
+      if (pend && screenDark() && camNormal()) { // 暗くなった：まだ重いなら、今のうちに段階を下げる（見えない）
+        pend = false; const m0 = median(), lv0 = window.RENDER_LEVEL;
+        if (m0 > SLOW_MS && lv0 < RENDER_LEVELS.length - 1) { setLevel(lv0 + 1, '重い（暗転中に切り替え）', m0); return; }
+      }
       if (n < NEED || t - lastEval < 500) return;
       lastEval = t;
       const m = median(), lv = window.RENDER_LEVEL;
-      if (m > SLOW_MS && lv < RENDER_LEVELS.length - 1 && camNormal()) setLevel(lv + 1, '重い', m);
+      if (m > SLOW_MS && lv < RENDER_LEVELS.length - 1) pend = true; // すぐには変えず、次に画面が暗くなるのを待つ
     });
   }
 
