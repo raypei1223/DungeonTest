@@ -6074,6 +6074,7 @@ const GLITCH_FORK_TITLES = ['WARNING: VIRUS DETECTED', 'FATAL ERROR 0xDEAD', 'SY
 const GLITCH_RANSOM = { t: 30, castT: 1.6, aimP: 0.35, bothP: 0.2 }; // t＝反転の秒数／castT＝サメがその場で止まる秒数／aimP＝攻撃スティック（右）だけが反転する確率／bothP＝両方のスティックが反転する確率（残りは、移動スティック（左）だけ）
 // 🌀 ワープ：サメが姿を現したあと、プレイヤーの足元にウィンドウが出て（castT 秒）、最北戦線の発信機の上あたりへ転送される。そこでパターンごとの敵と戦い（今は 'chargers'＝円状に並んだチャージャーが突進）、終わったら（returnDelay 秒後）元の場所へ戻る。maxStay 秒たてば、何があっても戻す。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'warp'。
 //   パターンを増やす時：メソッドを4つ作って、patterns に名前を足す。 _gwPat_<名前>_room()（部屋の大きさ { w, h（マス。最大 zoneW×zoneH）, spawn:[x,y]（転送されてくる場所。部屋の左上からのマス）, tx:[x,y]（任意：飾りの位置） }）／_gwPat_<名前>_enter(S, A)（転送された直後に敵などを出す。A＝部屋の範囲と位置(px)）／_gwPat_<名前>_done(S, dt)（終わったら true）／_gwPat_<名前>_draw(A)（任意：飾りの絵。毎フレーム）。部屋の床は、転送する時に岩の領域(dungeon.glitchZone＝addGlitchWarpArena)へ作り、戻る時に壁へ戻す。
+const GLITCH_ULT = { gaugeRate: 0.75 }; // 🌀 必殺技「ワープの常時発動」：パリィゲージ（古代魔法）がこの割合に達したら、サメが使い始める（グリッチ戦が終わるまで続く）。ワープ先は毎回かわり、サメもワープ先の部屋へ一緒に出てきて、フォークボム以外の技を並行して出す
 const GLITCH_WARP = {
   castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 84,
   zoneW: 48, zoneH: 40, // 転送先の部屋を作れる領域の大きさ（マス）。ボス部屋（36×24）より広めに余裕を持たせてある。パターンの部屋はこの中の真ん中に作る
@@ -8590,11 +8591,11 @@ class GameScene extends Phaser.Scene {
     this._sharkG0 = this.add.graphics().setDepth(3.9); // 🌊 空中にいる間の、床に落ちる影
     this._sharkG2 = this.add.graphics().setDepth(4.2); // 🌊 潜航中の背びれ・波紋・水しぶき（体より手前に描く）
     if (this._shark && this._shark.txts) this._shark.txts.forEach(q => { if (q.scene) q.destroy(); });
-    if (this._shark && this._shark.sg) this._sgDestroy(this._shark.sg); /* 🥤 前のシェルゲームのダミーが残っていれば消す */ const SC = Math.max(1, Math.min(1.5, 0.6 * Math.min(room.w, room.h) / 6.5)); // 🦈 大きさの倍率：最大1.5倍。部屋が狭いと、収まる大きさまで小さくなる
+    if (this._shark && this._shark.sg) this._sgDestroy(this._shark.sg); /* 🥤 前のシェルゲームのダミーが残っていれば消す */ const SC = 1.5; // 🦈 大きさの倍率：部屋の広さに関係なく、1.5倍で固定（必殺技でワープ先の部屋へ一緒に行っても、大きさが変わらないように）
     const S = this._shark = {
       sc: SC, len: TILE * 6.5 * SC, wid: TILE * 0.65 * SC, // 全長／体のいちばん太いところの半分の幅
       speed: 95 * (1 + 0.5 * (SC - 1)), turn: 1.4 / Math.sqrt(SC), beat: 1.4,   // 泳ぐ速さ（px/秒）／曲がる速さ（ラジアン/秒）／尾ひれを振る速さ（1秒に何往復か。速く泳ぐほど少し増える）
-      room, x: (room.x + room.w / 2) * TILE, y: (room.y + room.h / 2) * TILE, a: Math.random() * Math.PI * 2,
+      room, room0: room, x: (room.x + room.w / 2) * TILE, y: (room.y + room.h / 2) * TILE, a: Math.random() * Math.PI * 2, // room0＝本来の部屋（必殺技の間、room はワープ先の部屋に入れ替わる）
       v: 0, ph: 0, bend: 0, age: 0, wp: null, wpT: 0, stepT: 0, trailT: 0, bitT: 0, sh: 2, vis: true,
       frag: [], tears: [], bits: [], trail: [], txts: [],
       mode: 'fin', mt: 3 + Math.random() * 2, dive: 1, z: 0, lu: null, splash: [], spT: 0 // 🌊 状態：'up'＝全身が見える／'dive'＝床（海）に潜って背びれだけが出る。dive は 0（浮上）〜1（潜航）。splash＝背びれの水しぶき（緑）
@@ -8938,7 +8939,7 @@ class GameScene extends Phaser.Scene {
     const splashBurst = (n, pt = fbP) => { for (let i = 0; i < n && S.splash.length < 420; i++) S.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] }); };
     S.mt -= dt;
     if (m0 === 'fin') {
-      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', this._ransomT > 0 ? 'rush' : 'ransom', 'warp']; S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
+      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? ['shoot', 'rush', 'shell', 'wave', 'combo', this._ransomT > 0 ? 'rush' : 'ransom'] : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', this._ransomT > 0 ? 'rush' : 'ransom', 'warp']; /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
        S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, S.atk === 'combo' ? { x: S.x, y: S.y } : fbP); } else S.mt = 2; } // しばらく泳ぎ回ったら、距離に関係なくその場で姿を現して、追撃を始める
     } else if (m0 === 'chase') {
       if (!plOk || S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 追いつけない・見失ったら、泳ぎ回りに戻る
@@ -8981,6 +8982,7 @@ class GameScene extends Phaser.Scene {
     } else if (m0 === 'ransom') { if (S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 🔒 感染させたあと、少し止まってから泳ぎ回りに戻る（効果は残る）
     } else if (m0 === 'fork') { this._forkPhase(S, shp, dt, splashBurst); } // 🪟 フォークボムの進行
     else if (m0 === 'warp') { this._warpPhase(S, dt); } // 🌀 ワープの進行（サメは潜ったまま動かない）
+this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを常時発動（サメの技は並行して続く）
     S.dive = Math.max(0, Math.min(1, S.dive + ((S.mode === 'fin' || S.mode === 'chase' || S.mode === 'cdive' || (S.mode === 'sg' && S.sgDown) || (S.mode === 'fork' && S.fk && S.fk.down) || S.mode === 'warp') ? 1 : -1) * dt / ((S.mode === 'emerge' || (S.mode === 'sg' && !S.sgDown)) ? 0.4 : 0.28))); // 出る：0.4秒／潜る：0.28秒
     // --- 🦈 体の当たり判定：体が出ていて低い間は、体に重なれない（押し出される）／飛びかかり中に頭に当たると噛まれる ---
     if (plOk && S.dive < 0.4) {
@@ -9067,17 +9069,19 @@ class GameScene extends Phaser.Scene {
     return out;
   }
   _warpPhase(S, dt) {
-    const gw = S.gw, W = GLITCH_WARP, pl = this.player;
-    if (!gw || !(this.dungeon && this.dungeon.glitchZone)) { this._warpClear(); S.gw = null; S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; }
+    let gw = S.gw; const W = GLITCH_WARP, pl = this.player; // gw：必殺技の連続ワープでは、転送のたびに作り直す
+    if (!gw || !(this.dungeon && this.dungeon.glitchZone)) { this._warpClear(); S.gw = null; if (!S.ult) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; } return; }
     const plOk = !!pl && this.playerHp > 0 && !this.isGhost;
     gw.t += dt;
     if (gw.ph === 'win') { // 足元のウィンドウ：ぽんと開いて、最後に縮みながら消える
       if (plOk) { gw.x = pl.x; gw.y = pl.y + 6; }
       this._warpDrawWin(gw);
       if (gw.t >= W.castT) {
-        if (!plOk) { this._warpClear(); S.gw = null; S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; } // 転送の前に力尽きた
+        if (!plOk) { this._warpClear(); S.gw = null; if (!S.ult) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; } return; } // 転送の前に力尽きた
+        if (S.ult && S.mode === 'grab') { gw.t = W.castT - 0.02; return; } // 🌀 必殺技：サメに咥えられて運ばれている間は、転送を待つ
+        if (gw.chain) { this._warpClear(); const ng = { ph: 'win', t: gw.t, pat: gw.next || gw.pat, back: gw.back, ch: [], endT: null, x: gw.x, y: gw.y, A: null, tiles: [] }; S.gw = gw = ng; } // 🌀 必殺技：前の部屋を片づけて、次の部屋の状態を新しく作る（元の場所 back は引き継ぐ）
         const A = this._warpBuildRoom(S);
-        gw.back = { x: pl.x, y: pl.y }; gw.ph = 'fight'; gw.t = 0;
+        if (!gw.back) gw.back = { x: pl.x, y: pl.y }; gw.ph = 'fight'; gw.t = 0;
         if (this._gwG && this._gwG.scene) this._gwG.clear(); this._titleHide(this._gwTitles || [], 0);
         this.interruptBandage();
         pl.setPosition(A.spawnX, A.spawnY);
@@ -9085,14 +9089,56 @@ class GameScene extends Phaser.Scene {
         this.spawnBurst(A.spawnX, A.spawnY, 0x3dff85, 14);
         this.placeAlliesAtPlayer();
         const enter = this['_gwPat_' + gw.pat + '_enter']; if (enter) enter.call(this, S, A);
+        if (S.ult) this._ultShark(S, A); // 🌀 必殺技：サメも一緒にワープ先へ
       }
     } else if (gw.ph === 'fight') {
       const dr = this['_gwPat_' + gw.pat + '_draw']; if (dr) dr.call(this, gw.A);
       const chk = this['_gwPat_' + gw.pat + '_done'];
       const done = !plOk || (chk ? chk.call(this, S, dt) : true);
       if (done && gw.endT == null) gw.endT = gw.t; // 終わった：returnDelay 秒だけ待ってから戻る
-      if ((gw.endT != null && gw.t >= gw.endT + W.returnDelay) || gw.t >= ((W[gw.pat] && W[gw.pat].stay) || W.maxStay)) this._warpReturn(S, plOk); // パターンごとに stay があればその秒数で戻る
+      if ((gw.endT != null && gw.t >= gw.endT + W.returnDelay) || gw.t >= ((W[gw.pat] && W[gw.pat].stay) || W.maxStay)) { if (S.ult && plOk) this._ultNext(S, pl); else this._warpReturn(S, plOk); } // 🌀 必殺技中は、元の場所へ戻らずに、すぐ次のワープへ // パターンごとに stay があればその秒数で戻る
     }
+  }
+  _ultPickPat(prev) { // 🌀 必殺技：次のワープ先（直前と同じ所は避ける。ハードコアは交流ルームを除く）
+    const W = GLITCH_WARP; let pats = this.glitchHard ? W.patterns.filter(k => k !== 'lounge') : W.patterns.slice();
+    if (prev) pats = pats.filter(k => k !== prev);
+    if (GLITCH_TEST_WARP && pats.includes(GLITCH_TEST_WARP)) return GLITCH_TEST_WARP;
+    return pats[Math.floor(Math.random() * pats.length)];
+  }
+  _ultUpdate(S, dt, plOk) { // 🌀 必殺技「ワープの常時発動」の進行（毎フレーム）。ゲージが3/4になったら、サメが泳ぎ回りに戻った所から始める
+    if (S.tsarGone) return;
+    if (!S.ult) {
+      if (!S.ultArm) { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100; if (A && (A.gauge || 0) >= gm * GLITCH_ULT.gaugeRate) S.ultArm = true; }
+      if (S.ultArm && plOk && S.mode === 'fin' && !S.sg && !S.gw && !this._fork && !S.fk && !this._tsar && this.dungeon && this.dungeon.glitchZone) this._ultBegin(S);
+      return;
+    }
+    if (S.gw && S.mode !== 'warp') this._warpPhase(S, dt); // サメの技（S.mode）とは別に、ワープだけを進める
+    else if (!S.gw && plOk && !this._tsar) this._ultBegin(S); // 何かの理由でワープが途切れたら、仕切り直す
+  }
+  _ultBegin(S) { // 🌀 必殺技の開始：足元にウィンドウが出て、最初のワープへ（このあとは、戦いが終わるたびに次のワープへ続く）
+    const pl = this.player; if (!pl || !(this.dungeon && this.dungeon.glitchZone)) return;
+    S.ult = true; S.ultArm = false;
+    S.gw = { ph: 'win', t: 0, pat: this._ultPickPat(null), back: null, ch: [], endT: null, x: pl.x, y: pl.y, A: null, tiles: [] };
+    if (!this._gwG || !this._gwG.scene) this._gwG = this.add.graphics().setDepth(4.1);
+    if (!this._gwTxG || !this._gwTxG.scene) this._gwTxG = this.add.graphics().setDepth(3);
+    try { this.cameras.main.shake(300, 0.006); this.cameras.main.flash(200, 60, 255, 120); } catch (e) {}
+  }
+  _ultNext(S, pl) { // 🌀 今の部屋の戦いが終わった：元の場所へは戻らず、足元にウィンドウを出して、次の部屋へ（前の部屋は、転送の瞬間に片づける）
+    const gw = S.gw; if (!gw) return;
+    gw.ph = 'win'; gw.t = 0; gw.endT = null; gw.chain = true; gw.next = this._ultPickPat(gw.pat); gw.x = pl.x; gw.y = pl.y + 6;
+  }
+  _ultShark(S, A) { // 🌀 必殺技：転送先へサメも一緒に出てくる。前の技は途中でやめて、泳ぎ回る範囲をワープ先の部屋にする（サメは壁に当たり判定がないので、部屋の広さは気にしない。大きさも変えない）
+    if (!this.player) return;
+    if (S.sg) { try { this._sgFinish(S); } catch (e) {} } // 🥤 シェルゲームのダミーは消す
+    S.shots = []; S.defl = []; S.waves = []; S.mz = null; S.wv = null; S.cb = null; S.cbKeep = false; S.rushBrg = null; S.atk = null; S.noNose = false; S.rushFixed = false; S.rushBack = false; S.aimFired = true; S.tailRot = 0; // 🟩弾・🌊波・🔁連撃も、その場でおしまい
+    for (const gg of [this._sharkGS, this._sharkWG]) { try { if (gg && gg.scene) gg.clear(); } catch (e) {} }
+    S.room = { x: A.x0 / TILE, y: A.y0 / TILE, w: (A.x1 - A.x0) / TILE, h: (A.y1 - A.y0) / TILE };
+    const m = TILE * 2; let best = null, bd = -1; // 出てくる場所：部屋の中で、プレイヤーの転送先からいちばん遠い所
+    for (let k = 0; k < 16; k++) { const x = A.x0 + m + Math.random() * Math.max(1, A.x1 - A.x0 - 2 * m), y = A.y0 + m + Math.random() * Math.max(1, A.y1 - A.y0 - 2 * m), d = Math.hypot(x - A.spawnX, y - A.spawnY); if (d > bd) { bd = d; best = { x, y }; } }
+    this.spawnBurst(S.x, S.y, 0x2aff5a, 18); // 消える所
+    S.x = best.x; S.y = best.y; S.a = Math.atan2(A.spawnY - S.y, A.spawnX - S.x); S.v = 0; S.bend = 0; S.wp = null; S.wpT = 0; S.trail = []; S._lx = S.x; S._ly = S.y; S.z = 0;
+    S.mode = 'fin'; S.mt = 1.5 + Math.random() * 1.5; S.dive = 1; // 潜って泳ぎ回るところから。少ししたら次の技を出す
+    this.spawnBurst(S.x, S.y, 0x2aff5a, 18); // 出てくる所
   }
   _warpReturn(S, plOk) { // 元の場所へ戻る：先にプレイヤーを戻してから、敵を片づけて床を壁に戻す（壁の中なら部屋の真ん中へ）。戻ったあとは、泳ぎ回りに戻る
     const gw = S.gw, A = gw && gw.A, pl = this.player;
@@ -9106,7 +9152,7 @@ class GameScene extends Phaser.Scene {
       this.placeAlliesAtPlayer();
     }
     this._warpClear();
-    S.gw = null; S.mode = 'fin'; S.mt = 3 + Math.random() * 3; S.wpT = 0;
+    S.gw = null; if (S.room0) S.room = S.room0; if (!S.ult) { S.mode = 'fin'; S.mt = 3 + Math.random() * 3; S.wpT = 0; }
   }
   _warpClear() { // ウィンドウ・飾りの絵・転送先の敵を片づけて、作った床を壁に戻す（何も無ければ何もしない）
     const S = this._shark, gw = S && S.gw;
@@ -9382,7 +9428,7 @@ class GameScene extends Phaser.Scene {
     for (let k = 0; k < 36; k++) { const h1 = ((k * 2654435761) >>> 0) % 1000 / 1000, h2 = ((k * 40503 + 7) >>> 0) % 1000 / 1000; const x = A.x0 + h1 * (A.x1 - A.x0) + Math.sin(tt * 0.8 + k) * 14, y = A.y1 - ((tt * (18 + h2 * 22) + h2 * H) % H); g.fillStyle(0xfff4c0, 0.35 + 0.5 * (0.5 + 0.5 * Math.sin(tt * 3 + k * 1.9))); g.fillCircle(x, y, 1.2 + 1.6 * h2); }
   }
   a4WarpOn() { const S = this._shark, gw = S && S.gw; return (gw && gw.pat === 'angel' && gw.ph === 'fight' && gw.A) ? gw : null; } // 🪽 グリッチ戦のワープ「天使」の戦闘中だけ、その状態を返す
-  _ransomLock() { const S = this._shark; return !!(S && ((S.mode === 'fork' && S.fk && this._fork) || (S.gw && S.gw.ph === 'fight'))); } // フォークボム中、または🌀ワープで転送されている間：武器が使えず、右スティックが壊れる
+  _ransomLock() { const S = this._shark; return !!(S && ((S.mode === 'fork' && S.fk && this._fork) || (S.gw && S.gw.ph === 'fight' && !S.ult))); } // フォークボム中、または🌀ワープで転送されている間：武器が使えず、右スティックが壊れる
   _ransomStart(S) { // 🔀 ランサムウェア攻撃：サメが姿を現し終えたら、感染させる（_ransomT 秒、移動の操作が反転）。サメは castT 秒止まる（'ransom' モード）
     const R = GLITCH_RANSOM; S.mode = 'ransom'; S.mt = R.castT; this._ransomT = R.t; const rr = Math.random(); this._ransomMove = !(rr < R.aimP); this._ransomAim = rr < R.aimP + R.bothP; // どのスティックが反転するか：攻撃スティックだけ／両方／移動スティックだけ
     try { this._ransomInvFlash(); this.cameras.main.shake(300, 0.006); } catch (e) {} // 感染の瞬間：画面の色が一瞬反転する＋少し揺れる（以前の赤いフラッシュの代わり）
@@ -17634,7 +17680,9 @@ class GameScene extends Phaser.Scene {
   _tsarLerp(a, b, t) { const ar = a >> 16 & 255, ag = a >> 8 & 255, ab = a & 255, br = b >> 16 & 255, bg = b >> 8 & 255, bb = b & 255; return (Math.round(ar + (br - ar) * t) << 16) | (Math.round(ag + (bg - ag) * t) << 8) | Math.round(ab + (bb - ab) * t); }
   _sharkCancelAttack() { // ☢ サメの技を途中でやめさせる（ツァーリ・ボンバ）：出ていたウィンドウ・ダミー・弾・波・転送先を全部片づけ、ワープ中ならプレイヤーを元の場所へ戻し、移動の反転も解く。何も出ていなければ何もしない
     const S = this._shark; if (!S) return; const plOk = !!this.player && this.playerHp > 0;
-    if (S.gw) { try { this._warpReturn(S, plOk); } catch (e) {} } // 🌀 ワープ：プレイヤーを元の場所へ戻して、転送先の敵と床を片づける
+    const wasUlt = !!S.ult; S.ult = false; S.ultArm = false; // 🌀 必殺技はここでおしまい（ツァーリ・ボンバなど）
+    if (S.gw) { try { this._warpReturn(S, plOk); } catch (e) {} }
+    if (wasUlt && S.room0) { S.room = S.room0; S.x = (S.room0.x + S.room0.w / 2) * TILE; S.y = (S.room0.y + S.room0.h / 2) * TILE; S.v = 0; S.trail = []; S._lx = S.x; S._ly = S.y; } // 🌀 サメも本来の部屋へ戻す // 🌀 ワープ：プレイヤーを元の場所へ戻して、転送先の敵と床を片づける
     if (S.sg) { try { this._sgFinish(S); } catch (e) {} } // 🥤 シェルゲーム：ダミーを消す
     if (this._fork || S.fk) { try { if (this._forkG && this._forkG.scene) this._forkG.destroy(); } catch (e) {} this._forkG = null; this._fork = null; S.fk = null; S.fkHide = false; this._titleHide(this._forkTitles || [], 0); } // 🪟 フォークボム：ウィンドウを全部消す
     this._ransomT = 0; // 🔀 ランサムウェア：移動の反転を解く
