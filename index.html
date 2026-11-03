@@ -456,6 +456,22 @@
   #titlePickBtn:hover { background: linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.10)); border-color: rgba(255,255,255,0.65); }
   #titlePickBtn:active { transform: translateY(2px); box-shadow: 0 0 0 rgba(0,0,0,0.45); background: rgba(255,255,255,0.08); }
   #titlePickBtn.has { font-size: 14px; font-weight: bold; letter-spacing: 0.08em; }
+  /* 🎫 日記サイトのチケット：称号の横の小さなボタンと、コード入力の画面 */
+  #titleBtnWrap { display: flex; justify-content: center; align-items: flex-start; gap: 6px; margin: 0 auto 6px; max-width: 100%; }
+  #titleBtnWrap #titlePickBtn { margin: 0; }
+  #ticketBtn { flex: none; width: auto; margin-top: 0; font-size: 13px; line-height: 1; padding: 6px 8px; color: #ffe9a8; cursor: pointer; border-radius: 999px; border: 1px solid rgba(255,220,120,0.55); background: linear-gradient(180deg, rgba(255,220,120,0.22), rgba(255,220,120,0.08)); box-shadow: 0 2px 0 rgba(0,0,0,0.45); -webkit-tap-highlight-color: transparent; }
+  #ticketBtn:hover { border-color: rgba(255,220,120,0.9); }
+  #ticketBtn:active { transform: translateY(2px); box-shadow: none; }
+  #ticketModal { display: none; position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,0.72); align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; color: #e8e8f0; }
+  #ticketModal .lobbyBox { max-width: min(96vw, 440px); width: 100%; max-height: 92vh; overflow-y: auto; box-sizing: border-box; padding: 12px 16px; }
+  #ticketModal h1 { margin: 0 0 4px; font-size: 18px; }
+  #ticketModal h1 small { display: block; margin: 4px 0 0; font-size: 11px; font-weight: normal; color: #a0a0b0; }
+  #ticketLeft { margin: 8px 0; font-size: 14px; font-weight: bold; color: #ffe9a8; }
+  #ticketInput { width: 100%; box-sizing: border-box; margin-bottom: 8px; padding: 8px; font-size: 12px; font-family: monospace; }
+  #ticketMsg { min-height: 2.6em; margin: 6px 0; font-size: 13px; line-height: 1.5; }
+  #ticketMsg.ok { color: #8dffb0; }
+  #ticketMsg.ng { color: #ff9a9a; }
+  #glitchTicketBtn { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 10px; padding: 10px 8px; font-size: 15px; font-weight: bold; color: #04210f; background: #2af08a; border: none; border-radius: 8px; cursor: pointer; }
   #titleModal { display: none; position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,0.72); align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; color: #e8e8f0; }
   #titleModal .lobbyBox { max-width: min(96vw, 440px); width: 100%; max-height: 92vh; overflow-y: auto; box-sizing: border-box; padding: 12px 16px; }
   #titleModal h1 { margin: 0 0 4px; font-size: 18px; }
@@ -690,7 +706,7 @@
     </div>
     <div class="lobbyBox lobbyCenter">
       <h1>ゾミカスダンジョン</h1>
-      <div id="titlePickBtn" title="称号を選ぶ">称号：なし</div>
+      <div id="titleBtnWrap"><div id="titlePickBtn" title="称号を選ぶ">称号：なし</div><button id="ticketBtn" type="button" title="チケットを入力">🎫</button></div>
       <label>
         <input type="text" id="nameInput" maxlength="20">
       </label>
@@ -739,6 +755,17 @@
     <h1>称号<small>（入手した称号だけが表示されます。押すと装備／もう一度押すと外れます）</small></h1>
     <div id="titleModalList"></div>
     <button id="titleModalClose">閉じる</button>
+  </div>
+</div>
+<div id="ticketModal">
+  <div class="lobbyBox">
+    <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます（有効期限は発行から約1か月）</small></h1>
+    <div id="ticketLeft"></div>
+    <input type="text" id="ticketInput" placeholder="チケットのコードを貼り付け" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button id="ticketUseBtn" type="button">使う</button>
+    <div id="ticketMsg"></div>
+    <button id="glitchTicketBtn" type="button">グリッチ戦に挑む</button> <!-- 確定のグリッチ戦（1回押すごとに1回減る） -->
+    <button id="ticketModalClose" type="button">閉じる</button>
   </div>
 </div>
 <div id="wwGuide">
@@ -8801,6 +8828,14 @@ class GameScene extends Phaser.Scene {
       if (R() < 0.5) { const an = w.a + (R() * 2 - 1) * al * 0.9, rr = w.R - R() * th, len = 14 + R() * 40; g.fillStyle(R() < 0.6 ? 0x000000 : 0xc8ffd4, 0.8 * f); g.fillRect(w.ox + Math.cos(an) * rr, w.oy + Math.sin(an) * rr, len, 2); } // グリッチの走査線・黒いかけら
     }
   }
+  _comboPickBearing(S, plr) { // 🔁 連撃：次の追撃は、前と違う方向から襲ってくる。プレイヤーのまわりで、今の方角から60〜140度ずれたところへ回り込む（前回と逆回りを優先。壁の中になる場所は避ける）。選べなければ null（いつもの「真後ろへ離れる」）
+    const cur = Math.atan2(S.y - plr.y, S.x - plr.x), sg0 = S.cbSign || (Math.random() < 0.5 ? 1 : -1);
+    for (const R of [GLITCH_BACKOFF.far, GLITCH_BACKOFF.far * 0.75]) for (const sg of [-sg0, sg0]) for (let k = 0; k < 4; k++) {
+      const th = cur + (1.05 + Math.random() * 1.4) * sg;
+      if (!this.circleHitsWall(plr.x + Math.cos(th) * R, plr.y + Math.sin(th) * R, TILE * 1.2)) { S.cbSign = sg; return { th: th, R: R }; }
+    }
+    return null;
+  }
   _sharkHurt(dmg, inv) { // 🦈 サメの攻撃がプレイヤーに当たった時のダメージ（無敵時間・死亡処理は既存の流れに合わせる）
     if (this.isGhost || this.isDowned || this.playerInvuln > 0 || this.playerHp <= 0) return false;
     const d = this.accDmgTaken(dmg); this.recordDamageTaken(d);
@@ -8837,9 +8872,9 @@ class GameScene extends Phaser.Scene {
     } else if (m0 === 'rush') { // 🦈 追撃：姿を現したまま、高速でプレイヤーを追いかける（曲がる速さは控えめなので、横に動けば避けられる）
       if (S.rushBack) { // 🏃 近すぎる時：プレイヤーと反対向きへ泳いで距離を取る（離れている間は追撃の時間も減らさない）
         S.rushBackT += dt; S.mt += dt;
-        if (!plOk || S.rushBackT >= GLITCH_BACKOFF.maxT || Math.hypot(plr.x - S.x, plr.y - S.y) >= GLITCH_BACKOFF.far) { S.rushBack = false; }
+        if (!plOk || S.rushBackT >= GLITCH_BACKOFF.maxT || (S.rushBrg == null ? Math.hypot(plr.x - S.x, plr.y - S.y) >= GLITCH_BACKOFF.far : Math.hypot(plr.x + Math.cos(S.rushBrg) * S.rushBrgR - S.x, plr.y + Math.sin(S.rushBrg) * S.rushBrgR - S.y) < TILE * 1.5)) { S.rushBack = false; S.rushBrg = null; }
         else {
-          const away = Math.atan2(S.y - plr.y, S.x - plr.x), tn = S.turn * 2, d = wrap(away - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d));
+          let away = Math.atan2(S.y - plr.y, S.x - plr.x); if (S.rushBrg != null) away = Math.atan2(plr.y + Math.sin(S.rushBrg) * S.rushBrgR - S.y, plr.x + Math.cos(S.rushBrg) * S.rushBrgR - S.x); /* 🔁 連撃：決めた新しい方角へ回り込む */ const tn = S.turn * 2, d = wrap(away - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d));
           S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5);
           const tv = S.speed * GLITCH_BACKOFF.speedK; S.v += (tv - S.v) * Math.min(1, dt * 6);
           S.ph += dt * Math.PI * 2 * S.beat * 3.2;
@@ -8897,7 +8932,7 @@ class GameScene extends Phaser.Scene {
     const splashBurst = (n, pt = fbP) => { for (let i = 0; i < n && S.splash.length < 420; i++) S.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] }); };
     S.mt -= dt;
     if (m0 === 'fin') {
-      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', this._ransomT > 0 ? 'rush' : 'ransom', 'warp']; S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
+      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', this._ransomT > 0 ? 'rush' : 'ransom', 'warp']; S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
        S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, S.atk === 'combo' ? { x: S.x, y: S.y } : fbP); } else S.mt = 2; } // しばらく泳ぎ回ったら、距離に関係なくその場で姿を現して、追撃を始める
     } else if (m0 === 'chase') {
       if (!plOk || S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 追いつけない・見失ったら、泳ぎ回りに戻る
@@ -8931,7 +8966,7 @@ class GameScene extends Phaser.Scene {
       if (!plOk) { S.mode = 'fin'; S.mt = 3.5 + R() * 3; S.wpT = 0; }
       else if (S.mt <= 0) { S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, { x: S.x, y: S.y }); }
     } else if (m0 === 'rush' || m0 === 'retreat' || m0 === 'grab') {
-      if (m0 === 'rush' && S.mt <= 0 && plOk && S.atk === 'combo' && S.cb && S.cb.left > 0) { S.cb.left--; S.mode = 'rush'; S.mt = GLITCH_COMBO.rushT; S.rushHit = false; S.rushFixed = false; S.rushAlign = 1.2; S.rushBack = true; S.rushBackT = 0; } // 🔁 連撃：まだ回数が残っている（かわした）なら、潜らずに姿を現したまま、必ずプレイヤーから距離を取って（rushBack）から、また突進する。パリィ・噛みつきの時は、既存どおり攻撃が終わる
+      if ((m0 === 'rush' || (m0 === 'retreat' && S.cbKeep)) && S.mt <= 0 && plOk && S.atk === 'combo' && S.cb && S.cb.left > 0) { S.cbKeep = false; S.cb.left--; S.mode = 'rush'; S.mt = GLITCH_COMBO.rushT; S.rushHit = false; S.rushFixed = false; S.rushAlign = 1.2; S.rushBack = true; S.rushBackT = 0; { const bb = this._comboPickBearing(S, plr); S.rushBrg = bb ? bb.th : null; S.rushBrgR = bb ? bb.R : 0; } } // 🔁 連撃：まだ回数が残っている（かわした）なら、潜らずに姿を現したまま、必ずプレイヤーから距離を取って（rushBack）から、また突進する。パリィ・噛みつきの時は、既存どおり攻撃が終わる
       else if ((!plOk && m0 !== 'retreat') || S.mt <= 0) { // 時間切れ・噛みつき後・戻りきった後：水しぶきを上げて、背びれに戻る
         for (const i of [0, 6, 12, 18]) splashBurst(14, { x: shp.sp[i].x, y: shp.sp[i].y });
         try { this.cameras.main.shake(120, 0.003); } catch (e) {}
@@ -8962,7 +8997,7 @@ class GameScene extends Phaser.Scene {
       if (S.mode === 'rush' && !S.rushHit && !S.rushBack) { // 鼻先だけが当たり判定：古代魔法でパリィできるのも、噛みつくのも鼻先
         const t0 = shp.sp[0], t1 = shp.sp[1], bm = Math.hypot(t1.x - t0.x, t1.y - t0.y) || 1, hr = TILE * 0.25 * S.sc; // 判定の円は、前端が見た目の鼻先に一致するよう、半径の分だけ後ろにずらす（半径も鼻の細さに合わせて小さく）
         const q = { x: t0.x + (t1.x - t0.x) / bm * hr, y: t0.y + (t1.y - t0.y) / bm * hr };
-        if (this._ancientBlocks(q.x, q.y, hr)) { S.rushHit = true; S.mode = 'retreat'; S.mt = 1.2; S.retA = S.a + Math.PI; this._ancientParryFx(q.x, q.y); } // 🛡 パリィ成功：ダメージなし。向きを変えて戻っていき、攻撃は終わる
+        if (this._ancientBlocks(q.x, q.y, hr)) { S.rushHit = true; S.mode = 'retreat'; S.mt = 1.2; S.retA = S.a + Math.PI; this._ancientParryFx(q.x, q.y); if (S.atk === 'combo' && S.cb && S.cb.left > 0) S.cbKeep = true; /* 🔁 連撃中のパリィ：潜らずに、戻りきったら続きの追撃へ */ } // 🛡 パリィ成功：ダメージなし。向きを変えて戻っていき、攻撃は終わる
         else if (this.playerInvuln <= 0 && Math.hypot(pl.x - q.x, pl.y - q.y) < hr + pr) { S.rushHit = true; S.mode = 'grab'; S.mt = 4; S.lastFree = { x: q.x, y: q.y }; this._sharkBlood(pl.x, pl.y, 1); try { this.cameras.main.shake(140, 0.006); this.cameras.main.flash(110, 160, 0, 10); } catch (e) {} } // 鼻先に当たると咥えられる（ダメージは壁に当たった時）
       }
     }
@@ -17567,7 +17602,7 @@ class GameScene extends Phaser.Scene {
     if (S.sg) { try { this._sgFinish(S); } catch (e) {} } // 🥤 シェルゲーム：ダミーを消す
     if (this._fork || S.fk) { try { if (this._forkG && this._forkG.scene) this._forkG.destroy(); } catch (e) {} this._forkG = null; this._fork = null; S.fk = null; S.fkHide = false; this._titleHide(this._forkTitles || [], 0); } // 🪟 フォークボム：ウィンドウを全部消す
     this._ransomT = 0; // 🔀 ランサムウェア：移動の反転を解く
-    S.shots = []; S.defl = []; S.waves = []; S.mz = null; S.wv = null; S.cb = null; S.atk = null; S.noNose = false; S.rushFixed = false; S.rushBack = false; S.aimFired = true; // 🟩弾・🌊波・🔁連撃も、その場でおしまい
+    S.shots = []; S.defl = []; S.waves = []; S.mz = null; S.wv = null; S.cb = null; S.cbKeep = false; S.rushBrg = null; S.atk = null; S.noNose = false; S.rushFixed = false; S.rushBack = false; S.aimFired = true; // 🟩弾・🌊波・🔁連撃も、その場でおしまい
     for (const gg of [this._sharkGS, this._sharkWG]) { try { if (gg && gg.scene) gg.clear(); } catch (e) {} }
   }
   _tsarSharkFlee() { // 🦈 サメを「逃げる」状態にする（フォークボム・ワープ・シェルゲーム・咥えている最中は、それが終わって泳ぎ回りに戻ってから）。逃げる向きは、この時の星と反対の向きに固定（一直線）
@@ -34942,6 +34977,92 @@ titlePickBtn.addEventListener('click', openTitleModal);
 document.getElementById('titleModalClose').addEventListener('click', () => { document.getElementById('titleModal').style.display = 'none'; });
 document.getElementById('titleModal').addEventListener('click', e => { if (e.target === document.getElementById('titleModal')) document.getElementById('titleModal').style.display = 'none'; });
 renderTitlePickBtn();
+// ---- 🎫 日記サイトのチケット：コードを入れると、グリッチ戦を遊べる回数が増える（1枚で10回／有効期限は発行から約1か月） ----
+// 使い道：🎫の画面の中の「グリッチ戦に挑む」ボタン（確定でグリッチ戦に入れる。1回押すごとに1回減る）。パーティールームのポータルと、確率で出るグリッチ状態のボタンは、チケット不要のまま。
+// コードは「署名つき」で、ここにある公開鍵で本物かどうかを調べる（秘密鍵は日記サイト側だけが持つ）。回数と使用済みのチケットIDは、この端末の localStorage に控える（引き継ぎ同期の対象外）。
+(function () {
+  const GATE_ENABLED = true; // false にすると、チケットなしでもグリッチ戦に入れる（確認用）
+  const PUB_KEY = 'NoAj2T06DROXpWpsoLXgeOfrgPaoNfvgs8lg9_RESiU'; // 公開鍵（日記サイトの秘密鍵とペア。作り直すと発行済みコードが全て無効になる）
+  const EPOCH_MS = Date.UTC(2026, 0, 1); // 有効期限の基準日（日記サイトの発行スクリプトと同じ値）
+  const REWARDS = { 1: { plays: 10 } }; // チケットの種類 → もらえる内容（1番：グリッチ戦を10回）
+  const KEY_PLAYS = 'glitchTicketPlays', KEY_USED = 'glitchTicketUsed';
+
+  const getPlays = () => { try { return Math.max(0, parseInt(localStorage.getItem(KEY_PLAYS), 10) || 0); } catch (e) { return 0; } };
+  const paintBtn = () => { const b = document.getElementById('glitchTicketBtn'); if (b) b.textContent = GATE_ENABLED ? 'グリッチ戦に挑む（残り ' + getPlays() + ' 回）' : 'グリッチ戦に挑む'; }; // 🎫の画面の「グリッチ戦」ボタンの表示
+  const setPlays = n => { try { localStorage.setItem(KEY_PLAYS, String(Math.max(0, n | 0))); } catch (e) { /* 保存できない環境では、その場だけ */ } paintBtn(); };
+  const getUsed = () => { try { const a = JSON.parse(localStorage.getItem(KEY_USED) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+  const addUsed = id => { try { const a = getUsed(); a.push(id); localStorage.setItem(KEY_USED, JSON.stringify(a)); } catch (e) { /* 何もしない */ } };
+
+  function b64urlToBytes(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '=';
+    const bin = atob(s), out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  // コードを調べる。正しければ { reward, id }、だめなら { err: 理由 }
+  async function verifyCode(raw) {
+    const s = String(raw || '').replace(/[\s\u200b-\u200d\ufeff]/g, '');
+    if (!s) return { err: 'コードを入れてください' };
+    if (!/^[A-Za-z0-9_-]+$/.test(s)) return { err: 'コードの形が正しくありません' };
+    let bytes; try { bytes = b64urlToBytes(s); } catch (e) { return { err: 'コードの形が正しくありません' }; }
+    if (bytes.length !== 74 || bytes[0] !== 1) return { err: 'コードの形が正しくありません' };
+    if (!(window.crypto && crypto.subtle)) return { err: 'このブラウザでは確認できません（https のページで、新しいブラウザで開いてください）' };
+    let ok = false;
+    try {
+      const key = await crypto.subtle.importKey('raw', b64urlToBytes(PUB_KEY), { name: 'Ed25519' }, false, ['verify']);
+      ok = await crypto.subtle.verify({ name: 'Ed25519' }, key, bytes.subarray(10), bytes.subarray(0, 10));
+    } catch (e) { return { err: 'このブラウザは対応していません（Chrome・Firefox・Safari の新しいバージョンで開いてください）' }; }
+    if (!ok) return { err: 'コードが正しくありません' };
+    const reward = REWARDS[bytes[1]];
+    if (!reward) return { err: 'このチケットは、このバージョンでは使えません' };
+    const expiryDay = (bytes[2] << 8) | bytes[3];
+    const today = Math.floor((Date.now() - EPOCH_MS) / 86400000);
+    if (expiryDay && today > expiryDay) return { err: 'このチケットは有効期限が切れています' };
+    let id = ''; for (let i = 4; i < 10; i++) id += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+    if (getUsed().indexOf(id) >= 0) return { err: 'このチケットはもう使っています' };
+    return { reward: reward, id: id };
+  }
+
+  // コードを使う。{ ok, msg }
+  async function redeem(raw) {
+    const r = await verifyCode(raw);
+    if (r.err) return { ok: false, msg: r.err };
+    addUsed(r.id); setPlays(getPlays() + r.reward.plays);
+    return { ok: true, msg: 'グリッチ戦を' + r.reward.plays + '回遊べるようになりました！（残り ' + getPlays() + ' 回）' };
+  }
+
+  // ゲーム側から呼ぶ入口
+  window.GlitchTicketGate = {
+    redeem: redeem,
+    plays: getPlays,
+        tryStart: () => { // 「グリッチ戦」ボタンを押した時に呼ぶ。遊べるなら回数を1回減らして true、遊べなければ案内を出して false
+      if (!GATE_ENABLED) return true;
+      const n = getPlays();
+      if (n <= 0) { try { showLobbyBanner('グリッチ戦を遊ぶ回数がありません（称号の横の🎫に、日記サイトのチケットを入れてね）', 3800); } catch (e) { /* 何もしない */ } return false; }
+      setPlays(n - 1); return true;
+    }
+  };
+
+  paintBtn();
+  // ---- ホーム画面：称号の横の🎫ボタンから、コード入力の画面を開く ----
+  const modal = document.getElementById('ticketModal'), input = document.getElementById('ticketInput'), msg = document.getElementById('ticketMsg'), left = document.getElementById('ticketLeft');
+  const paintLeft = () => { left.textContent = GATE_ENABLED ? 'グリッチ戦：残り ' + getPlays() + ' 回' : '（確認用：今はチケットなしでも遊べます）'; };
+  const say = (t, ok) => { msg.textContent = t; msg.className = ok ? 'ok' : 'ng'; };
+  const open = () => { input.value = ''; say('', true); paintLeft(); modal.style.display = 'flex'; };
+  const close = () => { modal.style.display = 'none'; };
+  let busy = false;
+  const use = async () => {
+    if (busy) return; busy = true;
+    try { const r = await redeem(input.value); say(r.msg, r.ok); if (r.ok) input.value = ''; paintLeft(); } finally { busy = false; }
+  };
+  document.getElementById('ticketBtn').addEventListener('click', open);
+  document.getElementById('ticketUseBtn').addEventListener('click', use);
+  document.getElementById('ticketModalClose').addEventListener('click', close);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); use(); } });
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+})();
+
 // ホーム画面で、新しく入手した称号を知らせる（起動時に、すでに条件を満たしていた分）
 function showLobbyTitleToast(defs) {
   let el = document.getElementById('titleToast');
@@ -35261,6 +35382,12 @@ let askWeapon = null;
     // 📺 グリッチ状態のボタンを押すと、武器選択なし（剣）で、グリッチのボスがいるボス部屋へ直行する
     if (document.getElementById('bossRushBtn').classList.contains('glitchBtn')) { startGame('solo', { bossRush: true, weaponKey: 'ancient', glitchBoss: true }); return; }
     askWeapon('ボスラッシュ', w => startGame('solo', { bossRush: true, weaponKey: w.key }));
+  });
+  // 🎫 確定のグリッチ戦（🎫の画面の中のボタン）：チケットで増えた回数を1回使って、グリッチのボスの部屋へ直行する（武器選択なし・剣）。回数が無い時は案内だけ出す
+  document.getElementById('glitchTicketBtn').addEventListener('click', () => {
+    if (window.GlitchTicketGate && !window.GlitchTicketGate.tryStart()) return;
+    document.getElementById('ticketModal').style.display = 'none'; // 🎫の画面を閉じてから始める
+    startGame('solo', { bossRush: true, weaponKey: 'ancient', glitchBoss: true });
   });
   // 📺 タイトル画面を開いた時、GLITCH_CHANCE の確率でボスラッシュのボタンがグリッチ（ノイズが走る）状態になる。今は 0（0％）なので、確率では起こらない。
   //   URLに ?glitch=1（すでに ? がある時は &glitch=1）を付けると、確率に関係なく必ずなる。ボタンの見た目がグリッチになり、押すとグリッチのボスの部屋へ直行する。確率を戻す時は、GLITCH_CHANCE を 0.05（5％）などにする。
