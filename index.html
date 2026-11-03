@@ -8848,6 +8848,7 @@ class GameScene extends Phaser.Scene {
   }
   _sharkUpdate(t, dt) {
     const S = this._shark, g = this._sharkG; if (!S || !g || !g.scene) return;
+    if (this._bsodOn) return; // 🟦 グリッチ戦で負けたあとは、サメの動きも描き直しも止める（死んだ瞬間の姿のまま固まる。消すのはブルースクリーンが出てから＝glitchBsod）
     if (S.tsarGone) { g.clear(); if (this._sharkG0) this._sharkG0.clear(); if (this._sharkG2) this._sharkG2.clear(); return; } // ☢ ツァーリ・ボンバで消えたサメ：動かず、描かない
     dt = Math.min(dt, 0.1); S.age += dt; this._bloodUpdate(dt); const R = Math.random, wrap = d => Math.atan2(Math.sin(d), Math.cos(d)), N = 22;
     // --- 泳ぐ：泳ぎ先へ向かって、弧を描いて曲がる。壁が近ければ避ける。尾をひと振りするごとに、ぐっと進む ---
@@ -17374,7 +17375,7 @@ class GameScene extends Phaser.Scene {
       for (const d of [R * 0.3, R * 0.62]) for (let i = 0; i < n; i++) { if (rnd() < 0.25) continue; const q1 = at(rays[i], d * (0.9 + 0.2 * rnd())), q2 = at(rays[(i + 1) % n], d * (0.9 + 0.2 * rnd())); if (q1 && q2) C.push([rel(q1), rel(q2)]); } // となり合う放射状のヒビどうしをつなぐ、輪のヒビ（内側と外側の2周。ところどころ途切れる）
     } }
 
-    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20)); A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
+    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20) * (this.glitchHard ? 0.5 : 1)); /* 🟩 Glitch-Hardcore：溜まりやすさは半分 */ A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
     for (let i = 0; i < 22; i++) { const an = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 260; A.sp.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp, life: 0.45 + Math.random() * 0.3, max: 0.75, s: 3 + Math.random() * 3 }); }
     A.rings.push({ x, y, t: 0 });
     try { this.cameras.main.flash(90, 255, 255, 255); this.cameras.main.shake(140, 0.005); } catch (e) {}
@@ -17476,7 +17477,7 @@ class GameScene extends Phaser.Scene {
       const root = document.createElement('div'); root.id = 'ancGauge';
       root.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 1.2vh);width:min(56vw,420px);z-index:25;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:0.8vh;font-family:sans-serif;';
       const track = document.createElement('div'); track.style.cssText = 'width:100%;height:max(1.6vh,9px);box-sizing:border-box;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.45);border-radius:99px;overflow:hidden;';
-      const fill = document.createElement('div'); fill.style.cssText = 'height:100%;width:0%;border-radius:99px;transition:width .18s;'; track.appendChild(fill); track.style.position = 'relative'; for (const sy of this.ANC_SYMBOLS) { const tk = document.createElement('div'); tk.style.cssText = 'position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,0.85);left:' + Math.min(99.4, (sy.cost == null ? 1 : sy.cost) * 100) + '%;pointer-events:none;'; track.appendChild(tk); } // 白い目盛り＝技に必要なゲージの量
+      const fill = document.createElement('div'); fill.style.cssText = 'height:100%;width:0%;border-radius:99px;transition:width .18s;'; track.appendChild(fill); track.style.position = 'relative';
       root.appendChild(track); document.body.appendChild(root);
       if (!document.getElementById('ancStyle')) { const st = document.createElement('style'); st.id = 'ancStyle'; st.textContent = '@keyframes ancPulse{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.06);filter:brightness(1.4)}}'; document.head.appendChild(st); }
       el = this._ancG = { root, fill };
@@ -31933,14 +31934,15 @@ class GameScene extends Phaser.Scene {
       if (t === 'click') { if (onBtn) go(); return; }
       if (onBtn && downOnBtn) go(); else { downOnBtn = false; press(false); }
     }, { capture: true, passive: true }));
-    const code = this.glitchHard ? 'HARDCORE_HP_WAS_ONLY_1' : 'PLAYER_HP_REACHED_ZERO';
+    const code = this.glitchHard ? ' (HARDCORE_HP_WAS_ONLY_1)' : '';
     setTimeout(() => {
       root.style.background = '#0078d7';
+      try { for (const gg of [this._sharkG, this._sharkG0, this._sharkG2, this._sharkGS, this._sharkWG]) if (gg && gg.scene) gg.clear(); const SS = this._shark; if (SS && SS.txts) SS.txts.forEach(q => { if (q && q.scene) q.setVisible(false); }); } catch (e) {} // 🦈 ブルースクリーンが出たところで、サメを消す
       root.innerHTML = '<div style="padding:9vh 9vw;color:#fff;font-family:\'Segoe UI\',\'Yu Gothic UI\',sans-serif;box-sizing:border-box;">'
         + '<div style="font-size:15vh;line-height:1;">:(</div>'
         + '<div style="margin-top:4vh;font-size:3.4vh;line-height:1.5;">Your game ran into a problem and needs to restart.<br>We\'re just collecting some error info, and then we\'ll restart for you.</div>'
         + '<div id="bsodPct" style="margin-top:4vh;font-size:3.4vh;">0% complete</div>'
-        + '<div style="margin-top:4vh;font-size:2vh;line-height:1.8;">If you call a support person, give them this info:<br>Stop code: <b>GLITCH_FATAL_EXCEPTION</b> (' + code + ')<br>What failed: <b>player_hp.sys</b><br>Details: The bug was not fixed. The bug fixed you.</div>'
+        + '<div style="margin-top:4vh;font-size:2vh;line-height:1.8;">If you call a support person, give them this info:<br>Stop code: <b>GLITCH_FATAL_EXCEPTION</b>' + code + '<br>What failed: <b>player_hp.sys</b><br>Details: The bug was not fixed. The bug fixed you.</div>'
         + '<button id="bsodBtn" type="button" style="margin-top:5vh;padding:2.2vh 4.6vh;min-height:44px;font-size:2.8vh;color:#fff;background:transparent;border:0.3vh solid #fff;font-family:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">Restart (Return to Lobby)</button></div>';
       btn = root.querySelector('#bsodBtn');
       btn.onmouseenter = () => { btn.style.background = '#fff'; btn.style.color = '#0078d7'; };
