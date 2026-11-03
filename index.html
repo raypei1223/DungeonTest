@@ -762,7 +762,7 @@
 </div>
 <div id="ticketModal">
   <div class="lobbyBox">
-    <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます<br>通常はホーム画面を開くと5%の確率で出現します</small></h1>
+    <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます<br>通常はホーム画面を開くと5%の確率でグリッチが起こります</small></h1>
     <a id="ticketDiaryLink" href="https://paypayultra.github.io/off/" target="_blank" rel="noopener noreferrer">📖 日記サイトを開く</a>
     <div id="ticketLeft"></div>
     <input type="text" id="ticketInput" placeholder="チケットのコードを貼り付け" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -6065,7 +6065,7 @@ const TILE = 32;
 const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
 const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
-const GLITCH_TEST_GAUGE_FULL = true; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
+const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
 const GLITCH_TSAR = { flyT: 7, v0: 0, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, blastSpd: 600, startDist: 1, invBand: 240, landTile: { x: 63, y: 63 }, fieldH: 128, invFadeT: 3.5, walkSpeedK: 1, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／startDist＝星が出る位置の、プレイヤーからの距離（マス。小さいほど近い。壁が近ければ、さらに手前になる）／blastSpd＝爆風（白い光）が広がる速さ（px/秒）。爆発してから画面が真っ白になるまで、ずっとこの一定の速さ（サメの逃げる速さ＝最大およそ475より大きくすること。小さいと追いつけない）／creep＝（今は使っていない）白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
 const GLITCH_FORK = { w: TILE * 13, h: TILE * 9, corridor: TILE * 10, damage: 30, pushSpeed: 700, stepX: TILE * 0.85, stepY: TILE * 0.95, maxN: 80, openT: 0, interval: 0.065, waitT: 0.7, riseDelay: 0.5, hold: Infinity, warnT: 1.5, leaps: 10, burrowMin: 1.5, burrowMax: 2.7, stayT: 0, burrowSpeed: TILE * 8, burrowWobble: 2, leadP: 0.5, leadT: 0.5, vibT: 0.2, pickRange: 2, leapInset: 0.1, wanderMin: 0.35, wanderMax: 0.9, vibAmp: 5, peekSpeed: TILE * 8, leapSpeed: 900, accT: 0.15, leapDamage: 40, leapPause: 0.1 }; // w,h＝ウィンドウの大きさ（部屋が小さい時は部屋の8割まで縮む）／stepX,stepY＝次のウィンドウへのずれ（右下）／corridor＝2本の列のあいだに空ける通り道の幅（窓が斜めに重なって太くなる分を除いた、あいている幅）／damage＝出たウィンドウに重なっていたプレイヤーへのダメージ／pushSpeed＝通り道へ押し出される速さ（px/秒）／maxN＝1列の最大数（上限。通常は、上端が部屋の下端に重なる所まで並ぶ）／openT＝最初の2枚が出てからサメが動くまで／interval＝1枚ずつ増える間隔／waitT＝サメが潜ってから増え始めるまでの間／riseDelay＝増え終わってからサメが浮かぶまで／hold＝増え終わってから消え始めるまで（Infinity＝時間では消えない。技が終わって（rise）サメが浮かんだ時点で、順に消える）／warnT＝出現位置に赤い枠の警告を出してからウィンドウが出るまで／leaps＝ウィンドウ間の飛び込みを繰り返す回数／burrowMin,burrowMax＝窓の下に潜って、列に沿って上下に動いている時間（秒。この範囲でランダム）／burrowSpeed＝列に沿って動く縦方向の速さ（px/秒）／burrowWobble＝プレイヤーの高さを追う時のふらつき（窓の枚数）／vibAmp＝サメに近い窓の震えの大きさ（px）／peekSpeed＝飛び出し始めの速さ／leapSpeed＝そのあと泳ぎ抜ける最高速／accT＝飛び出し始めから最高速まで加速する時間／leapDamage＝横切るサメに当たった時のダメージ／leapPause＝飛び込んでから次に潜って動き出すまでの間／stayT＝飛び出す前に、潜ったサメが止まる（その窓が揺れる）時間（秒）
@@ -9033,7 +9033,7 @@ class GameScene extends Phaser.Scene {
   // 🌀 ワープ攻撃：サメが姿を現し終えたら、足元にウィンドウを出す（プレイヤーに付いてくる）→ castT 秒後に、パターンの部屋の床を作って転送 → パターンの戦い → 終わったら元の場所へ戻って、床を壁に戻す。サメは潜ったまま動かない（'warp' モード）。
   _warpStart(S) {
     if (!this.player || !(this.dungeon && this.dungeon.glitchZone)) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; return; }
-    const W = GLITCH_WARP, pat = (GLITCH_TEST_WARP && W.patterns.includes(GLITCH_TEST_WARP)) ? GLITCH_TEST_WARP : W.patterns[Math.floor(Math.random() * W.patterns.length)];
+    const W = GLITCH_WARP, pats = this.glitchHard ? W.patterns.filter(k => k !== 'lounge') : W.patterns, pat = (GLITCH_TEST_WARP && pats.includes(GLITCH_TEST_WARP)) ? GLITCH_TEST_WARP : pats[Math.floor(Math.random() * pats.length)]; // 🟩 Glitch-Hardcore：行き先から交流ルーム（lounge）を除く
     S.mode = 'warp'; S.mt = 99; S.gw = { ph: 'win', t: 0, pat, back: null, ch: [], endT: null, x: this.player.x, y: this.player.y, A: null, tiles: [] };
     if (!this._gwG || !this._gwG.scene) this._gwG = this.add.graphics().setDepth(4.1); // プレイヤー(5)の下に出るウィンドウ
     if (!this._gwTxG || !this._gwTxG.scene) this._gwTxG = this.add.graphics().setDepth(3); // 転送先の飾り
@@ -9413,11 +9413,41 @@ class GameScene extends Phaser.Scene {
     }
     g.globalAlpha = 1;
   }
+  _ransomRelease(base) { // 🔓 操作反転が解けた瞬間：そのスティックの中心から、グリッチ（四角いノイズ）が外へブワーッと広がって、薄れて消える。解けたことが一目で分かるようにする（時間のスローは _ransomHud 側で _gSlowT を立てる）
+    const r = base ? base.getBoundingClientRect() : null; if (!r || r.width < 2) return;
+    const maxR = Math.min(520, Math.max(window.innerWidth, window.innerHeight) * 0.6), side = Math.round(maxR * 2), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const el = document.createElement('canvas'); el.width = side; el.height = side;
+    el.style.cssText = 'position:fixed;pointer-events:none;z-index:24;left:' + (cx - maxR) + 'px;top:' + (cy - maxR) + 'px;width:' + side + 'px;height:' + side + 'px;';
+    document.body.appendChild(el);
+    const g = el.getContext('2d'), R = Math.random, COL = ['#00ffff', '#ff00c8', '#ffffff', '#2aff5a', '#00ffff'], u = Math.max(3, side / 110), DUR = 900, t0 = performance.now(); let last = -1e9; // DUR＝広がって消えるまで(ミリ秒。実時間)
+    const step = (now) => {
+      if (!el.isConnected) return;
+      const k = Math.min(1, (now - t0) / DUR);
+      if (k >= 1) { try { el.remove(); } catch (err) { /* 消えていれば何もしない */ } return; }
+      if (now - last >= 50) { // 0.05秒ごとにブロックを入れ替える（ちらつき）
+        last = now; g.clearRect(0, 0, side, side);
+        const rf = maxR * (1 - Math.pow(1 - k, 2.2)), band = maxR * 0.4; // rf＝広がりの先端の半径（最初は速く、だんだん遅く）／band＝先端から内側へ、ブロックが出る幅
+        for (let i = 0; i < 90; i++) {
+          const an = R() * Math.PI * 2, rad = Math.max(0, rf - R() * band), sz = u * (1 + Math.floor(R() * 5)) * (R() < 0.12 ? 2 : 1);
+          const x = Math.round((maxR + Math.cos(an) * rad - sz / 2) / u) * u, y = Math.round((maxR + Math.sin(an) * rad - sz / 2) / u) * u;
+          g.globalAlpha = (1 - k) * (0.4 + R() * 0.6); g.fillStyle = COL[Math.floor(R() * COL.length)];
+          if (R() < 0.25) g.fillRect(x, y, sz * (3 + Math.floor(R() * 6)), Math.max(u, sz * 0.35)); // 横に伸びたブロック（走査線のずれ）
+          else g.fillRect(x, y, sz, sz);
+        }
+        g.globalAlpha = 1;
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
   _ransomHud() { // 武器ロック中・操作反転中だけ、画面上部に赤い警告を出す。スティックには、効果ごとの見た目をつける（ロック＝右スティックが壊れた見た目／反転＝そのスティックの周りにノイズ。同じスティックに両方かかれば、両方出る）
     const lock = this._ransomLock(), im = this._invMove(), ia = this._invAim(), inv = this._ransomT > 0, show = lock || inv;
     const ab = document.getElementById('aimJoystickBase'), mb = document.getElementById('joystickBase');
     if (lock !== this._ransomOn) { this._ransomOn = lock; if (ab) ab.classList.toggle('ransomGlitch', lock); } // 🔒 武器ロック：攻撃スティックが壊れたように乱れる
     if (ab) ab.classList.toggle('ransomInv', ia); if (mb) mb.classList.toggle('ransomInv', im); // 🔀 反転：スティックの枠が青白く光る
+    { const pv = this._rhPrev || {}, relM = !!pv.im && !im, relA = !!pv.ia && !ia; this._rhPrev = { im, ia }; // 🔓 反転が解けた瞬間：スロー＋スティックの周りからグリッチが広がる
+      if (relM) this._ransomRelease(mb); if (relA) this._ransomRelease(ab);
+      if ((relM || relA) && this.glitchBoss) this._gSlowT = 0.7; } // パリィの時と同じスロー（最も遅い状態から0.7秒かけて元の速さへ）
     this._stickNoise('mv', mb, im); this._stickNoise('aim', ab, ia); // 🔀 反転：周りにノイズ
     if (!!window.__aimInv !== ia) { window.__aimInv = ia; const av = window.aimVector; if (av && av.active) { av.x = -av.x; av.y = -av.y; } } // 攻撃スティックの入力の反転（入力の読み取り側 setupAimJoystick が見る）。引っ張ったまま切り替わっても、すぐ効く
     if (this._ransomTxt && this._ransomTxt.scene) this._ransomTxt.setVisible(false); // 赤い警告文（ロック／反転）は出さない
