@@ -31871,6 +31871,14 @@ class GameScene extends Phaser.Scene {
   glitchBsod() {
     if (this._bsodOn) return; this._bsodOn = true;
     this.transitioning = true; this.playerInvuln = 9999;
+    // 🟦 死んだ瞬間の画面エフェクト（カメラのフラッシュ・揺れ・フェード、赤い被弾の閃光、白黒反転）を消して、自分の姿が見える状態で固める。死んだ処理のあとに同じフレームの残りが動くことがあるので、少し後にも消し直す
+    const clearFx = () => {
+      try { const cam = this.cameras.main; cam.flashEffect.reset(); cam.fadeEffect.reset(); cam.shakeEffect.reset(); } catch (e) {}
+      try { const hf = document.getElementById('hitFlash'); if (hf) { clearTimeout(hf._hitFlashTimer); hf.style.transition = 'none'; hf.style.opacity = '0'; hf.style.display = 'none'; } } catch (e) {}
+      try { document.querySelectorAll('body > div').forEach(d => { if (d.style && d.style.mixBlendMode === 'difference') d.remove(); }); } catch (e) {}
+      try { this.player.setVisible(true).setAlpha(1); this.facing.setVisible(true).setAlpha(1); } catch (e) {}
+    };
+    clearFx(); setTimeout(clearFx, 80); setTimeout(clearFx, 300);
     try { this.sound.pauseAll(); const c = this.sound.context; if (c && c.suspend) c.suspend(); } catch (e) {} // 音も止める
     try { this.scene.pause(); } catch (e) {} // 画面を止める（最後の1コマのまま固まる）
     const stop = e => { e.stopImmediatePropagation(); }; // 固まっている間は、キー入力もゲームに届かない
@@ -31878,6 +31886,18 @@ class GameScene extends Phaser.Scene {
     const root = document.createElement('div'); root.id = 'glitchBsod';
     root.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:transparent;cursor:default;overflow:auto;'; // 最初の3秒は透明（画面は固まって見えるだけ。タップだけ防ぐ）
     document.body.appendChild(root);
+    let btn = null, downOnBtn = false, going = false;
+    const press = on => { if (!btn || going) return; btn.style.background = on ? '#fff' : 'transparent'; btn.style.color = on ? '#0078d7' : '#fff'; };
+    const go = () => { if (going) return; going = true; if (btn) { btn.textContent = 'Restarting...'; press(true); } location.reload(); };
+    // 🟦 青い画面の中のタップ・クリックは、いちばん手前（window の capture）で受ける。ポーズボタンの当たり判定など、ほかの処理に取られて反応しなくならないように、ゲームには渡さない。ボタンは押して離した時に戻る
+    ['pointerdown', 'touchstart', 'mousedown', 'pointerup', 'touchend', 'mouseup', 'click'].forEach(t => window.addEventListener(t, e => {
+      if (!root.contains(e.target)) return;
+      e.stopImmediatePropagation();
+      const onBtn = !!(btn && btn.contains(e.target));
+      if (t === 'pointerdown' || t === 'touchstart' || t === 'mousedown') { downOnBtn = onBtn; if (onBtn) press(true); return; }
+      if (t === 'click') { if (onBtn) go(); return; }
+      if (onBtn && downOnBtn) go(); else { downOnBtn = false; press(false); }
+    }, { capture: true, passive: true }));
     const code = this.glitchHard ? 'HARDCORE_HP_WAS_ONLY_1' : 'PLAYER_HP_REACHED_ZERO';
     setTimeout(() => {
       root.style.background = '#0078d7';
@@ -31886,11 +31906,10 @@ class GameScene extends Phaser.Scene {
         + '<div style="margin-top:4vh;font-size:3.4vh;line-height:1.5;">Your game ran into a problem and needs to restart.<br>We\'re just collecting some error info, and then we\'ll restart for you.</div>'
         + '<div id="bsodPct" style="margin-top:4vh;font-size:3.4vh;">0% complete</div>'
         + '<div style="margin-top:4vh;font-size:2vh;line-height:1.8;">If you call a support person, give them this info:<br>Stop code: <b>GLITCH_FATAL_EXCEPTION</b> (' + code + ')<br>What failed: <b>player_hp.sys</b><br>Details: The bug was not fixed. The bug fixed you.</div>'
-        + '<button id="bsodBtn" type="button" style="margin-top:5vh;padding:1.6vh 3.4vh;font-size:2.4vh;color:#fff;background:transparent;border:0.3vh solid #fff;font-family:inherit;cursor:pointer;">Restart (Return to Lobby)</button></div>';
-      const btn = root.querySelector('#bsodBtn');
+        + '<button id="bsodBtn" type="button" style="margin-top:5vh;padding:2.2vh 4.6vh;min-height:44px;font-size:2.8vh;color:#fff;background:transparent;border:0.3vh solid #fff;font-family:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">Restart (Return to Lobby)</button></div>';
+      btn = root.querySelector('#bsodBtn');
       btn.onmouseenter = () => { btn.style.background = '#fff'; btn.style.color = '#0078d7'; };
       btn.onmouseleave = () => { btn.style.background = 'transparent'; btn.style.color = '#fff'; };
-      btn.onclick = () => { location.reload(); };
       let pc = 0; const pe = root.querySelector('#bsodPct'); // 0% → 100% と数える（見た目だけ）
       const iv = setInterval(() => { pc = Math.min(100, pc + 1 + Math.floor(Math.random() * 4)); pe.textContent = pc + '% complete'; if (pc >= 100) clearInterval(iv); }, 90);
     }, 3000);
