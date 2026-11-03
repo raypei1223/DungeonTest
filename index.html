@@ -6075,6 +6075,7 @@ const GLITCH_FORK_TITLES = ['WARNING: VIRUS DETECTED', 'FATAL ERROR 0xDEAD', 'SY
 const GLITCH_RANSOM = { t: 30, castT: 1.6, aimP: 0.35, bothP: 0.2 }; // t＝反転の秒数／castT＝サメがその場で止まる秒数／aimP＝攻撃スティック（右）だけが反転する確率／bothP＝両方のスティックが反転する確率（残りは、移動スティック（左）だけ）
 // 🌀 ワープ：サメが姿を現したあと、プレイヤーの足元にウィンドウが出て（castT 秒）、最北戦線の発信機の上あたりへ転送される。そこでパターンごとの敵と戦い（今は 'chargers'＝円状に並んだチャージャーが突進）、終わったら（returnDelay 秒後）元の場所へ戻る。maxStay 秒たてば、何があっても戻す。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'warp'。
 //   パターンを増やす時：メソッドを4つ作って、patterns に名前を足す。 _gwPat_<名前>_room()（部屋の大きさ { w, h（マス。最大 zoneW×zoneH）, spawn:[x,y]（転送されてくる場所。部屋の左上からのマス）, tx:[x,y]（任意：飾りの位置） }）／_gwPat_<名前>_enter(S, A)（転送された直後に敵などを出す。A＝部屋の範囲と位置(px)）／_gwPat_<名前>_done(S, dt)（終わったら true）／_gwPat_<名前>_draw(A)（任意：飾りの絵。毎フレーム）。部屋の床は、転送する時に岩の領域(dungeon.glitchZone＝addGlitchWarpArena)へ作り、戻る時に壁へ戻す。
+const GLITCH_RUSH_VERT = { baseK: 7, vertK: 4 }; // 🦈 突進の速さの倍率（サメの泳ぐ速さ×この値）。横向き（左右）の突進は baseK のまま、縦向き（上下）に近いほど vertK に近づいて遅くなる（画面の縦が狭いと、上下からの突進に反応できないため）。縦を遅くしすぎたくない時は vertK を baseK に近づける
 const GLITCH_ULT = { gaugeRate: 0.75, atkPool: ['rush', 'combo', 'shoot'], invRate: 0.9 }; // 🌀 必殺技「ワープの常時発動」：パリィゲージ（古代魔法）がこの割合に達したら、サメが使い始める（グリッチ戦が終わるまで続く）。ワープ先は毎回かわり、サメもワープ先の部屋へ一緒に出てきて、フォークボム以外の技を並行して出す
 const GLITCH_WARP = {
   castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 84,
@@ -8084,8 +8085,9 @@ class GameScene extends Phaser.Scene {
 
     const warpDoor = (this._warpHut && dungeon.hut) ? dungeon.hut.door : null; // 🛠 テスト用：小屋の入り口に立って始める
     this._warpHut = false;
-    const px = (warpDoor ? warpDoor.x : dungeon.playerStart.x) * TILE + TILE / 2;
-    const py = (warpDoor ? warpDoor.y : dungeon.playerStart.y) * TILE + TILE / 2;
+    const _prp = (this.party && !this.lounge && window.__partyReturnPos) ? window.__partyReturnPos : null; window.__partyReturnPos = null; // 🟦 Glitch-Hardcoreで負けて戻ってきた時：パーティールームの、入口に入る前にいた位置から始める
+    const px = _prp ? _prp.x : (warpDoor ? warpDoor.x : dungeon.playerStart.x) * TILE + TILE / 2;
+    const py = _prp ? _prp.y : (warpDoor ? warpDoor.y : dungeon.playerStart.y) * TILE + TILE / 2;
     this.player = this.add.circle(px, py, TILE * 0.32, this.playerColor);
     this.player.setStrokeStyle(2, 0xffffff, 1);
     this.player.setDepth(5);
@@ -8899,7 +8901,7 @@ class GameScene extends Phaser.Scene {
       } else
       if (!S.rushBack) {
       if (plOk && (!S.rushFixed || Math.abs(wrap(Math.atan2(plr.y - S.y, plr.x - S.x) - S.a)) < Math.PI / 2)) { const want = Math.atan2(plr.y - S.y, plr.x - S.x), tn = S.rushFixed ? GLITCH_SHELL.homeTurn : S.turn * 1.5, d = wrap(want - S.a), step = Math.max(-tn * dt, Math.min(tn * dt, d)); S.a += step; S.bend += (Math.max(-1, Math.min(1, step / (tn * dt || 1))) - S.bend) * Math.min(1, dt * 3.5); }
-      const tv = S.speed * (S.rushFixed ? GLITCH_SHELL.dashK : 7) * (0.9 + 0.1 * Math.cos(S.ph * 2)) * (1 - 0.25 * Math.abs(S.bend)); S.v += (tv - S.v) * Math.min(1, dt * 6);
+      const tv = S.speed * (S.rushFixed ? GLITCH_SHELL.dashK : GLITCH_RUSH_VERT.baseK + (GLITCH_RUSH_VERT.vertK - GLITCH_RUSH_VERT.baseK) * Math.abs(Math.sin(S.a))) * (0.9 + 0.1 * Math.cos(S.ph * 2)) * (1 - 0.25 * Math.abs(S.bend)); S.v += (tv - S.v) * Math.min(1, dt * 6);
       S.ph += dt * Math.PI * 2 * S.beat * 3.2;
       S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
       }
@@ -8988,7 +8990,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     // --- 🦈 体の当たり判定：体が出ていて低い間は、体に重なれない（押し出される）／飛びかかり中に頭に当たると噛まれる ---
     if (plOk && S.dive < 0.4) {
       const pl = this.player, pr = pl.radius, zz = S.z || 0;
-      if (zz < TILE * 0.6 * S.sc && S.mode !== 'grab') for (let pass = 0; pass < 2; pass++) for (let i = 0; i <= N; i++) {
+      if (zz < TILE * 0.6 * S.sc && S.mode !== 'grab' && !S.ult) for (let pass = 0; pass < 2; pass++) for (let i = 0; i <= N; i++) {
         const q = shp.sp[i], qy = q.y + zz, rr = shp.hw[i] * 0.95 + pr; let ddx = pl.x - q.x, ddy = pl.y - qy, dd = Math.hypot(ddx, ddy);
         if (dd >= rr) continue;
         if (dd < 0.001) { ddx = shp.nn[i].x; ddy = shp.nn[i].y; dd = 1; }
@@ -27333,10 +27335,11 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     for (const q of body) { const f = Math.max(0, Math.min(1, (q.s - s.S0) / span)); q.w = (s.kind === 'root' ? W * ((s.cfg.taperMin != null ? s.cfg.taperMin : 0.2) + (1 - (s.cfg.taperMin != null ? s.cfg.taperMin : 0.2)) * Math.pow(1 - f, 0.7)) : W * (0.12 + 0.88 * Math.pow(f, 0.7))) * s.fade; }
     return body;
   }
-  updateDemonShadows(dt) {
+  updateDemonShadows(dt0) {
     const list = this.demonShadows;
     if (!list || !list.length) return;
     for (const s of list) {
+      const dt = s.mine ? dt0 : dt0 * (this._gTs || 1); // 🐌 グリッチ戦：パリィ後のスローは、悪魔の根（影）にも掛かる（プレイヤーの根 mine は、そのまま）
       const sh = s.cfg;
       if (!s.mine && !s.owner._endingStub && (s.owner.hp <= 0 || s.owner._removed || !this.enemies.includes(s.owner))) { s.dead = true; continue; } // 悪魔が倒れた・階が変わった（プレイヤーの根 mine は持ち主がいない）
       if (s.godFade != null) { s.godFade -= dt / GOD_SPACE.freezeFade; if (s.godFade <= 0) { s.dead = true; continue; } s.gfx.setAlpha(s.godFade); continue; } // 🌌 エンディング：宇宙が広がり始めたら、伸びるのをやめて、薄くなって消える
@@ -28797,15 +28800,15 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
 
     this.updateProjectiles(this._clkOn || this._godTimeStop ? 0 : dt); // 🕒 時が止まっている間は自分の弾も止まる
     this.updateRemoteProjectiles(this._clkOn || this._godTimeStop ? 0 : dt); // 🕒 他プレイヤーの弾も止まる
-    this.updateEnemyProjectiles(this._clkOn || this._godTimeStop ? 0 : dt); // 🕒 敵の弾も止まる
+    this.updateEnemyProjectiles(this._clkOn || this._godTimeStop ? 0 : dt * (this._gTs || 1)); // 🕒 敵の弾も止まる // 🐌 パリィ後のスローで、敵の弾も遅くなる
     this.updateDemonShadows(this._clkOn ? 0 : dt); // 😈 悪魔の影（時が止まっている間は止まる）
     this.updateDemonWings(this._clkOn || this._godTimeStop ? 0 : dt); // 😈 悪魔の翼（プレイヤーの背中の根）
-    this.updateDemonSeeds(this._clkOn || this._godTimeStop ? 0 : dt); // 😈 壁の種
+    this.updateDemonSeeds(this._clkOn || this._godTimeStop ? 0 : dt * (this._gTs || 1)); // 😈 壁の種
     this._endingTestStart(); // 🛠 エンディングのテスト：聖域へ入り、神の最後の台詞から
     this._endingHud(); // エンディング演出中は、左上のパネルを隠す
     this._endingLockInput(); // エンディング演出中は、ずっと操作を受けつけない
     this._endingUpdate(dt); // エンディング演出（天使を止める・翼を大きくする）
-    this.updateArms4Atk(dt); // 四つ腕の攻撃（調伏の儀）
+    this.updateArms4Atk(dt * (this._gTs || 1)); // 四つ腕の攻撃（調伏の儀）
     if (this.bossRush || this.frontline || this.bossFloor || this._bossUiGroup) this.updateBossBar(); // ボスのバーが出ていれば更新（通常ダンジョンの調伏の儀もここ）
     this.updateBombs(this._clkOn || this._godTimeStop ? 0 : dt); // 🕒 時が止まっている間は、爆弾も動かず導火線も進まない
     this.updateTraps(dt);
@@ -28944,6 +28947,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       }
     }
     this.guestSnakeFollow(); // 協力プレイの参加側：ウロボロスの胴体を、頭が通った道に沿って並べる
+    const edt = dt * (this._gTs || 1); // 🐌 グリッチ戦：パリィ後のスローは、雑魚モンスターにも掛かる
     for (const e of this.enemies) {
       if (e._pvp) continue; // PvP用の見えない敵：AI・接触ダメージなし
       // _enemySnapshotSeen が false ということは「本物のホストから一度もデータを
@@ -29024,9 +29028,9 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
             // 自分がついさっきこの敵を殴った直後で、まだホストからの確定を受け取って
             // いない間だけ、ホストと同じノックバック物理をこちら側でも走らせて
             // 見た目を先に動かしておく（体感の遅延を消すための予測）。
-            e._predOffX += (e._predKbX || 0) * dt;
-            e._predOffY += (e._predKbY || 0) * dt;
-            const decay = Math.max(0, 1 - dt * 8);
+            e._predOffX += (e._predKbX || 0) * edt;
+            e._predOffY += (e._predKbY || 0) * edt;
+            const decay = Math.max(0, 1 - edt * 8);
             e._predKbX = (e._predKbX || 0) * decay;
             e._predKbY = (e._predKbY || 0) * decay;
             predX += e._predOffX;
@@ -29036,7 +29040,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
             if (Math.abs(e._predKbX) < 1 && Math.abs(e._predKbY) < 1) e._predicting = false;
           }
           e._wingRemote = snap.wh || null; // 悪魔の翼に掴まれているか（掴んでいる人のID）
-          const k = expSmooth(dt, 0.05);
+          const k = expSmooth(edt, 0.05);
           if (!e._a4Held && !e._wingBy && !this.guestSnakeFollowing(e)) { // ウロボロスの胴体は、頭をなぞる位置を guestSnakeFollow が決める（天使に掴まれている間は演出が位置を決める）
             e.gfx.x = Phaser.Math.Linear(e.gfx.x, predX, k);
             e.gfx.y = Phaser.Math.Linear(e.gfx.y, predY, k);
@@ -29059,7 +29063,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
           // シマハル：黒い星・ビーム・クロスビーム・突進前の点滅の見た目を、スナップショットの
           // 位置/タイミング情報から再現する（状態が変わらないフレームでも毎回呼ぶ必要がある：
           // 点滅のon/off・ビームの振動などは同じ状態のまま値だけ変わり続けるため）。
-          if (e.type.behavior === 'boss_simahar') this.updateSimaharGuestFx(e, snap, dt);
+          if (e.type.behavior === 'boss_simahar') this.updateSimaharGuestFx(e, snap, edt);
         }
       } else {
         // このブロック（ホスト、または一人プレイ）だけが実際にAIを動かすので、
@@ -29090,14 +29094,14 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
         }
         if (this.frontline || bossAll || pd <= AI_ACTIVE_RADIUS || cloakD <= AI_ACTIVE_RADIUS) { // 最北戦線は廊下の奥の敵も止めずに歩かせる
           const pa = target ? Phaser.Math.Angle.Between(e.gfx.x, e.gfx.y, target.x, target.y) : 0;
-          this.updateEnemy(e, dt, pd, pa, !target, target);
+          this.updateEnemy(e, edt, pd, pa, !target, target);
         }
       }
 
       if (e.type.snake) this.updateSnakeDoomText(e); // スネーク：先頭が倒された後のカウントダウンの文字
-      e.hitCooldown = Math.max(0, e.hitCooldown - dt);
+      e.hitCooldown = Math.max(0, e.hitCooldown - edt);
       if (e.trapStunTimer > 0) {
-        e.trapStunTimer -= dt;
+        e.trapStunTimer -= edt;
         // 拘束が切れた瞬間から、脆弱化時間（ボーナスダメージ）と拘束無効時間（再拘束されない・
         // 4秒）を別々に数え始める
         if (e.trapStunTimer <= 0) {
@@ -29105,13 +29109,13 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
           e.trapImmuneTimer = TRAP_STUN_IMMUNE_SEC;
         }
       } else {
-        if (e.trapVulnTimer > 0) e.trapVulnTimer -= dt;
-        if (e.trapImmuneTimer > 0) e.trapImmuneTimer -= dt;
+        if (e.trapVulnTimer > 0) e.trapVulnTimer -= edt;
+        if (e.trapImmuneTimer > 0) e.trapImmuneTimer -= edt;
       }
       // 味方への接触ダメージ。自分のHPと同じく、自分の画面で見えている敵の位置を使って
       // 持ち主の画面で判定する（協力プレイでもソロと同じ動き）。
       if (this.allies.length && !e._introAnim && !e.type.noContactDamage && e.state !== 'mimicSleep' && !this.isEnemyFrozen(e)) {
-        e.allyHitCooldown = Math.max(0, (e.allyHitCooldown || 0) - dt);
+        e.allyHitCooldown = Math.max(0, (e.allyHitCooldown || 0) - edt);
         if (e.allyHitCooldown <= 0) {
           for (const a of this.allies) {
             if (a.dead || a.spawnDelay > 0) continue;
@@ -30161,6 +30165,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   }
   async _partyLeave(toHero) { // 下の扉：部屋から出てロビーへ（退出ボタンと同じ処理。Firebaseからの削除が終わるのを待ってから、読み込み直す）
     if (this._partyLeaving) return; this._partyLeaving = true;
+    if (toHero === 'glitch' && this.player) { try { sessionStorage.setItem('zk_party_ret', JSON.stringify({ x: this.player.x, y: this.player.y })); } catch (e) {} } // 🟦 負けた時に、この位置のパーティールームへ戻すために覚えておく
     this.showBanner(toHero === 'glitch' ? 'Glitch-Hardcoreへ…' : toHero ? '主人公のいるボス部屋へ…' : '退出中…', 3000);
     window.removeEventListener('pagehide', this._onPageHide); // 二重に退出処理が走らないように
     const others = Object.keys(this.latestPlayers || {}).filter(uid => uid !== this.net.uid);
@@ -32008,9 +32013,10 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     const root = document.createElement('div'); root.id = 'glitchBsod';
     root.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:transparent;cursor:default;overflow:auto;'; // 最初の3秒は透明（画面は固まって見えるだけ。タップだけ防ぐ）
     document.body.appendChild(root);
+    let backToParty = false; try { backToParty = !!this.glitchHard && !!sessionStorage.getItem('zk_party_ret'); } catch (e) {} // 🟩 Glitch-Hardcoreで負けた時だけ、再開するとパーティールームの元の位置へ戻る
     let btn = null, downOnBtn = false, going = false;
     const press = on => { if (!btn || going) return; btn.style.background = on ? '#fff' : 'transparent'; btn.style.color = on ? '#0078d7' : '#fff'; };
-    const go = () => { if (going) return; going = true; if (btn) { btn.textContent = 'Restarting...'; press(true); } location.reload(); };
+    const go = () => { if (going) return; going = true; if (btn) { btn.textContent = 'Restarting...'; press(true); } if (backToParty) { try { sessionStorage.setItem('zk_party_back', '1'); } catch (e) {} } location.reload(); };
     // 🟦 青い画面の中のタップ・クリックは、いちばん手前（window の capture）で受ける。ポーズボタンの当たり判定など、ほかの処理に取られて反応しなくならないように、ゲームには渡さない。ボタンは押して離した時に戻る
     ['pointerdown', 'touchstart', 'mousedown', 'pointerup', 'touchend', 'mouseup', 'click'].forEach(t => window.addEventListener(t, e => {
       if (!root.contains(e.target)) return;
@@ -32029,7 +32035,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
         + '<div style="margin-top:4vh;font-size:3.4vh;line-height:1.5;">Your game ran into a problem and needs to restart.<br>We\'re just collecting some error info, and then we\'ll restart for you.</div>'
         + '<div id="bsodPct" style="margin-top:4vh;font-size:3.4vh;">0% complete</div>'
         + '<div style="margin-top:4vh;font-size:2vh;line-height:1.8;">If you call a support person, give them this info:<br>Stop code: <b>GLITCH_FATAL_EXCEPTION</b>' + code + '<br>What failed: <b>player_hp.sys</b><br>Details: The bug was not fixed. The bug fixed you.</div>'
-        + '<button id="bsodBtn" type="button" style="margin-top:5vh;padding:2.2vh 4.6vh;min-height:44px;font-size:2.8vh;color:#fff;background:transparent;border:0.3vh solid #fff;font-family:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">Restart (Return to Lobby)</button></div>';
+        + '<button id="bsodBtn" type="button" style="margin-top:5vh;padding:2.2vh 4.6vh;min-height:44px;font-size:2.8vh;color:#fff;background:transparent;border:0.3vh solid #fff;font-family:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">' + (backToParty ? 'Restart (Return to Party Room)' : 'Restart (Return to Lobby)') + '</button></div>';
       btn = root.querySelector('#bsodBtn');
       btn.onmouseenter = () => { btn.style.background = '#fff'; btn.style.color = '#0078d7'; };
       btn.onmouseleave = () => { btn.style.background = 'transparent'; btn.style.color = '#fff'; };
@@ -36220,6 +36226,14 @@ if (DEBUG_URL.test) ['pvpTestBtn', 'hutWarpBtn', 'endingTestBtn', 'endingFullTes
   let go = false; try { go = sessionStorage.getItem('zk_glitch_hc') === '1'; sessionStorage.removeItem('zk_glitch_hc'); } catch (e) {}
   if (!go) return;
   setTimeout(() => { try { startGame('solo', { bossRush: true, weaponKey: 'ancient', glitchBoss: true, glitchHard: true }); } catch (err) { console.error('Glitch-Hardcoreを始められませんでした:', err); } }, 0);
+})();
+// 🟦 Glitch-Hardcoreで負けて、ブルースクリーンの再開ボタンから来た：ロビーを出てすぐパーティールームへ。入口に入る前にいた位置から始める
+(function () {
+  let pos = null;
+  try { if (sessionStorage.getItem('zk_party_back') === '1') { sessionStorage.removeItem('zk_party_back'); pos = JSON.parse(sessionStorage.getItem('zk_party_ret') || 'null'); } } catch (e) { pos = null; }
+  if (!pos || !isFinite(pos.x) || !isFinite(pos.y)) return;
+  window.__partyReturnPos = { x: pos.x, y: pos.y };
+  setTimeout(() => { try { enterPartyRoom(false); } catch (err) { console.error('パーティールームへ戻れませんでした:', err); } }, 0);
 })();
 </script>
 </body>
