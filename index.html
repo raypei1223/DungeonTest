@@ -4164,6 +4164,7 @@ const VS_HERO = { // ⚔ 斬り合いの調整値
   moveSmooth: 0.05         // 動き出し・止まりのなめらかさ（秒。0＝すぐ最高速／止まる。大きいほどぬるっと動く）
 };
 const PARTY_PORTAL_HERO = { i: -4, portal: true, hero: true, x: 320, y: 118 }; // ⚔ 斬り合いへの入口（入るとボス部屋へ飛ぶ。装飾品は全部持っていけない）
+const PARTY_PORTAL_GLITCH = { i: -8, portal: true, glitch: true, x: 440, y: 118 }; // 🟩 Glitch-Hardcore への入口（パーティールーム）：グリッチ戦とほぼ同じ。違いは、HPが常に1／シールドが自分の前の1枚だけ／倒すと称号 ERR_404
 const PARTY_PORTAL_LGRASS = { i: -5, portal: true, lgrass: true, x: 280, y: 118 }; // 💬 交流ルーム：🌿 草原（ホラーの影が出ない。何も起こらない）
 const PARTY_PORTAL_LDUNGEON = { i: -6, portal: true, ldungeon: true, x: 360, y: 118 }; // 💬 交流ルーム：🕳 ダンジョン（ホラーで影に追いつかれてワープした直後から始まる）
 const PARTY_PORTAL_LSTAIRS = { i: -7, portal: true, lstairs: true, x: 200, y: 118 }; // 💬 交流ルーム：🪜 階段（無限に続く暗い階段を上っていく。踊り場ごとに階数の数字とドアがある）
@@ -6256,7 +6257,7 @@ const PLAYER_TITLES = [
   { key: 'gale',         name: '疾風',       color: '#5fe3a1', desc: '10階層を2分以内にクリアする（悪魔装飾・ルーレットなし）' }, // シードは問わない（固定シードでも、ランダムでも取れる）
   { key: 'soulslash',    name: '離魂斬り',   color: '#ffffff', outline: '#ff2030', desc: '斬り合いで主人公を倒す' }, // 白い字＋赤いふち（主人公の赤い目の色）
   { key: 'debugger',     name: 'Debugger',   color: '#c8ffd6', outline: '#2aff5a', desc: 'グリッチを倒す' }, // 床に浮かぶ文字（グリッチの緑の光る文字）と同じ感じ：明るい緑がかった白い字＋緑のふち・光
-  { key: 'err404',       name: 'ERR_404',    color: '#c8ffd6', outline: '#2aff5a', glitch: true, desc: '準備中' }, // 🟩 入手処理は準備中（どこからも付与しない）。glitch: true＝名前にグリッチの見た目（色ずれ・ちらつき・文字化け）が付く
+  { key: 'err404',       name: 'ERR_404',    color: '#c8ffd6', outline: '#2aff5a', glitch: true, desc: 'Glitch-Hardcoreでグリッチを倒す' }, // 🟩 パーティールームの Glitch-Hardcore でグリッチを倒すと付与。glitch: true＝名前にグリッチの見た目（色ずれ・ちらつき・文字化け）が付く
 ];
 function playerTitleByKey(k) { return (typeof k === 'string' && PLAYER_TITLES.find(t => t.key === k)) || null; }
 // 称号の光（text-shadow用）：他の称号と同じ1重の光。色は、outline があればそれ、無ければ color
@@ -6877,7 +6878,7 @@ class GameScene extends Phaser.Scene {
       app.hellTest = false;
       if (!this.mp && !this.pvp && !this.frontline && !this.bossRush) { this.hell = true; this._hellDest = this.floor; this._hellT0 = performance.now(); }
     }
-    this.glitchBoss = !this.mp && !!app.bossRush && !!app.glitchBoss; this._glitchWon = false; this._tsarSlow = false; // 📺 グリッチのボスの挑戦（装飾品なし。倒すとリザルト）
+    this.glitchBoss = !this.mp && !!app.bossRush && !!app.glitchBoss; this.glitchHard = this.glitchBoss && !!app.glitchHard; /* 🟩 Glitch-Hardcore：HPが常に1／シールドは前の1枚だけ／称号は ERR_404 */ this._glitchWon = false; this._tsarSlow = false; // 📺 グリッチのボスの挑戦（装飾品なし。倒すとリザルト）
     this.rushWeaponKey = ((!this.mp && (app.bossRush || app.arms4Ritual || app.vsHero)) || app.frontline || app.pvp) ? (app.rushWeaponKey || null) : null;
     // ボスラッシュでは選んだ武器のLv.5でスタートする（デベロッパーモードの開始武器と同じ仕組みを流用）
     this.devWeaponKey = this.rushWeaponKey || app.devWeaponKey || null;
@@ -6892,7 +6893,7 @@ class GameScene extends Phaser.Scene {
     this.arms4Ritual = !this.mp && !!app.arms4Ritual; this._endingRun = this.arms4Ritual && !!app.endingRitual; this._endingT = 0; this._wingBigT = -1; this._ritualWon = false; // 【期間限定】四つ腕の調伏の儀
     this.devWeaponLevel = this.arms4Ritual ? ((Object.values(SUMMON2.skills).find(k => k && k.key === 'arms4') || {}).minLevel || 8) : (app.devWeaponLevel || null); // デベロッパーモードで指定した開始時の武器レベル（create()で使う）。四つ腕の調伏の儀は、挑めるLvで始める
     this.isDevMode = !!app.devMode; // リザルト画面の表示切り替え用（デベロッパーモードで遊んだかどうか）
-    this.playerMaxHp = Math.round(100 * (this.accKey === 'armor' ? ACC_ARMOR.maxHpMult : 1)); // 🪖 鎧：最大HPが2倍
+    this.playerMaxHp = this.glitchHard ? 1 : Math.round(100 * (this.accKey === 'armor' ? ACC_ARMOR.maxHpMult : 1)); // 🪖 鎧：最大HPが2倍／🟩 Glitch-Hardcore：最大HPは常に1
     this.playerHp = this.playerMaxHp;
     this.transitioning = false;
 
@@ -17279,7 +17280,7 @@ class GameScene extends Phaser.Scene {
   // 🛡 古代魔法：スティック（PCではマウス）を離すと、輝きながら一瞬だけ魔法のシールド（白い半透明の六角形の集まり）がその向きに張られる。シールドの跡は、その場に残像として残る
   _ancientHexes(px, py, a) { // 自分を覆う六角形1枚（一辺が向きaを向く。見た目だけでパリィ判定なし）＋その前の辺と、両隣の辺に隣接する3枚（計4枚。パリィ判定はこの3枚）
     const r = 16, d = Math.sqrt(3) * r, out = [{ x: px, y: py, r }];
-    for (const k of [-1, 0, 1]) { const an = a + k * Math.PI / 3; out.push({ x: px + Math.cos(an) * d, y: py + Math.sin(an) * d, r }); } // 辺の中点の向き＝向きa、a±60°
+    for (const k of (this.glitchHard ? [0] : [-1, 0, 1])) { const an = a + k * Math.PI / 3; /* 🟩 Glitch-Hardcore：自分の前の1枚だけ */ out.push({ x: px + Math.cos(an) * d, y: py + Math.sin(an) * d, r }); } // 辺の中点の向き＝向きa、a±60°
     return out;
   }
   _ancientCol(fr) { // 🎨 パリィゲージの溜まり具合（0〜1）から、シールドの色を式で計算する（段階ではなく連続したグラデーション）。水色 → 緑 → 青紫 → 黒っぽい紫。返り値：f＝六角形の塗り、s＝輪郭、o＝外のにじむ光
@@ -29895,6 +29896,7 @@ class GameScene extends Phaser.Scene {
     if (this.lounge) { tx(PARTY_PORTAL_LGRASS.x, 119, '🌿', 14, '#ffffff'); tx(PARTY_PORTAL_LGRASS.x, 151, '草原', 11, '#ffffff', { c: '#2f7a49', w: 3 }); tx(PARTY_PORTAL_LDUNGEON.x, 119, '🕳', 14, '#ffffff'); tx(PARTY_PORTAL_LDUNGEON.x, 151, 'ダンジョン', 11, '#ffffff', { c: '#4a3a7a', w: 3 }); tx(PARTY_PORTAL_LSTAIRS.x, 119, '🪜', 14, '#ffffff'); tx(PARTY_PORTAL_LSTAIRS.x, 151, '階段', 11, '#ffffff', { c: '#8a5a2a', w: 3 }); } // 💬 交流ルーム：草原とダンジョンの2つの入口（斬り合いの入口はない）
     if (this.lounge) { tx(PARTY_PORTAL_SOCIAL.x, 119, '🎙', 14, '#ffffff'); tx(PARTY_PORTAL_SOCIAL.x, 151, '交流ルーム', 11, '#ffffff', { c: '#2f5f9a', w: 3 }); } // パーティールームには、ホラーと交流ルームの入口はない（斬り合いだけ）
     if (!this.lounge) { const dis = !!PARTY_PORTAL_HERO.disabled; tx(PARTY_PORTAL_HERO.x, 119, '⚔', 14, '#ffffff').setAlpha(dis ? 0.5 : 1); tx(PARTY_PORTAL_HERO.x, 151, '斬り合い', 11, dis ? '#dddddd' : '#ffffff', { c: dis ? '#555555' : '#9a2f2f', w: 3 }); if (dis) tx(PARTY_PORTAL_HERO.x, 164, '準備中', 10, '#dddddd', { c: '#555555', w: 3 }); }
+    if (!this.lounge) { tx(PARTY_PORTAL_GLITCH.x, 119, '⚠', 14, '#ffffff'); this._partyGlTx = tx(PARTY_PORTAL_GLITCH.x, 151, 'Glitch-Hardcore', 11, '#c8ffd6', { c: '#0a5a1a', w: 3 }); this._partyGlTxS = 'Glitch-Hardcore'; } // 🟩 Glitch-Hardcore の看板（文字は _drawParty でちらつく）
     this.player.x += (Math.random() - 0.5) * 80; // 同時に入った人と重ならないように
     if (!this.lounge) this._partyLoadMemos(); // 💬 交流ルームには、メモがない
     this.events.once('shutdown', () => { const pb = document.getElementById('partyPrompt'); if (pb) pb.remove(); });
@@ -29916,6 +29918,21 @@ class GameScene extends Phaser.Scene {
       g.fillStyle(hsl(i * 67 + 10, 0.45, 0.66), 1); g.fillEllipse(bx, y, 22, 28); g.fillStyle(0xffffff, 0.5); g.fillEllipse(bx - 4, y - 5, 5, 8);
     });
     for (const PP of this._partyPortals()) { // 🌿 草原（緑）／🎙 みんなの広場（水色）／⚔ 斬り合い（赤）への入口：光る扉
+      if (PP.glitch) { // 🟩 Glitch-Hardcore：ノイズで崩れた、バグったような扉（赤紫と水色にずれて、ときどき横にずれる／横線のノイズ／ブロックのちらつき）
+        const gx = PP.x, gy = PP.y, fl = Math.floor(t * 12), hs = n => (((n * 2654435761) >>> 0) % 1000) / 1000, jit = hs(fl) < 0.25 ? (hs(fl + 7) - 0.5) * 8 : 0;
+        g.fillStyle(0x2aff5a, 0.16 + 0.1 * Math.sin(t * 9)); g.fillCircle(gx, gy, 27);
+        g.fillStyle(0xff2a6a, 0.8); g.fillEllipse(gx - 3 + jit, gy, 30, 40);
+        g.fillStyle(0x2ae6ff, 0.8); g.fillEllipse(gx + 3 - jit, gy, 30, 40);
+        g.fillStyle(0x0a0a10, 1); g.fillEllipse(gx, gy, 26, 36);
+        g.fillStyle(0x2aff5a, 1); for (let k = 0; k < 6; k++) { const by = gy - 16 + hs(fl * 7 + k) * 32, bw = 6 + hs(fl * 3 + k * 5) * 16, bx = gx - 12 + hs(fl * 11 + k * 3) * 14 + jit; g.fillRect(bx, by, bw, 2); }
+        for (let k = 0; k < 4; k++) { g.fillStyle(hs(fl * 5 + k) < 0.5 ? 0xffffff : 0xff2a6a, 0.9); g.fillRect(gx - 14 + hs(fl * 13 + k) * 24, gy - 18 + hs(fl * 17 + k * 3) * 34, 4, 4); }
+        if (this._partyGlTx && this._partyGlTx.scene) { // 看板の文字も、ときどきずれて・色が変わって・文字化けする
+          const gs = hs(fl + 11) < 0.1 ? 'G1itch-H@rdc0re' : 'Glitch-Hardcore'; if (gs !== this._partyGlTxS) { this._partyGlTxS = gs; this._partyGlTx.setText(gs); }
+          this._partyGlTx.x = gx + (hs(fl + 3) < 0.2 ? (hs(fl + 9) - 0.5) * 6 : 0); this._partyGlTx.setColor(hs(fl + 5) < 0.15 ? '#ff2a6a' : '#c8ffd6');
+        }
+        if (tg === PP) { g.lineStyle(2, 0xffffff, 1); g.strokeEllipse(gx, gy, 38, 48); }
+        continue;
+      }
       const hero = !!PP.hero, soc = !!PP.social, dis = !!PP.disabled, px = PP.x, py = PP.y, gl = dis ? 0.4 : 0.55 + 0.25 * Math.sin(t * 3); // dis＝準備中（灰色で、光らない）
       g.fillStyle(dis ? 0xb0b0b0 : hero ? 0xff8a8a : soc ? 0x78b8ff : PP.ldungeon ? 0xa888e8 : PP.lstairs ? 0xf0b868 : 0x78dc8c, 0.28 * gl); g.fillCircle(px, py, 27); g.fillStyle(dis ? 0x808080 : hero ? 0xce4a4a : soc ? 0x4f86ce : PP.ldungeon ? 0x6a4fae : PP.lstairs ? 0xb87a30 : 0x4fae6a, 1); g.fillEllipse(px, py, 30, 40); g.fillStyle(dis ? 0xc8c8c8 : hero ? 0xffd0d0 : soc ? 0xc9e2ff : PP.ldungeon ? 0xd8c9f2 : PP.lstairs ? 0xf8e6c4 : 0xc9f2cf, 1); g.fillEllipse(px, py, 20, 30);
       if (!dis) for (let k = 0; k < 5; k++) { const a = t * 1.6 + k * 1.26; g.fillStyle(0xffffff, 0.85); g.fillRect(px + Math.cos(a) * 21 - 1.5, py + Math.sin(a) * 25 - 1.5, 3, 3); }
@@ -29948,7 +29965,7 @@ class GameScene extends Phaser.Scene {
       c.fillStyle(hsl(hash(i + 3) % 360, 0.5, 0.66), 1); c.fillRect(x, y, 4, 3);
     }
   }
-  _partyPortals() { return this.lounge ? [PARTY_PORTAL_LGRASS, PARTY_PORTAL_LDUNGEON, PARTY_PORTAL_LSTAIRS, PARTY_PORTAL_SOCIAL] : [PARTY_PORTAL_HERO]; } // 入口の一覧（交流ルームは、斬り合いがなく、ホラーが「草原」「ダンジョン」に分かれる）
+  _partyPortals() { return this.lounge ? [PARTY_PORTAL_LGRASS, PARTY_PORTAL_LDUNGEON, PARTY_PORTAL_LSTAIRS, PARTY_PORTAL_SOCIAL] : [PARTY_PORTAL_HERO, PARTY_PORTAL_GLITCH]; } // 入口の一覧（交流ルームは、斬り合いがなく、ホラーが「草原」「ダンジョン」に分かれる）
   _updateParty(t) {
     if (!this._partyFx || !this._partyFx.scene || !this.player) return;
     const p = this.player;
@@ -29967,7 +29984,7 @@ class GameScene extends Phaser.Scene {
         pb.addEventListener('pointerdown', go); pb.addEventListener('touchstart', go, { passive: false });
         document.body.appendChild(pb);
       }
-      const label = (tg.portal ? (tg.hero ? '⚔ 主人公と戦う' : tg.social ? '🎙 交流ルームへ行く' : tg.lgrass ? '🌿 草原へ行く' : tg.ldungeon ? '🕳 ダンジョンへ行く' : tg.lstairs ? '🪜 階段へ行く' : 'ホラーへ行く') : tg.stat ? '黒いメモを読む' : '🔍 メモを読む') + (IS_TOUCH_DEVICE ? '' : '  [E]');
+      const label = (tg.portal ? (tg.hero ? '⚔ 主人公と戦う' : tg.glitch ? '⚠ Glitch-Hardcoreへ挑む' : tg.social ? '🎙 交流ルームへ行く' : tg.lgrass ? '🌿 草原へ行く' : tg.ldungeon ? '🕳 ダンジョンへ行く' : tg.lstairs ? '🪜 階段へ行く' : 'ホラーへ行く') : tg.stat ? '黒いメモを読む' : '🔍 メモを読む') + (IS_TOUCH_DEVICE ? '' : '  [E]');
       if (pb.textContent !== label) pb.textContent = label;
       pb._scene = this; pb.style.display = 'block';
       if (this._partyKey && Phaser.Input.Keyboard.JustDown(this._partyKey)) this._partyAct();
@@ -29978,6 +29995,7 @@ class GameScene extends Phaser.Scene {
     const tg = this._partyTarget; if (!tg || tg.disabled || this._hutReading || this._partyLeaving) return;
     const pb = document.getElementById('partyPrompt'); if (pb) pb.style.display = 'none';
     if (tg.hero) { this._partyLeave(true); return; } // ⚔ 斬り合い：部屋を出て、ボス部屋へ
+    if (tg.glitch) { this._partyLeave('glitch'); return; } // 🟩 Glitch-Hardcore：部屋を出て、グリッチ戦へ
     if (tg.portal) { // 🌿 草原（3D）へ。入っている間は、この画面を止める（小屋の本を読んでいる間と同じ）
       this._hutReading = true;
       try { const back = () => { this._hutReading = false; }; if (tg.social) openPartyHall(back, { net: this.net, scene: this }); else if (tg.lstairs) openStairs(back, { net: this.net, scene: this }); else if (tg.ldungeon) openDungeon(back, { net: this.net, scene: this }); else openGrassland(back, { net: this.net, scene: this, noHorror: !!tg.lgrass }); } catch (err) { console.error('草原を開けませんでした:', err); this._hutReading = false; }
@@ -30021,11 +30039,12 @@ class GameScene extends Phaser.Scene {
   }
   async _partyLeave(toHero) { // 下の扉：部屋から出てロビーへ（退出ボタンと同じ処理。Firebaseからの削除が終わるのを待ってから、読み込み直す）
     if (this._partyLeaving) return; this._partyLeaving = true;
-    this.showBanner(toHero ? '主人公のいるボス部屋へ…' : '退出中…', 3000);
+    this.showBanner(toHero === 'glitch' ? 'Glitch-Hardcoreへ…' : toHero ? '主人公のいるボス部屋へ…' : '退出中…', 3000);
     window.removeEventListener('pagehide', this._onPageHide); // 二重に退出処理が走らないように
     const others = Object.keys(this.latestPlayers || {}).filter(uid => uid !== this.net.uid);
     try { await Promise.race([others.length === 0 ? this.net.deleteRoom() : this.net.leaveRoom(), new Promise(resolve => setTimeout(resolve, 3000))]); } catch (e) {}
-    if (toHero) { try { sessionStorage.setItem('zk_vs_hero', '1'); } catch (e) {} } // 読み込み直したあと、ロビーを出てすぐボス部屋へ
+    if (toHero === 'glitch') { try { sessionStorage.setItem('zk_glitch_hc', '1'); } catch (e) {} } // 🟩 読み込み直したあと、ロビーを出てすぐグリッチ戦（Glitch-Hardcore）へ
+    else if (toHero) { try { sessionStorage.setItem('zk_vs_hero', '1'); } catch (e) {} } // 読み込み直したあと、ロビーを出てすぐボス部屋へ
     location.reload();
   }
   _hutBookSpot() { // 机のマスの中心（px）。小屋がなければ null
@@ -31929,11 +31948,12 @@ class GameScene extends Phaser.Scene {
     void root.offsetWidth; root.style.opacity = '1';
   }
 
-  // リザルト画面の見出し：オールクリアなら GAME CLEAR（金色）、それ以外は RESULT
+  // リザルト画面の見出し：オールクリアなら GAME CLEAR（金色）、グリッチ戦に勝ったら BUG FIXED（緑）、それ以外は RESULT
   setResultTitle() {
     const t = document.getElementById('resultTitle');
-    t.textContent = this._allClear ? 'GAME CLEAR' : 'RESULT';
-    t.style.color = this._allClear ? '#ffd54c' : '';
+    const bugFixed = !!(this.glitchBoss && this._glitchWon); // 🟩 グリッチ戦（Glitch-Hardcore も）に勝った時は、見出しが BUG FIXED（バグ修正済み）になる。負けた時は RESULT のまま
+    t.textContent = this._allClear ? 'GAME CLEAR' : bugFixed ? 'BUG FIXED' : 'RESULT';
+    t.style.color = this._allClear ? '#ffd54c' : bugFixed ? '#6dff8c' : '';
   }
 
   // ソロ用リザルト画面。到達階層・かかった時間・倒した敵/ボスの数・取った武器とレベルの一覧を出す。
@@ -31984,7 +32004,7 @@ class GameScene extends Phaser.Scene {
       rows.push(['倒したボス', st.bosses + '体']);
     }
     if (newAcc.length) rows.push(['🎁 新しい装飾品', newAcc.map(a => a.icon + a.name).join(' ')]);
-    document.getElementById('resultMode').textContent = this.arms4Ritual ? 'ANGEL' : this.glitchBoss ? 'GLITCH' : (this.nightmare ? 'NIGHTMARE' : this.isDevMode ? 'DEVELOPER' : (this.vsHero ? 'VS HERO' : this.bossRush ? 'BOSS RUSH' : (this.frontline ? 'NORTHERN FRONT' : 'DUNGEON')));
+    document.getElementById('resultMode').textContent = this.arms4Ritual ? 'ANGEL' : this.glitchBoss ? (this.glitchHard ? 'GLITCH HARDCORE' : 'GLITCH') : (this.nightmare ? 'NIGHTMARE' : this.isDevMode ? 'DEVELOPER' : (this.vsHero ? 'VS HERO' : this.bossRush ? 'BOSS RUSH' : (this.frontline ? 'NORTHERN FRONT' : 'DUNGEON')));
     document.getElementById('resultStats').innerHTML = rows.map(r =>
       '<div class="resultRow"><span>' + escapeHtml(r[0]) + '</span><b>' + escapeHtml(r[1]) + '</b></div>').join('');
     const weapons = Object.entries(this.weaponLevels).map(([key, lv]) => {
@@ -32548,7 +32568,7 @@ class GameScene extends Phaser.Scene {
         // 📟 今までリザルトへ暗転していたタイミングで、最初と同じように足元の床へメッセージを出す → 消えて少し間をおいてから、暗転してリザルトへ
         const GOAL = { delay: 1200, hold: 6.0, gap: 600, toBlack: 4.5 }; /* toBlack＝打ち終わってから暗転が始まるまで(秒)。元の「残る3秒＋消える0.9秒＋間0.6秒」と同じ。hold(文字が残る秒)を伸ばしても、暗転の始まりは変わらない（文字は暗転の中で消える） */ // 撃破からメッセージが出るまで(ミリ秒)／打ち終わってから残る秒／メッセージが消えてから暗転が始まるまで(ミリ秒)
         let went = false; const toResult = () => { if (went) return; went = true; this.cameras.main.fadeOut(1200, 0, 0, 0); this.cameras.main.once('camerafadeoutcomplete', () => { this.transitioning = true; this.cameras.main.resetFX(); this.showResult(); }); };
-        this.time.delayedCall(GOAL.delay, () => this._glitchIntro({ text: 'DELETION COMPLETE.\n> GRANTING A TITLE AS A REWARD\n> TO THE PLAYER.', hold: GOAL.hold, onTyped: () => { if (!this.isDevMode) this.earnTitle('debugger', 2200); this.time.delayedCall(GOAL.toBlack * 1000, toResult); } /* 🏷 称号「Debugger」：メッセージが全部出たところで付与（デベロッパーモードは除く） */, onDone: () => this.time.delayedCall(GOAL.gap, toResult) }));
+        this.time.delayedCall(GOAL.delay, () => this._glitchIntro({ text: 'DELETION COMPLETE.\n> GRANTING A TITLE AS A REWARD\n> TO THE PLAYER.', hold: GOAL.hold, onTyped: () => { if (!this.isDevMode) this.earnTitle(this.glitchHard ? 'err404' : 'debugger', 2200); this.time.delayedCall(GOAL.toBlack * 1000, toResult); } /* 🏷 称号「Debugger」：メッセージが全部出たところで付与（デベロッパーモードは除く） */, onDone: () => this.time.delayedCall(GOAL.gap, toResult) }));
       }
       return;
     }
@@ -34987,6 +35007,7 @@ function startGame(mode, extra) {
     devWeaponLevel: devMode ? Math.max(1, parseInt(document.getElementById('devWeaponLevelInput').value, 10) || 5) : null,
     devMode, // リザルト画面の表示（DEVELOPER）切り替え用
     bossRush: !!(extra && extra.bossRush),
+    glitchHard: !!(extra && extra.glitchHard), // 🟩 Glitch-Hardcore（glitchBoss と一緒に指定する）
     glitchBoss: !!(extra && extra.glitchBoss), // 📺 グリッチ状態のボスラッシュのボタンから始めた：最初のボスが、ブロック状のグリッチの塊になる
     vsHero: !!(extra && extra.vsHero), // ⚔ パーティールームの「斬り合い」：ボス部屋で主人公と戦う（ソロ。装飾品なし）
     arms4Ritual: !!(extra && extra.arms4Ritual), // 【期間限定】四つ腕の調伏の儀：始まったらすぐ調伏の儀に入る
@@ -35929,6 +35950,12 @@ if (DEBUG_URL.test) ['pvpTestBtn', 'hutWarpBtn', 'endingTestBtn', 'endingFullTes
   let go = false; try { go = sessionStorage.getItem('zk_vs_hero') === '1'; sessionStorage.removeItem('zk_vs_hero'); } catch (e) {}
   if (!go) return;
   setTimeout(() => { try { startGame('solo', { vsHero: true, weaponKey: 'sword' }); } catch (err) { console.error('斬り合いを始められませんでした:', err); } }, 0);
+})();
+// 🟩 パーティールームの「Glitch-Hardcore」から来た：ロビーを出て、すぐグリッチ戦へ（ソロ。HPが常に1・シールドは前の1枚だけ・倒すと称号 ERR_404）
+(function () {
+  let go = false; try { go = sessionStorage.getItem('zk_glitch_hc') === '1'; sessionStorage.removeItem('zk_glitch_hc'); } catch (e) {}
+  if (!go) return;
+  setTimeout(() => { try { startGame('solo', { bossRush: true, weaponKey: 'ancient', glitchBoss: true, glitchHard: true }); } catch (err) { console.error('Glitch-Hardcoreを始められませんでした:', err); } }, 0);
 })();
 </script>
 </body>
