@@ -759,7 +759,7 @@
 </div>
 <div id="ticketModal">
   <div class="lobbyBox">
-    <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます（有効期限は発行から約1か月）</small></h1>
+    <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます<br>通常はホーム画面を開くと5%の確率で出現します</small></h1>
     <div id="ticketLeft"></div>
     <input type="text" id="ticketInput" placeholder="チケットのコードを貼り付け" autocomplete="off" autocapitalize="off" spellcheck="false">
     <button id="ticketUseBtn" type="button">使う</button>
@@ -9634,7 +9634,7 @@ class GameScene extends Phaser.Scene {
   _sharkDrawOne(S, shp, g, g0, g2) {
     const N = 22, kfin = S.dive * S.dive * (3 - 2 * S.dive), finH = TILE * 0.85 * S.sc * kfin * (1 - 0.3 * (S.dm || 0));
     g.clear(); if (g0) g0.clear(); if (g2) g2.clear(); g.setAlpha(1 - S.dive); // 潜るほど、体は床の下に沈んで見えなくなる
-    const hide = !S.vis || this.playerHp <= 0;
+    const hide = !S.vis || (this.playerHp <= 0 && !this._bsodOn); // 🟦 グリッチ戦で負けた時は、死んだ瞬間にサメを消さない（消すのはブルースクリーンが出てから＝glitchBsod）
     for (const q of S.txts) q.setVisible(!hide && S.dive < 0.95 && !S.sg);
     if (hide) return;
     const MAIN = (S.dm || 0) > 0 ? this._sgMix(0x2aff5a, 0xc06bff, S.dm) : 0x2aff5a, HOT = 0xff2a55, COLD = 0x2af0ff, all = [shp.body, shp.fL, shp.fR];
