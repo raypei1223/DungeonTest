@@ -6075,7 +6075,7 @@ const GLITCH_FORK_TITLES = ['WARNING: VIRUS DETECTED', 'FATAL ERROR 0xDEAD', 'SY
 const GLITCH_RANSOM = { t: 30, castT: 1.6, aimP: 0.35, bothP: 0.2 }; // t＝反転の秒数／castT＝サメがその場で止まる秒数／aimP＝攻撃スティック（右）だけが反転する確率／bothP＝両方のスティックが反転する確率（残りは、移動スティック（左）だけ）
 // 🌀 ワープ：サメが姿を現したあと、プレイヤーの足元にウィンドウが出て（castT 秒）、最北戦線の発信機の上あたりへ転送される。そこでパターンごとの敵と戦い（今は 'chargers'＝円状に並んだチャージャーが突進）、終わったら（returnDelay 秒後）元の場所へ戻る。maxStay 秒たてば、何があっても戻す。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'warp'。
 //   パターンを増やす時：メソッドを4つ作って、patterns に名前を足す。 _gwPat_<名前>_room()（部屋の大きさ { w, h（マス。最大 zoneW×zoneH）, spawn:[x,y]（転送されてくる場所。部屋の左上からのマス）, tx:[x,y]（任意：飾りの位置） }）／_gwPat_<名前>_enter(S, A)（転送された直後に敵などを出す。A＝部屋の範囲と位置(px)）／_gwPat_<名前>_done(S, dt)（終わったら true）／_gwPat_<名前>_draw(A)（任意：飾りの絵。毎フレーム）。部屋の床は、転送する時に岩の領域(dungeon.glitchZone＝addGlitchWarpArena)へ作り、戻る時に壁へ戻す。
-const GLITCH_ULT = { gaugeRate: 0.75 }; // 🌀 必殺技「ワープの常時発動」：パリィゲージ（古代魔法）がこの割合に達したら、サメが使い始める（グリッチ戦が終わるまで続く）。ワープ先は毎回かわり、サメもワープ先の部屋へ一緒に出てきて、フォークボム以外の技を並行して出す
+const GLITCH_ULT = { gaugeRate: 0.75, atkPool: ['rush', 'combo', 'shoot'], invRate: 0.9 }; // 🌀 必殺技「ワープの常時発動」：パリィゲージ（古代魔法）がこの割合に達したら、サメが使い始める（グリッチ戦が終わるまで続く）。ワープ先は毎回かわり、サメもワープ先の部屋へ一緒に出てきて、フォークボム以外の技を並行して出す
 const GLITCH_WARP = {
   castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 84,
   zoneW: 48, zoneH: 40, // 転送先の部屋を作れる領域の大きさ（マス）。ボス部屋（36×24）より広めに余裕を持たせてある。パターンの部屋はこの中の真ん中に作る
@@ -8940,7 +8940,7 @@ class GameScene extends Phaser.Scene {
     const splashBurst = (n, pt = fbP) => { for (let i = 0; i < n && S.splash.length < 420; i++) S.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] }); };
     S.mt -= dt;
     if (m0 === 'fin') {
-      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? ['shoot', 'rush', 'shell', 'wave', 'combo', this._ransomT > 0 ? 'rush' : 'ransom'] : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', this._ransomT > 0 ? 'rush' : 'ransom', 'warp']; /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
+      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? GLITCH_ULT.atkPool : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', this._ransomT > 0 ? 'rush' : 'ransom', 'warp']; /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
        S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, S.atk === 'combo' ? { x: S.x, y: S.y } : fbP); } else S.mt = 2; } // しばらく泳ぎ回ったら、距離に関係なくその場で姿を現して、追撃を始める
     } else if (m0 === 'chase') {
       if (!plOk || S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 追いつけない・見失ったら、泳ぎ回りに戻る
@@ -9108,6 +9108,8 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   }
   _ultUpdate(S, dt, plOk) { // 🌀 必殺技「ワープの常時発動」の進行（毎フレーム）。ゲージが3/4になったら、サメが泳ぎ回りに戻った所から始める
     if (S.tsarGone) return;
+    { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100, hi = !!(A && (A.gauge || 0) >= gm * GLITCH_ULT.invRate); // 🔀 パリィゲージが90%に達したら、両スティックの操作反転を発動（一度発動したら、ゲージが90%を下回るまで再発動しない）
+      if (!hi) S.invDone = false; else if (!S.invDone && plOk && !(this._ransomT > 0)) { S.invDone = true; this._ransomT = GLITCH_RANSOM.t; this._ransomMove = true; this._ransomAim = true; try { this.cameras.main.flash(200, 255, 60, 60); } catch (e) {} } }
     if (!S.ult) {
       if (!S.ultArm) { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100; if (GLITCH_TEST_ULT_START || (A && (A.gauge || 0) >= gm * GLITCH_ULT.gaugeRate)) S.ultArm = true; }
       if (S.ultArm && plOk && S.mode === 'fin' && !S.sg && !S.gw && !this._fork && !S.fk && !this._tsar && this.dungeon && this.dungeon.glitchZone) this._ultBegin(S);
