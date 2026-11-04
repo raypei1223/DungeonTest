@@ -763,7 +763,7 @@
 <div id="ticketModal">
   <div class="lobbyBox">
     <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます<br>通常はホーム画面を開くと5%の確率でグリッチが起こります</small></h1>
-    <a id="ticketDiaryLink" href="https://paypayultra.github.io/off/" target="_blank" rel="noopener noreferrer">📖 日記サイトを開く</a>
+    <a id="ticketDiaryLink" href="https://paypayultra.github.io/off/?from=zomika" target="_blank" rel="noopener noreferrer">📖 日記サイトを開く</a>
     <div id="ticketLeft"></div>
     <input type="text" id="ticketInput" placeholder="チケットのコードを貼り付け" autocomplete="off" autocapitalize="off" spellcheck="false">
     <button id="ticketUseBtn" type="button">使う</button>
@@ -9320,6 +9320,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     for (let tx = C.from; tx < C.to; tx++) for (const ty of ys) {
       const x = A.x0 + (tx + 0.5) * TILE, y = A.y0 + ty * TILE, e = this.rtMakeEnemy('bomber', x, y, 'gw_' + this._gwSeq + '_b' + (n++), base.hp, base.hp, base.damage); if (!e) continue;
       e.type = Object.assign({}, e.type, { speed: 0, aggroRange: 1, fuseTime: C.fuse }); // その場から動かない（近づいてくることもない）。導火線の長さだけ変える
+      e._noBlastDmg = true; // 💣 この廊下のボマーは、ほかのボマーの爆風を受けない（連鎖しない）
       gw.ch.push(e);
     }
   }
@@ -19192,7 +19193,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     this.explodeAt(cx, cy, dmg, r); // 見た目・プレイヤーへのダメージ・壁の破壊
     this.cameras.main.shake(120, 0.006);
     for (const en of this.enemies.slice()) {
-      if (en === e || en.hp <= 0 || en._introAnim || en._pvp || en.type.invulnerable) continue;
+      if (en === e || en.hp <= 0 || en._introAnim || en._pvp || en._noBlastDmg || en.type.invulnerable) continue; // 💣 _noBlastDmg＝ボマーの廊下のボマー（爆風を受けない）
       if (Phaser.Math.Distance.Between(cx, cy, en.gfx.x, en.gfx.y) < r + en.type.radius) {
         this.damageEnemy(en, dmg, Phaser.Math.Angle.Between(cx, cy, en.gfx.x, en.gfx.y), t.blastKnockback || 0);
       }
