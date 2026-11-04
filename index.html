@@ -4070,11 +4070,11 @@ const PARTY_BALLOONS = [[90, 150], [550, 170], [120, 300], [520, 320], [240, 120
 const PARTY_OPEN_TO_ALL = false; // 🧪 テスト用：true の間は、エンディングを見ていない人（endingDone でない人）も、合言葉を入れればパーティールームに入れる。false ＝パーティールームはエンディングを見た人だけ（交流ルームは、これに関係なく誰でも入れる）
 const PARTY_MEMOS_READABLE = true; // 📋 true の間は、パーティールームのメモをプレイヤーが読める（近づいて調べられる）。false にすると読めなくなる
 const PARTY_STATS_MEMO = { i: -8, stat: true, x: 395, y: 432 }; // 🖤 黒いメモ：自分のセーブ数値を見られる（パーティールームの下の壁。交流ルームにはない）
-const PARTY_STATS_LIST = [ // 🖤 黒いメモに出す項目 [セーブのkey, 表示名]
+const PARTY_STATS_LIST = [ // 🖤 黒いメモに出す項目 [セーブのkey, 表示名]（key が null の行は、数値のない見出し）
   ['arms4RitualClears', '天使・調伏の儀の成功回数'], ['angelTamedLobby', 'ホームのボタンからの調伏の儀の成功回数'],
   ['bossRushBestBosses', 'ボスラッシュの最高撃破ボス数'], ['demonKills', '悪魔を倒した回数'], ['demonMeets', '25階の悪魔に会った回数'],
   ['frontlineBestSec', '最北戦線の最長生存時間'], ['libraryVisits', '隠し書庫に来た回数'], ['nightmareClears', 'ナイトメアのクリア回数'],
-  ['pvpWins', 'PvPの勝利数'], ['soloClearBestSecRandom', 'ダンジョン（ソロ）のランダムシードの最短クリア時間'], ['soloClearBestSecSet', 'ダンジョン（ソロ）のセットシードの最短クリア時間'], ['floor10BestSecRandom', 'ダンジョン（ソロ）の10階層のランダムシードの最短クリア時間'], ['floor10BestSecSet', 'ダンジョン（ソロ）の10階層のセットシードの最短クリア時間'], ['soloClears', 'ダンジョン（ソロ）の全クリア回数'],
+  ['pvpWins', 'PvPの勝利数'], [null, 'RTA:悪魔装飾・ルーレット効果はカウントしない'], ['soloClearBestSecRandom', 'RSの最短クリア時間'], ['soloClearBestSecSet', 'SSの最短クリア時間'], ['floor10BestSecRandom', '10階層のRSの最短クリア時間'], ['floor10BestSecSet', '10階層のSSの最短クリア時間'], ['soloClears', 'ダンジョン（ソロ）の全クリア回数'],
   ['totalBossKills', 'ボスの累計撃破数'], ['soloTotalKills', '雑魚敵の累計撃破数']];
 const PARTY_PORTAL = { i: -2, portal: true, x: 320, y: 118 }; // 🌿 草原への入口（メモと同じ要領で、近づいて E／タップ）
 const VS_HERO = { // ⚔ 斬り合いの調整値
@@ -8928,7 +8928,7 @@ class GameScene extends Phaser.Scene {
       }
     } else if (m0 === 'aim' || m0 === 'cdive') { // 🟩 その場で止まって、プレイヤーの方へ鼻先を向ける（🔁 連撃の潜っている間も同じ）。最後の0.55秒は向きを固定する
       S.v *= Math.max(0, 1 - dt * 6);
-      if (plOk && !S.aimFired) { const nx = S.x + Math.cos(S.a) * S.len * 0.5, ny = S.y + Math.sin(S.a) * S.len * 0.5, d = wrap(Math.atan2(plr.y - ny, plr.x - nx) - S.a); S.a += Math.max(-3 * dt, Math.min(3 * dt, d)); }
+      if (plOk && !S.aimFired) { const dx = plr.x - S.x, dy = plr.y - S.y; if (dx * dx + dy * dy > 400) { const d = wrap(Math.atan2(dy, dx) - S.a); S.a += Math.max(-3 * dt, Math.min(3 * dt, d)); } } // 向きは「体の中心からプレイヤーへ」で決める。以前は鼻先から見た角度で決めていたため、プレイヤーが近いと、向きを変えた鼻先の動きで角度が大きく変わり続けて、ブルブル震えた（鼻先は中心からの線の上にあるので、狙いの先は同じ）。中心にとても近い時（20px以内）は向きを変えない
       S.bend *= Math.max(0, 1 - dt * 4); S.ph += dt * Math.PI * 2 * S.beat * 0.8;
       S.x += Math.cos(S.a) * S.v * dt; S.y += Math.sin(S.a) * S.v * dt;
     } else if (m0 === 'grab') { // 🦈 咥えたまま、向きを変えずに全速力でまっすぐ突進し続ける
@@ -30328,7 +30328,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     }
     if (tg.stat) { // 🖤 黒いメモ：今のセーブの数値を「説明：数値」で並べる（読むたびに最新のセーブを見る）
       let sv = {}; try { sv = loadSave() || {}; } catch (e) { sv = {}; }
-      const lines = PARTY_STATS_LIST.map(([k, label]) => label + '：' + (Number(sv[k]) || 0));
+      const lines = PARTY_STATS_LIST.map(([k, label]) => k == null ? label : label + '：' + (Number(sv[k]) || 0)); // k が null の行は見出し（数値なし）
       let allK = 0; try { allK = allKillCount(sv); } catch (e) { allK = 0; }
       lines.push('敵の累計撃破数：' + allK); // いちばん下：倒した敵すべて
       this._partyReadNote('あなたの記録', lines.join('\n'));
