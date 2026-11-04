@@ -456,6 +456,20 @@
   #titlePickBtn:hover { background: linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.10)); border-color: rgba(255,255,255,0.65); }
   #titlePickBtn:active { transform: translateY(2px); box-shadow: 0 0 0 rgba(0,0,0,0.45); background: rgba(255,255,255,0.08); }
   #titlePickBtn.has { font-size: 14px; font-weight: bold; letter-spacing: 0.08em; }
+  /* ⏸ グリッチ戦のポーズ：見た目は床に出る文字（緑の光る英文＋赤とシアンの色ずれ＋ちらつき＋点滅カーソル）。z-index は古代魔法の描画レイヤー（#ancDraw＝60／指示文＝61）より手前（画面 90／ボタン 91）。ボタンの絵は setPauseIcon、文言は _pauseSkin */
+  @keyframes glPauseFlick { 0%, 100% { opacity: 0.94; } 7% { opacity: 0.55; } 11% { opacity: 0.96; } 46% { opacity: 0.86; } 50% { opacity: 0.5; } 54% { opacity: 0.95; } }
+  @keyframes glPauseBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  #pauseBtn.glSkin { z-index: 91 !important; width: 9vh !important; height: 9vh !important; padding: 0; box-sizing: border-box; overflow: hidden; flex-direction: column; gap: 0.3vh; border-radius: 0.4vh !important; background: rgba(0,12,4,0.78) !important; border: 0.3vh solid rgba(42,255,90,0.75) !important; box-shadow: 0 0 1.6vh rgba(42,255,90,0.55), inset 0 0 1.4vh rgba(42,255,90,0.22); font-family: monospace; color: #2aff5a; text-shadow: 0 0 1vh #2aff5a, -0.2vh 0 rgba(255,42,74,0.7), 0.2vh 0 rgba(42,255,255,0.7); animation: glPauseFlick 3.2s infinite; }
+  #pauseBtn.glSkin .glPb1 { font-size: 3vh; font-weight: bold; line-height: 1; letter-spacing: 0.1vh; white-space: nowrap; }
+  #pauseBtn.glSkin .glPb2 { font-size: 1.5vh; line-height: 1; letter-spacing: 0.15vh; white-space: nowrap; }
+  #pauseBtn.glSkin .glPb2::after { content: '█'; margin-left: 0.3vh; animation: glPauseBlink 1s steps(1) infinite; }
+  #pauseOverlay.glSkin { z-index: 90 !important; background: repeating-linear-gradient(0deg, rgba(42,255,90,0.05) 0, rgba(42,255,90,0.05) 1px, transparent 1px, transparent 4px), rgba(0,10,3,0.82) !important; color: #2aff5a !important; font-family: monospace; }
+  #pauseOverlay.glSkin #pauseTitle { font-family: monospace; color: #2aff5a; letter-spacing: 0.5vh; text-shadow: 0 0 2vh #2aff5a, 0 0 4.5vh rgba(42,255,90,0.6), -0.25vh 0 rgba(255,42,74,0.65), 0.25vh 0 rgba(42,255,255,0.65); animation: glPauseFlick 2.6s infinite; }
+  #pauseOverlay.glSkin #pauseTitle::after { content: '█'; margin-left: 0.6vh; animation: glPauseBlink 1s steps(1) infinite; }
+  #pauseOverlay.glSkin #pauseSub, #pauseOverlay.glSkin #pauseHint, #pauseOverlay.glSkin #pauseSuspendMsg { font-family: monospace; color: #2aff5a; text-shadow: 0 0 1vh #2aff5a, -0.15vh 0 rgba(255,42,74,0.6), 0.15vh 0 rgba(42,255,255,0.6); }
+  #pauseOverlay.glSkin button { font-family: monospace !important; color: #2aff5a !important; background: rgba(42,255,90,0.08) !important; border: 1px solid rgba(42,255,90,0.75) !important; border-radius: 0.4vh !important; letter-spacing: 0.3vh; text-shadow: 0 0 1vh #2aff5a, -0.2vh 0 rgba(255,42,74,0.65), 0.2vh 0 rgba(42,255,255,0.65); box-shadow: 0 0 1.2vh rgba(42,255,90,0.35); }
+  #pauseOverlay.glSkin button:hover { background: rgba(42,255,90,0.2) !important; }
+  #pauseOverlay.glSkin button:active { background: rgba(42,255,90,0.34) !important; }
   /* 🎫 日記サイトのチケット：称号の横の小さなボタンと、コード入力の画面 */
   #titleBtnWrap { display: flex; justify-content: center; align-items: flex-start; gap: 6px; margin: 0 auto 6px; max-width: 100%; }
   #titleBtnWrap #titlePickBtn { margin: 0; }
@@ -4827,6 +4841,7 @@ function generatePvpMap() {
 // ⏸ ポーズボタンの中の絵：文字（絵文字）ではなく、SVGのコードで描く（paused=true なら▶、false なら⏸）
 function setPauseIcon(btn, paused) {
   if (!btn) return;
+  if (btn.classList.contains('glSkin')) { btn.innerHTML = '<span class="glPb1">' + (paused ? '[&gt;]' : '[||]') + '</span><span class="glPb2">' + (paused ? 'RESUME' : 'PAUSE') + '</span>'; return; } // ⏸ グリッチ戦：床に出る文字の雰囲気（英語）
   btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:5.2vh;height:5.2vh;pointer-events:none;display:block;" aria-hidden="true">' + (paused
     ? '<polygon points="7,4 20,12 7,20" fill="#fff"/>'
     : '<rect x="6" y="4.5" width="4.2" height="15" fill="#fff"/><rect x="13.8" y="4.5" width="4.2" height="15" fill="#fff"/>') + '</svg>';
@@ -8527,6 +8542,7 @@ class GameScene extends Phaser.Scene {
     const bossId = this.floor + '_boss';
     let bannerT = 0;
     const flicker = (time, delta) => {
+      if (this._paused) return; // ⏸
       bannerT -= Math.min(delta / 1000, 0.1);
       if (bannerT > 0 || this._bossUiGroup !== bossId) return;
       bannerT = 0.1 + Math.random() * 0.1;
@@ -8556,6 +8572,7 @@ class GameScene extends Phaser.Scene {
     const layers = [gl, rd, cy], OFF = [0, -1.5, 1.5]; // 実体の文字の層は無し（光る文字＋色ずれのみ）
     let t = 0, gt = 0, bx = 0, by = 0, placed = false, done = false, typed = false; const J = '█▓▒░#@%&01?/<>{}';
     const upd = (time, delta) => {
+      if (this._paused) return; // ⏸ ポーズ中は、床の文字も止める
       t += Math.min(delta / 1000, 0.1); gt -= delta / 1000;
       if (!gl.scene) { stop(); if (opt && opt.onDone && !done) { done = true; opt.onDone(); } return; } // 文字が消えていても、次へ進めて止まらないようにする
       if (!placed) { // 最初の1フレームで、プレイヤーの足元の地面に置く（以後は動かない＝床に書かれた文字）
@@ -15300,12 +15317,13 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       o = document.createElement('div');
       o.id = 'pauseOverlay';
       o.style.cssText = 'position:fixed;inset:0;z-index:24;display:none;flex-direction:column;align-items:center;justify-content:center;gap:3vh;background:rgba(6,6,12,0.72);color:#fff;touch-action:none;user-select:none;-webkit-user-select:none;';
-      o.innerHTML = '<div style="font-size:7vh;font-weight:bold;letter-spacing:0.6vh;">⏸ ポーズ中</div>'
+      o.innerHTML = '<div style="font-size:7vh;font-weight:bold;letter-spacing:0.6vh;" id="pauseTitle">⏸ ポーズ中</div>'
+        + '<div id="pauseSub" style="display:none;font-size:2.6vh;opacity:0.85;"></div>'
         + '<button type="button" id="pauseResumeBtn" tabindex="-1" style="box-sizing:border-box;height:8vh;font-family:inherit;font-size:4vh;padding:1.4vh 7vh;border-radius:1.6vh;border:1px solid rgba(255,255,255,0.5);background:rgba(255,255,255,0.14);color:#fff;cursor:pointer;">再開</button>'
         + '<button type="button" id="pauseExitBtn" tabindex="-1" style="box-sizing:border-box;height:8vh;font-family:inherit;font-size:4vh;padding:1.4vh 7vh;border-radius:1.6vh;border:1px solid rgba(255,255,255,0.5);background:rgba(255,255,255,0.14);color:#fff;cursor:pointer;">終了</button>'
         + '<button type="button" id="pauseSuspendBtn" tabindex="-1" style="box-sizing:border-box;height:8vh;font-family:inherit;font-size:4vh;padding:1.4vh 3vh;max-width:92vw;white-space:nowrap;border-radius:1.6vh;border:1px solid rgba(255,214,102,0.7);background:rgba(255,214,102,0.14);color:#ffe9a8;cursor:pointer;">💾 セーブして中断</button>'
         + '<div id="pauseSuspendMsg" style="font-size:2.4vh;min-height:3vh;color:#ffd666;text-align:center;padding:0 3vh;"></div>'
-        + '<div style="font-size:2.6vh;opacity:0.7;">右下のボタン / P / Esc でも再開できます</div>';
+        + '<div id="pauseHint" style="font-size:2.6vh;opacity:0.7;">右下のボタン / P / Esc でも再開できます</div>';
       ['pointerdown', 'mousedown', 'touchstart', 'touchend', 'click'].forEach(ev => o.addEventListener(ev, e => e.stopPropagation())); // 下のゲーム操作に伝えない
       document.body.appendChild(o);
       const rb = o.querySelector('#pauseResumeBtn');
@@ -15315,11 +15333,11 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       rb.addEventListener('touchstart', go, { passive: false });
       rb.addEventListener('click', go);
       const xb = o.querySelector('#pauseExitBtn'); // 終了：セーブせずにロビーへ戻る（押し間違い防止のため、1回目は確認の表示だけ。3秒以内にもう一度押すと終了）
-      let xArm = null, xt = 0;
+      let xArm = null, xt = 0; const glOn = () => o.classList.contains('glSkin'), X0 = () => glOn() ? '[ EXIT ]' : '終了', X1 = () => glOn() ? 'PRESS AGAIN TO EXIT' : 'もう一度押すと終了'; // ⏸ グリッチ戦の見た目の時は英語
       xb.addEventListener('click', ev => {
         ev.preventDefault(); ev.stopPropagation(); if (Date.now() - xt < 500) return; xt = Date.now();
-        if (!xArm) { xb.textContent = 'もう一度押すと終了'; xArm = setTimeout(() => { xArm = null; xb.textContent = '終了'; }, 3000); return; }
-        clearTimeout(xArm); xArm = null; xb.textContent = '終了';
+        if (!xArm) { xb.textContent = X1(); xArm = setTimeout(() => { xArm = null; xb.textContent = X0(); }, 3000); return; }
+        clearTimeout(xArm); xArm = null; xb.textContent = X0();
         const bb = document.getElementById('pauseBtn'); if (bb && bb._scene) bb._scene.exitToLobby();
       });
       const sb = o.querySelector('#pauseSuspendBtn'); // 💾 セーブして中断（タップの押し間違いを避けるため、click だけで受ける）
@@ -15327,6 +15345,24 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       sb.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); if (Date.now() - st < 800) return; st = Date.now(); const bb = document.getElementById('pauseBtn'); if (bb && bb._scene) bb._scene.suspendAndExit(); });
     }
     return o;
+  }
+  // ⏸ グリッチ戦のポーズの見た目：床に出る文字と同じ雰囲気（緑に光る英文＋赤とシアンの色ずれ＋ちらつき＋点滅カーソル＋ときどきバグった記号）。色・枠・z-index は CSS の .glSkin、ボタンの絵は setPauseIcon。z-index は古代魔法の描画レイヤー（#ancDraw＝60）より手前
+  _pauseSkin(o) {
+    const gl = !!this.glitchBoss, set = (id, t) => { const el = o.querySelector('#' + id); if (el) el.textContent = t; };
+    o.classList.toggle('glSkin', gl);
+    const sub = o.querySelector('#pauseSub'); if (sub) sub.style.display = gl ? '' : 'none';
+    if (gl) { set('pauseTitle', '> PAUSED'); set('pauseSub', '> EXECUTION HALTED.'); set('pauseResumeBtn', '[ RESUME ]'); set('pauseExitBtn', '[ EXIT ]'); set('pauseHint', '> RESUME: [||] / P / ESC'); }
+    else { set('pauseTitle', '⏸ ポーズ中'); set('pauseSub', ''); set('pauseResumeBtn', '再開'); set('pauseExitBtn', '終了'); set('pauseHint', '右下のボタン / P / Esc でも再開できます'); }
+    if (this._pauseGlT) { clearInterval(this._pauseGlT); this._pauseGlT = null; }
+    if (gl) { // ポーズ中はゲームの時間が止まっているので、実時間（setInterval）で、ときどき文字をバグった記号に入れ替える
+      const base = '> PAUSED', J = '█▓▒░#@%&01?/<>{}', ttl = o.querySelector('#pauseTitle');
+      this._pauseGlT = setInterval(() => {
+        if (!this._paused || o.style.display === 'none' || !o.classList.contains('glSkin')) { clearInterval(this._pauseGlT); this._pauseGlT = null; if (ttl) ttl.textContent = base; return; }
+        let out = base;
+        if (Math.random() < 0.4) { const ch = out.split(''); for (let i = 0; i < 2; i++) { const k = 2 + Math.floor(Math.random() * (ch.length - 2)); if (Math.random() < 0.6) ch[k] = J[Math.floor(Math.random() * J.length)]; } out = ch.join(''); }
+        if (ttl) ttl.textContent = out;
+      }, 90);
+    }
   }
   // ポーズを出してはいけない画面（メニューや読み物が上に出ている時）
   _pauseBlocked() {
@@ -15340,8 +15376,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   }
   canPause() {
     return !this.mp && !this.pvp && !this._resultOpen && !this.transitioning && !this._autoWalk && !this.arms4Ritual
-      && !this._endTest && !this.sanctuary && !this._endingNext && !this._godExiled
-      && !(this.dungeon && this.dungeon.glitchZone); // グリッチ戦中は一時停止できない（ボタンも出ない）
+      && !this._endTest && !this.sanctuary && !this._endingNext && !this._godExiled; // ⏸ グリッチ戦でもポーズできる（見た目は _pauseSkin／CSS の .glSkin で、床に出る文字の雰囲気にする）
   }
   togglePause() {
     if (this._paused) { this.endPause(); return; }
@@ -15353,6 +15388,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     try { this.time.timeScale = 0; this.tweens.timeScale = 0; } catch (e) { /* シーン終了時 */ } // 遅延処理（delayedCall）と演出（tween）も止める
     this.pauseOverlayEl().style.display = 'flex';
     { const sb = document.getElementById('pauseSuspendBtn'); if (sb) sb.style.display = this.suspendModeOk() ? '' : 'none'; const sm = document.getElementById('pauseSuspendMsg'); if (sm) sm.textContent = ''; const xb = document.getElementById('pauseExitBtn'); if (xb && xb.textContent !== '終了') xb.textContent = '終了'; } // 💾 中断セーブできるモードの時だけ、ボタンを出す
+    this._pauseSkin(this.pauseOverlayEl()); // ⏸ グリッチ戦なら、床に出る文字の見た目（英語）にする
     const b = this.pauseBtnEl(); b.style.display = 'flex'; setPauseIcon(b, true);
   }
   endPause() {
@@ -15534,6 +15570,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   // 毎フレーム：ボタンを出す／隠す
   _pauseUiUpdate() {
     const b = this.pauseBtnEl();
+    { const g = !!this.glitchBoss; if (b.classList.contains('glSkin') !== g) { b.classList.toggle('glSkin', g); b.setAttribute('aria-label', g ? 'PAUSE' : 'ポーズ'); setPauseIcon(b, !!this._paused); } } // ⏸ グリッチ戦だけ、ボタンの見た目を床に出る文字の雰囲気（英語）にする
     const show = this._paused || (this.canPause() && !this._pauseBlocked());
     const d = show ? 'flex' : 'none';
     if (b.style.display !== d) b.style.display = d;
@@ -17718,6 +17755,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     let t = 0, gt = 0, bx = 0, by = 0, placed = false, fadeT = -1; const J = '█▓▒░#@%&01?/<>{}';
     this._ancSigilEnd = () => { if (fadeT < 0) fadeT = 0; }; // 魔法を使った：消え始める
     const upd = (time, delta) => {
+      if (this._paused) return; // ⏸ ポーズ中は、床の文字も止める
       const dt = Math.min(delta / 1000, 0.1); t += dt; gt -= dt;
       if (!gl.scene) return;
       if (!placed) { gl.setText(full); const w0 = gl.width, h0 = gl.height; gl.setText(''); bx = ccx - w0 / 2; by = ccy - h0 / 2; layers.forEach((q, i) => { q.setPosition(bx + OFF[i], by); q.setVisible(true); }); placed = true; } // 全文の大きさを測って、部屋の真ん中に置く（以後は動かない＝床に書かれた文字）
@@ -17747,7 +17785,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     const D = A.draw = { ov: zone, cv, ctx, msg, pts: [], id: null, R, offs: [] };
     const pt = ev => [ev.clientX - R.left, ev.clientY - R.top], inR = ev => ev.clientX >= R.left && ev.clientX <= R.right && ev.clientY >= R.top && ev.clientY <= R.bottom;
     const say = t => { msg.textContent = t; msg.style.opacity = '1'; clearTimeout(D.mt); D.mt = setTimeout(() => { msg.style.opacity = '0'; }, 900); };
-    const down = ev => { if (D.id !== null || this._tsar) return; D.id = ev.pointerId; D.pts = [pt(ev)]; ctx.clearRect(0, 0, W, H); zone.style.background = 'rgba(190,150,255,0.22)'; }; // 描いている間だけ、描ける部分が淡い紫になる
+    const down = ev => { if (D.id !== null || this._tsar || this._paused) return; D.id = ev.pointerId; D.pts = [pt(ev)]; ctx.clearRect(0, 0, W, H); zone.style.background = 'rgba(190,150,255,0.22)'; }; // 描いている間だけ、描ける部分が淡い紫になる
     const move = ev => { if (ev.pointerId !== D.id) return; const p = pt(ev), q = D.pts[D.pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) < 2) return; D.pts.push(p);
       ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(160,120,255,0.55)'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); };
     const up = ev => { if (ev.pointerId !== D.id) return; D.id = null; zone.style.background = 'rgba(190,150,255,0)'; const pts = D.pts; D.pts = []; setTimeout(() => { if (A.draw === D) ctx.clearRect(0, 0, W, H); }, 300);
