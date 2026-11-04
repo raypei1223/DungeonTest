@@ -6066,6 +6066,7 @@ const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定す�
 const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
 const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
+const GLITCH_TEST_GAUGE_START = true; // 🔷 テスト用：true なら、グリッチ戦が始まった時点で古代魔法のゲージが3/4（＝必殺技が始まるゲージ）から始まる。本番は false
 const GLITCH_TEST_ULT_START = false; // 🌀 テスト用：true なら、ゲージに関係なく、グリッチ戦が始まって最初にサメが泳ぎ回りに戻った時点から必殺技（ワープの常時発動）が始まる。本番は false
 const GLITCH_TSAR = { flyT: 7, v0: 0, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, blastSpd: 600, startDist: 1, invBand: 240, landTile: { x: 63, y: 63 }, fieldH: 128, invFadeT: 3.5, walkSpeedK: 1, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／startDist＝星が出る位置の、プレイヤーからの距離（マス。小さいほど近い。壁が近ければ、さらに手前になる）／blastSpd＝爆風（白い光）が広がる速さ（px/秒）。爆発してから画面が真っ白になるまで、ずっとこの一定の速さ（サメの逃げる速さ＝最大およそ475より大きくすること。小さいと追いつけない）／creep＝（今は使っていない）白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
@@ -8942,7 +8943,7 @@ class GameScene extends Phaser.Scene {
     const splashBurst = (n, pt = fbP) => { for (let i = 0; i < n && S.splash.length < 420; i++) S.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] }); };
     S.mt -= dt;
     if (m0 === 'fin') {
-      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? GLITCH_ULT.atkPool : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', this._ransomT > 0 ? 'rush' : 'ransom', 'warp']; /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
+      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? GLITCH_ULT.atkPool : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', (this._ransomT > 0 || S.ultDone) ? 'rush' : 'ransom'].concat(S.ultDone ? [] : ['warp']); /* 🏁 古代魔法が満タンになったあとは、操作反転の技（ランサムウェア）も出さない */ /* 🏁 古代魔法が満タンになったあとは、ワープは選ばない */ /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
        S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, S.atk === 'combo' ? { x: S.x, y: S.y } : fbP); } else S.mt = 2; } // しばらく泳ぎ回ったら、距離に関係なくその場で姿を現して、追撃を始める
     } else if (m0 === 'chase') {
       if (!plOk || S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 追いつけない・見失ったら、泳ぎ回りに戻る
@@ -9082,6 +9083,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       if (gw.t >= W.castT) {
         if (!plOk) { this._warpClear(); S.gw = null; if (!S.ult) { S.mode = 'fin'; S.mt = 3; S.wpT = 0; } return; } // 転送の前に力尽きた
         if (S.ult && S.mode === 'grab') { gw.t = W.castT - 0.02; return; } // 🌀 必殺技：サメに咥えられて運ばれている間は、転送を待つ
+        if (S.ultFin) { S.ult = false; S.ultFin = false; this._warpReturn(S, plOk); return; } // 🏁 古代魔法が満タン：次のワープ先は、最初の部屋。戻ったら、もうワープしない
         if (gw.chain) { this._warpClear(); const ng = { ph: 'win', t: gw.t, pat: gw.next || gw.pat, back: gw.back, ch: [], endT: null, x: gw.x, y: gw.y, A: null, tiles: [] }; S.gw = gw = ng; } // 🌀 必殺技：前の部屋を片づけて、次の部屋の状態を新しく作る（元の場所 back は引き継ぐ）
         const A = this._warpBuildRoom(S);
         if (!gw.back) gw.back = { x: pl.x, y: pl.y }; gw.ph = 'fight'; gw.t = 0;
@@ -9110,13 +9112,25 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   }
   _ultUpdate(S, dt, plOk) { // 🌀 必殺技「ワープの常時発動」の進行（毎フレーム）。ゲージが3/4になったら、サメが泳ぎ回りに戻った所から始める
     if (S.tsarGone) return;
-    { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100, hi = !!(A && (A.gauge || 0) >= gm * GLITCH_ULT.invRate); // 🔀 パリィゲージが90%に達したら、両スティックの操作反転を発動（一度発動したら、ゲージが90%を下回るまで再発動しない）
-      if (!hi) S.invDone = false; else if (!S.invDone && plOk && !(this._ransomT > 0)) { S.invDone = true; this._ransomT = GLITCH_RANSOM.t; this._ransomMove = true; this._ransomAim = true; try { this.cameras.main.flash(200, 255, 60, 60); } catch (e) {} } }
+    { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100, g = A ? (A.gauge || 0) : 0; // 🔀 パリィゲージ（古代魔法）が90%に達したら、両スティックの操作反転が始まり、ゲージが満タンになるまでずっと続く（90%を下回っても解けない）。満タンになったら反転が解け、次のワープで最初の部屋へ戻って、それ以降ワープしない
+      if (!S.invOver) {
+        if (g >= gm) { // 🏁 満タン：反転を解く／必殺技のワープは次の転送で最初の部屋へ戻って終わり（通常のワープ攻撃も、もう選ばない）
+          S.invOver = true; S.ultDone = true;
+          if (S.invPerm) { S.invPerm = false; this._ransomT = 0; } // 解けた瞬間の演出は _ransomHud がやる
+          if (S.ult) S.ultFin = true;
+        } else if (g >= gm * GLITCH_ULT.invRate) {
+          if (!S.invPerm && plOk) { S.invPerm = true; try { this.cameras.main.flash(200, 255, 60, 60); } catch (e) {} }
+          if (S.invPerm) { this._ransomT = 1e9; this._ransomMove = true; this._ransomAim = true; } // 毎フレーム入れ直す（他の処理で解けても、すぐ戻る）
+        }
+      }
+    }
     if (!S.ult) {
+      if (S.ultDone) return; // 🏁 古代魔法が満タンになったあとは、必殺技（ワープの常時発動）をもう始めない
       if (!S.ultArm) { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100; if (GLITCH_TEST_ULT_START || (A && (A.gauge || 0) >= gm * GLITCH_ULT.gaugeRate)) S.ultArm = true; }
       if (S.ultArm && plOk && S.mode === 'fin' && !S.sg && !S.gw && !this._fork && !S.fk && !this._tsar && this.dungeon && this.dungeon.glitchZone) this._ultBegin(S);
       return;
     }
+    if (S.ultFin && !S.gw) { S.ult = false; S.ultFin = false; return; } // 🏁 ワープが途切れていた：そのまま終わり
     if (S.gw && S.mode !== 'warp') this._warpPhase(S, dt); // サメの技（S.mode）とは別に、ワープだけを進める
     else if (!S.gw && plOk && !this._tsar) this._ultBegin(S); // 何かの理由でワープが途切れたら、仕切り直す
   }
@@ -17471,6 +17485,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     const A = this._anc || (this._anc = { held: false, angle: 0, shield: null, ghosts: [], shards: [], sp: [], rings: [], cd: 0, time: 0, snapT: 0, g: null });
     if (!A.g || !A.g.scene) A.g = this.add.graphics().setDepth(20);
     const g = A.g, w = this.weapon, pl = this.player; g.clear(); A.time += dt; A.cd -= dt;
+    if (!A._tgInit && w && w.type === 'ancient') { A._tgInit = true; if (GLITCH_TEST_GAUGE_START && this.glitchBoss) A.gauge = Math.max(A.gauge || 0, (w.gaugeMax || 100) * 0.75); } // 🔷 テスト：ゲージ3/4から始める
     const on = !!(w && w.type === 'ancient' && pl && !this.isGhost && !this.isDowned && !this.transitioning && !this._ransomLock());
     this._ancGaugeUI(on, A, w); // 🔷 画面下のゲージ／「魔法をえがく」ボタン／シンボル描画の更新
     if (on) {
@@ -17580,6 +17595,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   _ancSigilTick(A, full) { // 🔯 パリィゲージが満タンになった瞬間に1回だけ、床に指示文を出す（グリッチ戦だけ）。満タンでなくなったら（魔法を使ったら）消える
     if (!full) { A.sigilSeen = false; A.sigilPend = false; if (this._ancSigilEnd) this._ancSigilEnd(); return; }
     if (!this.glitchBoss) return;
+    { const Sh = this._shark; if (Sh && (Sh.gw || Sh.ultFin)) return; } // 🏁 ワープ中は出さない。最初の部屋に戻ってから出し始める（満タンのままなら、戻った瞬間から）
     if (!A.sigilSeen) { A.sigilSeen = true; A.sigilPend = true; }
     if (!A.sigilPend) return;
     const pl = this.player, rooms = (this.dungeon && this.dungeon.rooms) || [];
