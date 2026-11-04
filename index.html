@@ -6062,7 +6062,7 @@ function applyWeaponLevel(base, level) {
 // ============== Phaserシーン ==============
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
-const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf' / 'overlord' / 'ghostrun'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
+const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf' / 'overlord' / 'ghostrun' / 'bombrun'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
 const GLITCH_TEST_ATK = 'warp'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
 const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
@@ -6081,13 +6081,14 @@ const GLITCH_ULT = { gaugeRate: 0.75, atkPool: ['rush', 'combo', 'shoot'], invRa
 const GLITCH_WARP = {
   castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 84,
   zoneW: 48, zoneH: 40, // 転送先の部屋を作れる領域の大きさ（マス）。ボス部屋（36×24）より広めに余裕を持たせてある。パターンの部屋はこの中の真ん中に作る
-  patterns: ['chargers', 'hell', 'lounge', 'angel', 'holy', 'wolf', 'overlord', 'ghostrun'],
+  patterns: ['chargers', 'hell', 'lounge', 'angel', 'holy', 'wolf', 'overlord', 'ghostrun', 'bombrun'],
   hell: { stay: 15, demonDy: TILE * 4.5, hp: 999999 }, // 🔥 地獄（実際の地獄マップと同じ見た目・作りの部屋）：stay＝転送されてから戻るまで(秒)／demonDy＝悪魔がプレイヤーの何px上にいるか(画面の上の端に収まる位置)／hp＝悪魔のHP(倒せない)
   lounge: { stay: 20, hp: 999999, firstBomb: 2, bombDamage: 20, detonator: [9.5, 2.5] }, // 💬 交流ルーム：stay＝戻るまでの上限(秒。ふつうは爆弾が全部起爆したら戻る)／hp＝デトネーターのHP(倒せない)／firstBomb＝最初に爆弾をまくまでの秒／bombDamage＝このワープのデトネーターがまく爆弾のダメージ（ダンジョンの本物は50のまま）／detonator＝デトネーターの位置(部屋の左上からのマス)
   angel: { stay: 60, hp: 999999, openCount: 3, angel: [18.5, 5] }, // 🪽 天使の調伏の儀：stay＝戻るまでの上限(秒)／hp＝天使のHP(倒せない)／openCount＝天使が最初の技（A4_OPENING の頭から）を何回出したら戻るか／angel＝天使の位置(部屋の左上からのマス。本物の儀式部屋と同じ)
   wolf: { stay: 20, hp: 999999, simahar: [27, 19] }, // 🐺 人狼広場（人狼ゲームの元のマップの広場。左に転送され、右にシマハルがいる）：stay＝戻るまでの秒（時間で戻る）／hp＝シマハルのHP(倒せない)／simahar＝シマハルの位置(部屋の左上からのマス)
   holy: { stay: 15, hp: 999999, snakes: [[9.5, 4.5], [23.5, 4.5]] }, // ✨ 聖域：stay＝戻るまでの秒（時間で戻る）／hp＝ウロボロスの頭のHP(倒せない)／snakes＝2匹のウロボロスの位置(部屋の左上からのマス)
   overlord: { stay: 40, hp: 999999, appear: 1.5, range: 900 }, // 👹 オーバーロードの部屋（20×20）：stay＝戻るまでの上限(秒。ふつうは、連続突進を1セット打ち終えたら戻る)／hp＝オーバーロードのHP(倒せない)／appear＝転送されてから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める（部屋のどこでも）
+  bombrun: { stay: 30, len: 40, h: 6, lane: 2, from: 4, to: 34, goal: 37, fuse: 1.0 }, // 💣 ボマーの廊下：len×h＝廊下の長さ×幅(マス)／lane＝真ん中の通路の幅(マス。残りの上下が、ボマーの敷き詰め)／from〜to＝ボマーを敷き詰める横の範囲(マス)／goal＝ここまで走ったら終わり(マス)／fuse＝導火線の秒数（短いほど、足を止められない）
   ghostrun: { stay: 30, dur: 15, lanes: 7, run: 10, cw: 1, wall: 1, speed: 27.5, startY: -100, spacing: 40, dmg: 30 }, // 👻 ゴースト逃走（曲がりくねった道）：dur＝続ける秒数／lanes＝横の道の本数（右へ・左へ…と交互）／run＝1本の横の道の長さ(マス)／cw＝道の幅(マス)／wall＝道と道の間の壁の厚さ(マス)／speed＝ゴーストの列が下へ進む速さ(px/秒。プレイヤー168が全力で道なりに走った時の下へ進む速さ≒28より、少しだけ遅い)／startY＝列の出発位置（部屋の上端からのpx。マイナス＝上の外）／spacing＝ゴーストの間隔(px。隙間を通れない広さ)／dmg＝当たった時のダメージ
   chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
 };
@@ -9109,7 +9110,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   }
   _ultPickPat(prev) { // 🌀 必殺技：次のワープ先（直前と同じ所は避ける。ハードコアは交流ルームを除く）
     const W = GLITCH_WARP; let pats = this.glitchHard ? W.patterns.filter(k => k !== 'lounge') : W.patterns.slice();
-    pats = pats.filter(k => k !== 'ghostrun'); // 👻 ゴースト逃走は、サメの技と重なるとぎりぎりで逃げ切れなくなるので、必殺技の連続ワープでは選ばない
+    pats = pats.filter(k => k !== 'ghostrun' && k !== 'bombrun'); // 👻💣 ゴースト逃走・ボマーの廊下は、サメの技と重なるとぎりぎりで抜けられなくなるので、必殺技の連続ワープでは選ばない
     if (prev) pats = pats.filter(k => k !== prev);
     if (GLITCH_TEST_WARP && pats.includes(GLITCH_TEST_WARP)) return GLITCH_TEST_WARP;
     return pats[Math.floor(Math.random() * pats.length)];
@@ -9179,7 +9180,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   }
   _warpClear() { // ウィンドウ・飾りの絵・転送先の敵を片づけて、作った床を壁に戻す（何も無ければ何もしない）
     const S = this._shark, gw = S && S.gw;
-    if (gw && gw.ch) for (const e of gw.ch) { if (!e) continue; if (!e._removed) this.rtRemoveEnemy(e); if (this.bossGroupCounts) delete this.bossGroupCounts[e.id]; const i = this.enemies.indexOf(e); if (i >= 0) this.enemies.splice(i, 1); }
+    if (gw && gw.ch) for (const e of gw.ch) { if (!e) continue; if (e._fuseRing) { try { e._fuseRing.destroy(); } catch (err) { /* 破棄済み */ } e._fuseRing = null; } /* 💣 ボマーの爆発予告の円 */ if (!e._removed) this.rtRemoveEnemy(e); if (this.bossGroupCounts) delete this.bossGroupCounts[e.id]; const i = this.enemies.indexOf(e); if (i >= 0) this.enemies.splice(i, 1); }
     if (gw && gw.ch && gw.ch.length) { // 🐍 ウロボロスの胴体（頭が自分で作ったもの）と、灰色の死骸も片づける
       const ids = new Set(gw.ch.map(o => o && o.id));
       for (let i = this.enemies.length - 1; i >= 0; i--) { const o = this.enemies[i]; if (o && o.type && o.type.snakeBody && ids.has(o.bossGroupId)) { this.rtRemoveEnemy(o); this.enemies.splice(i, 1); } }
@@ -9308,7 +9309,25 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     if (e.state === 'telegraph' || e.state === 'dash') e._gwD = true;
     return !!e._gwD && e.state === 'idle';
   }
-  // 👻 パターン 'ghostrun'：下へ、右へ・左へと極端に曲がりくねった道（横の道 lanes 本。道の幅 cw マス）。上から、横一列のゴーストの列が（列は崩れず、壁も通り抜けて）一定の速さで下へ降りてくる。必死で道なりに走れば、ぎりぎり逃げ切れる速さ。dur 秒たったら戻る
+  // 💣 パターン 'bombrun'：幅6マスで横に続く廊下の左端に立っていて、廊下の上下（壁ぎわ）にボマーがぎっしり敷き詰められている。真ん中の細い通路を、右の端まで駆け抜ける。ボマーは動かず、横を通ると導火線に火が付く（fuse 秒後に爆発）。爆風で隣のボマーにも火が付く（連鎖）ので、足を止めると巻き込まれる
+  _gwPat_bombrun_room() { const C = GLITCH_WARP.bombrun; return { w: C.len, h: C.h, spawn: [1.5, C.h / 2] }; }
+  _gwPat_bombrun_enter(S, A) {
+    const C = GLITCH_WARP.bombrun, gw = S.gw, base = ENEMY_TYPES.find(o => o.key === 'bomber'); if (!base) return;
+    this._gwSeq = (this._gwSeq || 0) + 1;
+    const rows = Math.floor((C.h - C.lane) / 2), ys = [];
+    for (let r = 0; r < rows; r++) { ys.push(r + 0.5); ys.push(C.h - r - 0.5); } // 上の壁ぎわ rows 段・下の壁ぎわ rows 段
+    let n = 0;
+    for (let tx = C.from; tx < C.to; tx++) for (const ty of ys) {
+      const x = A.x0 + (tx + 0.5) * TILE, y = A.y0 + ty * TILE, e = this.rtMakeEnemy('bomber', x, y, 'gw_' + this._gwSeq + '_b' + (n++), base.hp, base.hp, base.damage); if (!e) continue;
+      e.type = Object.assign({}, e.type, { speed: 0, aggroRange: 1, fuseTime: C.fuse }); // その場から動かない（近づいてくることもない）。導火線の長さだけ変える
+      gw.ch.push(e);
+    }
+  }
+  _gwPat_bombrun_done(S, dt) { // 右の端（goal マス）まで走ったら終わり
+    const C = GLITCH_WARP.bombrun, A = S.gw && S.gw.A, pl = this.player; if (!A || !pl) return true;
+    return pl.x >= A.x0 + C.goal * TILE;
+  }
+  // 👻 パターン 'ghostrun'：下へ、右へ・左へと極端に曲がりくねった道（横の道 lanes 本。道の幅 cw マス）。上から、横一列のゴーストの列が（列は崩れず、壁も通り抜けて）一定の速さで下へ降りてくる。必死で道なりに走れば、ぎりぎり逃げ切れる速さ。dur 秒たったら戻る。ゴーストに1回当たったら、ゴーストが全部消えて、すぐ戻る
   _gwPat_ghostrun_room() { const G = GLITCH_WARP.ghostrun; return { w: G.run + G.cw, h: G.lanes * (G.cw + G.wall) - G.wall, spawn: [G.cw / 2, G.cw / 2], carve: true }; } // 転送先は、一番上の道の左のはし
   _gwPat_ghostrun_carve(gw, rx, ry, w, h) { // 道と道の間の壁：右のはし（偶数番目）／左のはし（奇数番目）だけ、cw マスぶんあけて、つなぐ
     const G = GLITCH_WARP.ghostrun, grid = this.dungeon.grid;
@@ -9327,10 +9346,16 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       e._gwX = x; gw.ch.push(e);
     }
   }
-  _gwPat_ghostrun_done(S, dt) { // 列を、毎フレーム同じ速さで下へ進める（横の位置は固定）。dur 秒たったら true
+  _gwPat_ghostrun_done(S, dt) { // 列を、毎フレーム同じ速さで下へ進める（横の位置は固定）。dur 秒たったら true。💥 ゴーストに1回当たったら、その時点でゴーストが全部消えて、すぐ戻る
     const G = GLITCH_WARP.ghostrun, gw = S.gw, A = gw && gw.A; if (!A) return true;
+    if (gw._hit) return true;
     const y = A.y0 + G.startY + G.speed * gw.t;
     for (const e of gw.ch) { if (!e || e._removed || e._gwX == null) continue; e.gfx.x = e._gwX; e.gfx.y = y; e.kbX = 0; e.kbY = 0; e.hpBar.x = e._gwX; e.hpBar.y = y - e.type.radius - 8; }
+    if (gw.ch.some(e => e && !e._removed && e.hitCooldown > 0)) { // 当たった（接触ダメージが入ると、そのゴーストの hitCooldown が0.5になる）：全部消す
+      for (const e of gw.ch) { if (!e) continue; if (!e._removed) { this.spawnBurst(e.gfx.x, e.gfx.y, 0xbfd0ff, 5); this.rtRemoveEnemy(e); } if (this.bossGroupCounts) delete this.bossGroupCounts[e.id]; const i = this.enemies.indexOf(e); if (i >= 0) this.enemies.splice(i, 1); }
+      gw.ch = []; gw._hit = true; gw.endT = gw.t - GLITCH_WARP.returnDelay; // 戻る待ち時間(returnDelay)を省いて、すぐ戻る
+      return true;
+    }
     return gw.t >= G.dur;
   }
   // 🔥 パターン 'hell'：転送先は、上の壁が画面に入らないほど縦に深い部屋の真ん中あたり。プレイヤーの少し上（画面の上の端）に悪魔がいて、根で攻めてくる。stay 秒（15秒）たつと元の場所へ戻る。悪魔は倒せない。
