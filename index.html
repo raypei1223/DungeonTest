@@ -776,7 +776,7 @@
 </div>
 <div id="ticketModal">
   <div class="lobbyBox">
-    <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます<br>通常はホーム画面を開くと5%の確率でグリッチが起こります</small></h1>
+    <h1>🎫 チケット<small>日記サイトでもらったコードを貼り付けてください。1枚でグリッチ戦を10回遊べます<br>通常は1日10回までタイトル画面に出現します</small></h1>
     <a id="ticketDiaryLink" href="https://paypayultra.github.io/off/?from=zomika" target="_blank" rel="noopener noreferrer">📖 日記サイトを開く</a>
     <div id="ticketLeft"></div>
     <input type="text" id="ticketInput" placeholder="チケットのコードを貼り付け" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -6081,7 +6081,7 @@ const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定す�
 const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
 const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
-const GLITCH_TEST_GAUGE_START = true; // 🔷 テスト用：true なら、グリッチ戦が始まった時点で古代魔法のゲージが3/4（75%。必殺技が始まるのは55%なので、このフラグがtrueだと開始と同時に必殺技が始まる）から始まる。本番は false
+const GLITCH_TEST_GAUGE_START = false; // 🔷 テスト用：true なら、グリッチ戦が始まった時点で古代魔法のゲージが3/4（75%。必殺技が始まるのは55%なので、このフラグがtrueだと開始と同時に必殺技が始まる）から始まる。本番は false
 const GLITCH_TEST_ULT_START = false; // 🌀 テスト用：true なら、ゲージに関係なく、グリッチ戦が始まって最初にサメが泳ぎ回りに戻った時点から必殺技（ワープの常時発動）が始まる。本番は false
 const GLITCH_TSAR = { flyT: 7, v0: 0, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, blastSpd: 600, startDist: 1, invBand: 240, landTile: { x: 63, y: 63 }, fieldH: 128, invFadeT: 3.5, walkSpeedK: 1, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／startDist＝星が出る位置の、プレイヤーからの距離（マス。小さいほど近い。壁が近ければ、さらに手前になる）／blastSpd＝爆風（白い光）が広がる速さ（px/秒）。爆発してから画面が真っ白になるまで、ずっとこの一定の速さ（サメの逃げる速さ＝最大およそ475より大きくすること。小さいと追いつけない）／creep＝（今は使っていない）白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
@@ -8562,14 +8562,22 @@ class GameScene extends Phaser.Scene {
     const inRm = (opt && pl0 && rms.find(r => pl0.x >= r.x * TILE && pl0.x < (r.x + r.w) * TILE && pl0.y >= r.y * TILE && pl0.y < (r.y + r.h) * TILE)), room = inRm || rms[0], free = !!(opt && pl0 && !inRm); // 撃破後は、プレイヤーのいる部屋。部屋の外（free）なら、部屋に寄せず足元にそのまま出す
     if (!room) { if (opt && opt.onDone) opt.onDone(); return; } // 部屋が無ければ、メッセージは出さずに次へ
     if (this._glitchIntroStop) this._glitchIntroStop(); // 前の演出が残っていれば片付ける
-    const full = (opt && opt.text) || 'ERROR 0xDEAD_C0DE: FATAL EXCEPTION\n> UNRECOVERABLE CORRUPTION DETECTED\n> DELETION DELEGATED TO THE PLAYER.\n> GRANTING THE TOP-TIER WEAPON IN THE DATABASE:\n> "ANCIENT MAGIC"';
-    const CPS = 38, HOLD = (opt && opt.hold != null) ? opt.hold : 4.5, FADE = 0.9; // 文字を打つ速さ（文字/秒）／打ち終わってから残る秒数／消えるまでの秒数
+    const dly = (!opt && window.GlitchDaily && window.GlitchDaily.pending != null) ? window.GlitchDaily.pending : null; if (dly != null) window.GlitchDaily.pending = null; // 🗓 グリッチのボタンから始めた時だけ：日付と、今日の残り回数（大きく）を床に出す
+    const full = ((opt && opt.text) || 'ERROR 0xDEAD_C0DE: FATAL EXCEPTION\n> UNRECOVERABLE CORRUPTION DETECTED\n> DELETION DELEGATED TO THE PLAYER.\n> GRANTING THE TOP-TIER WEAPON IN THE DATABASE:\n> "ANCIENT MAGIC"');
+    const CPS = 38, HOLD = (opt && opt.hold != null) ? opt.hold : 9, FADE = 0.9; // 文字を打つ速さ（文字/秒）／打ち終わってから残る秒数／消えるまでの秒数
     const WW = Math.max(160, Math.min(380, room.w * TILE - 48)); // 文字の折り返し幅
     const base = { fontSize: '12px', fontFamily: 'monospace', align: 'left', wordWrap: { width: WW } };
     const dz = opt ? 0.6 : 0; /* 撃破後は、ツァーリ・ボンバの焼け跡の層（3.4／3.45）に隠れないよう手前へ */ const mk = (color, depth, extra) => this.add.text(0, 0, '', Object.assign({}, base, { color }, extra || {})).setOrigin(0, 0).setDepth(depth + dz).setVisible(false); // 左揃え・左上を基準。床の層（血だまり3.5・サメ4より下）
     const gl = mk('#2aff5a', 3.16).setShadow(0, 0, '#2aff5a', 22, true, true).setBlendMode(Phaser.BlendModes.ADD); // いちばん下：大きくにじむ緑の光
     const rd = mk('#ff2a4a', 3.18).setBlendMode(Phaser.BlendModes.ADD), cy = mk('#2affff', 3.18).setBlendMode(Phaser.BlendModes.ADD); // 赤とシアンの色ずれ（左右に1.5pxずらす）
     const layers = [gl, rd, cy], OFF = [0, -1.5, 1.5]; // 実体の文字の層は無し（光る文字＋色ずれのみ）
+    const bigT = dly != null ? dly + '/' + window.GlitchDaily.MAX : ''; // 🗓 日付の下に大きく出す「（残り）/10」。メッセージを打ち終わってから出る
+    const mkB = (color, depth, extra) => this.add.text(0, 0, '', Object.assign({ fontSize: '40px', fontFamily: 'monospace', fontStyle: 'bold', align: 'left', color }, extra || {})).setOrigin(0, 0).setDepth(depth).setVisible(false);
+    const bl = bigT ? [mkB('#2aff5a', 3.16).setShadow(0, 0, '#2aff5a', 22, true, true).setBlendMode(Phaser.BlendModes.ADD), mkB('#ff2a4a', 3.18).setBlendMode(Phaser.BlendModes.ADD), mkB('#2affff', 3.18).setBlendMode(Phaser.BlendModes.ADD)] : [];
+    const dateT = dly != null ? 'DATE: ' + window.GlitchDaily.today() : ''; // 🗓 日付（小さい字）。数字の上に出す
+    const mkD = (color, depth, extra) => this.add.text(0, 0, '', Object.assign({ fontSize: '12px', fontFamily: 'monospace', align: 'left', color }, extra || {})).setOrigin(0, 0).setDepth(depth).setVisible(false);
+    const dl = dateT ? [mkD('#2aff5a', 3.16).setShadow(0, 0, '#2aff5a', 22, true, true).setBlendMode(Phaser.BlendModes.ADD), mkD('#ff2a4a', 3.18).setBlendMode(Phaser.BlendModes.ADD), mkD('#2affff', 3.18).setBlendMode(Phaser.BlendModes.ADD)] : [];
+    let exX = 0; // 日付と数字を置いた左端（消える時の横ずれの基準）
     let t = 0, gt = 0, bx = 0, by = 0, placed = false, done = false, typed = false; const J = '█▓▒░#@%&01?/<>{}';
     const upd = (time, delta) => {
       if (this._paused) return; // ⏸ ポーズ中は、床の文字も止める
@@ -8577,10 +8585,16 @@ class GameScene extends Phaser.Scene {
       if (!gl.scene) { stop(); if (opt && opt.onDone && !done) { done = true; opt.onDone(); } return; } // 文字が消えていても、次へ進めて止まらないようにする
       if (!placed) { // 最初の1フレームで、プレイヤーの足元の地面に置く（以後は動かない＝床に書かれた文字）
         const pl = this.player, L0 = room.x * TILE + 8, R0 = (room.x + room.w) * TILE - 8, T0 = room.y * TILE + 8, B0 = (room.y + room.h) * TILE - 8;
-        gl.setText(full); const h = gl.height; gl.setText(''); // 全文の高さを測る（壁にかからないように位置を寄せるため）
+        gl.setText(full); const h = gl.height, hh = h, tw = gl.width; gl.setText(''); // 全文の高さを測る（壁にかからないように位置を寄せるため）
         const px = pl ? pl.x : (L0 + R0) / 2, py = pl ? pl.y + (pl.radius || 12) + 4 : (T0 + B0) / 2;
-        if (free) { bx = px - WW / 2; by = py; } else { bx = Math.max(L0, Math.min(px - 12, R0 - WW)); by = Math.max(T0, Math.min(py, B0 - h)); }
-        layers.forEach((q, i) => { q.setPosition(bx + OFF[i], by); q.setVisible(true); }); placed = true;
+        if (free) { bx = px - WW / 2; by = py; } else { bx = Math.max(L0, Math.min(px - 12, R0 - WW)); by = Math.max(T0, Math.min(py, B0 - hh)); }
+        layers.forEach((q, i) => { q.setPosition(bx + OFF[i], by); q.setVisible(true); }); if (bl.length) { // 🗓 メッセージの右上に、日付（小）とその下に残り回数（大）を置く（右に入りきらない時は、メッセージの上の右寄せ）
+          dl.forEach(q => q.setText(dateT)); bl.forEach(q => q.setText(bigT));
+          const dh = dl[0].height, bw = Math.max(dl[0].width, bl[0].width), bh = dh + 2 + bl[0].height;
+          dl.forEach(q => q.setText('')); bl.forEach(q => q.setText(''));
+          let ey = by; exX = bx + tw + 14; if (exX + bw > R0 + 8) { exX = bx + tw - bw; ey = by - bh - 6; }
+          dl.forEach((q, i) => { q.setPosition(exX + OFF[i], ey); q.setVisible(true); }); bl.forEach((q, i) => { q.setPosition(exX + OFF[i], ey + dh + 2); q.setVisible(true); });
+        } placed = true;
       }
       const tEnd = full.length / CPS + HOLD, typing = t * CPS < full.length, fading = t > tEnd;
       if (!typing && !typed) { typed = true; if (opt && opt.onTyped) opt.onTyped(); } // 全部打ち終わった瞬間（1回だけ）
@@ -8588,13 +8602,13 @@ class GameScene extends Phaser.Scene {
       if (gt <= 0) { gt = 0.07; gl._gl = []; for (let i = 0; i < 3; i++) if (Math.random() < 0.5) gl._gl.push(Math.floor(Math.random() * Math.max(1, n))); } // ときどき、数文字がバグった記号に入れ替わる
       if (gl._gl && !typing) { const ch = out.split(''); for (const k of gl._gl) if (ch[k] && ch[k] !== '\n' && ch[k] !== ' ') ch[k] = J[Math.floor(Math.random() * J.length)]; out = ch.join(''); }
       if (!fading) out += (Math.floor(t * 2.4) % 2 === 0 || typing) ? '█' : ' '; // 末尾のカーソル（打っている間は出しっぱなし、そのあとは点滅）
-      layers.forEach(q => q.setText(out));
+      layers.forEach(q => q.setText(out)); bl.forEach(q => q.setText(typing ? '' : bigT)); dl.forEach(q => q.setText(typing ? '' : dateT));
       const u = fading ? Math.min(1, (t - tEnd) / FADE) : 0, fl = Math.max(0.35, 0.9 + 0.1 * Math.sin(t * 38) - (Math.random() < 0.06 ? 0.45 : 0)), fa = (1 - u) * (u > 0 && Math.random() < 0.25 ? 0.5 : 1); // ちらつき（ときどき一瞬暗くなる）／消える時のちらつき
-      gl.setAlpha(fl * fa); rd.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1)); cy.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1));
-      if (u > 0) { const j = (Math.random() - 0.5) * 6 * u; layers.forEach((q, i) => q.x = bx + OFF[i] + j); } // 消える時は、横にずれる
+      if (bl.length) { bl[0].setAlpha(fl * fa); bl[1].setAlpha(0.3 * fa); bl[2].setAlpha(0.3 * fa); dl[0].setAlpha(fl * fa); dl[1].setAlpha(0.3 * fa); dl[2].setAlpha(0.3 * fa); } gl.setAlpha(fl * fa); rd.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1)); cy.setAlpha(0.3 * fa * (Math.random() < 0.12 ? 1.8 : 1));
+      if (u > 0) { const j = (Math.random() - 0.5) * 6 * u; layers.forEach((q, i) => q.x = bx + OFF[i] + j); bl.concat(dl).forEach((q, i) => q.x = exX + OFF[i % 3] + j); } // 消える時は、横にずれる
       if (u >= 1) { stop(); if (opt && opt.onDone && !done) { done = true; opt.onDone(); } } // 消え終わったら、次の処理へ
     };
-    const stop = () => { this.events.off('update', upd); layers.forEach(q => { try { if (q.scene) q.destroy(); } catch (e) { /* 破棄済み */ } }); if (this._glitchIntroStop === stop) this._glitchIntroStop = null; };
+    const stop = () => { this.events.off('update', upd); layers.concat(bl, dl).forEach(q => { try { if (q.scene) q.destroy(); } catch (e) { /* 破棄済み */ } }); if (this._glitchIntroStop === stop) this._glitchIntroStop = null; };
     this._glitchIntroStop = stop;
     this.events.on('update', upd);
     this.events.once('shutdown', stop);
@@ -35673,7 +35687,7 @@ let askWeapon = null;
   // ボスラッシュ／最北戦線（ひとり）：まず武器選択画面を出して、選んだ武器のLv.5でスタートする。
   document.getElementById('bossRushBtn').addEventListener('click', () => {
     // 📺 グリッチ状態のボタンを押すと、武器選択なし（剣）で、グリッチのボスがいるボス部屋へ直行する
-    if (document.getElementById('bossRushBtn').classList.contains('glitchBtn')) { startGame('solo', { bossRush: true, weaponKey: 'ancient', glitchBoss: true }); return; }
+    if (document.getElementById('bossRushBtn').classList.contains('glitchBtn')) { if (window.GlitchDaily) window.GlitchDaily.use(); startGame('solo', { bossRush: true, weaponKey: 'ancient', glitchBoss: true }); return; } // 🗓 ボタンから始めた時だけ、今日の回数を1回使う
     askWeapon('ボスラッシュ', w => startGame('solo', { bossRush: true, weaponKey: w.key }));
   });
   // 🎫 確定のグリッチ戦（🎫の画面の中のボタン）：チケットで増えた回数を1回使って、グリッチのボスの部屋へ直行する（武器選択なし・剣）。回数が無い時は案内だけ出す
@@ -35685,10 +35699,15 @@ let askWeapon = null;
   // 📺 タイトル画面を開いた時、GLITCH_CHANCE の確率でボスラッシュのボタンがグリッチ（ノイズが走る）状態になる。今は 0（0％）なので、確率では起こらない。
   //   URLに ?glitch=1（すでに ? がある時は &glitch=1）を付けると、確率に関係なく必ずなる。ボタンの見た目がグリッチになり、押すとグリッチのボスの部屋へ直行する。確率を戻す時は、GLITCH_CHANCE を 0.05（5％）などにする。
   (function () {
-    const GLITCH_CHANCE = 0; // グリッチになる確率（0＝URLの ?glitch=1 を付けた時だけ。0.05＝5％）
+    const GLITCH_CHANCE = 0.10; // グリッチになる確率（0.10＝10％）。ただし1日10回まで（GD_MAX）。URLの ?glitch=1 を付けた時は、確率・回数に関係なく必ずなる
+    const GD_MAX = 10, GD_KEY = 'glitchDailyUse'; // 🗓 1日に遊べる回数（グリッチのボタンから始めた回数。日付が変わると0に戻る）
+    const gdToday = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const gdUsed = () => { try { const o = JSON.parse(localStorage.getItem(GD_KEY) || 'null'); return (o && o.date === gdToday()) ? (o.used | 0) : 0; } catch (e) { return 0; } };
+    window.GlitchDaily = { MAX: GD_MAX, pending: null, today: gdToday, left: () => Math.max(0, GD_MAX - gdUsed()),
+      use() { const u = Math.min(GD_MAX, gdUsed() + 1); try { localStorage.setItem(GD_KEY, JSON.stringify({ date: gdToday(), used: u })); } catch (e) { /* 保存できなければ数えない */ } this.pending = Math.max(0, GD_MAX - u); return this.pending; } }; // use()＝1回使って、残り回数を pending に入れる（始まりの床メッセージが読む）
     let force = false;
     try { force = new URLSearchParams(location.search).get('glitch') === '1'; } catch (e) { /* 取れなければ通常の確率 */ }
-    if (!force && !(Math.random() < GLITCH_CHANCE)) return;
+    if (!force && !(window.GlitchDaily.left() > 0 && Math.random() < GLITCH_CHANCE)) return; // 今日の回数が残っている時だけ、10％の確率で出る
     const btn = document.getElementById('bossRushBtn');
     if (!btn) return;
     btn.classList.add('glitchBtn');
