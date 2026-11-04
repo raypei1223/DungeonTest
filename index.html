@@ -6078,7 +6078,7 @@ function applyWeaponLevel(base, level) {
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
 const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf' / 'overlord' / 'ghostrun' / 'bombrun'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
-const GLITCH_TEST_ATK = 'shoot'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
+const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
 const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
 const GLITCH_TEST_GAUGE_START = true; // 🔷 テスト用：true なら、グリッチ戦が始まった時点で古代魔法のゲージが3/4（＝必殺技が始まるゲージ）から始まる。本番は false
