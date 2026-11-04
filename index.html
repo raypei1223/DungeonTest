@@ -8943,7 +8943,7 @@ class GameScene extends Phaser.Scene {
     const splashBurst = (n, pt = fbP) => { for (let i = 0; i < n && S.splash.length < 420; i++) S.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] }); };
     S.mt -= dt;
     if (m0 === 'fin') {
-      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? GLITCH_ULT.atkPool : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', (this._ransomT > 0 || S.ultDone) ? 'rush' : 'ransom'].concat(S.ultDone ? [] : ['warp']); /* 🏁 古代魔法が満タンになったあとは、操作反転の技（ランサムウェア）も出さない */ /* 🏁 古代魔法が満タンになったあとは、ワープは選ばない */ /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]; if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
+      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? GLITCH_ULT.atkPool : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', (this._ransomT > 0 || S.ultDone) ? 'rush' : 'ransom'].concat(S.ultDone ? [] : ['warp']); /* 🏁 古代魔法が満タンになったあとは、操作反転の技（ランサムウェア）も出さない */ /* 🏁 古代魔法が満タンになったあとは、ワープは選ばない */ /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = (S.invDue && !S.invOver && !S.invPerm) ? 'ransom' : (GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]); /* 🔀 ゲージ90%の予約中は、次の技が確定でランサムウェア */ if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
        S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, S.atk === 'combo' ? { x: S.x, y: S.y } : fbP); } else S.mt = 2; } // しばらく泳ぎ回ったら、距離に関係なくその場で姿を現して、追撃を始める
     } else if (m0 === 'chase') {
       if (!plOk || S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 追いつけない・見失ったら、泳ぎ回りに戻る
@@ -9115,11 +9115,11 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100, g = A ? (A.gauge || 0) : 0; // 🔀 パリィゲージ（古代魔法）が90%に達したら、両スティックの操作反転が始まり、ゲージが満タンになるまでずっと続く（90%を下回っても解けない）。満タンになったら反転が解け、次のワープで最初の部屋へ戻って、それ以降ワープしない
       if (!S.invOver) {
         if (g >= gm) { // 🏁 満タン：反転を解く／必殺技のワープは次の転送で最初の部屋へ戻って終わり（通常のワープ攻撃も、もう選ばない）
-          S.invOver = true; S.ultDone = true;
+          S.invOver = true; S.ultDone = true; S.invDue = false;
           if (S.invPerm) { S.invPerm = false; this._ransomT = 0; } // 解けた瞬間の演出は _ransomHud がやる
           if (S.ult) S.ultFin = true;
         } else if (g >= gm * GLITCH_ULT.invRate) {
-          if (!S.invPerm && plOk) { S.invPerm = true; try { this.cameras.main.flash(200, 255, 60, 60); } catch (e) {} }
+          if (!S.invPerm) S.invDue = true; /* 🔀 90%に達したら、反転はまだ始めず「サメの次の技はランサムウェア（両スティック反転）」と予約する（実際の反転は _ransomStart で始まる） */
           if (S.invPerm) { this._ransomT = 1e9; this._ransomMove = true; this._ransomAim = true; } // 毎フレーム入れ直す（他の処理で解けても、すぐ戻る）
         }
       }
@@ -9450,6 +9450,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   _ransomLock() { const S = this._shark; return !!(S && ((S.mode === 'fork' && S.fk && this._fork) || (S.gw && S.gw.ph === 'fight' && !S.ult))); } // フォークボム中、または🌀ワープで転送されている間：武器が使えず、右スティックが壊れる
   _ransomStart(S) { // 🔀 ランサムウェア攻撃：サメが姿を現し終えたら、感染させる（_ransomT 秒、移動の操作が反転）。サメは castT 秒止まる（'ransom' モード）
     const R = GLITCH_RANSOM; S.mode = 'ransom'; S.mt = R.castT; this._ransomT = R.t; const rr = Math.random(); this._ransomMove = !(rr < R.aimP); this._ransomAim = rr < R.aimP + R.bothP; // どのスティックが反転するか：攻撃スティックだけ／両方／移動スティックだけ
+    if (S.invDue && !S.invOver) { S.invDue = false; S.invPerm = true; this._ransomT = 1e9; this._ransomMove = true; this._ransomAim = true; } // 🔀 ゲージ90%の予約：両スティックが反転し、満タンになるまで続く（_ultUpdate が毎フレーム入れ直す）
     try { this._ransomInvFlash(); this.cameras.main.shake(300, 0.006); } catch (e) {} // 感染の瞬間：画面の色が一瞬反転する＋少し揺れる（以前の赤いフラッシュの代わり）
   }
   _ransomInvFlash() { // 🔀 感染の瞬間に、画面全体の色を一瞬だけ反転させる（白を「差の絶対値」で重ねる＝下の絵の色が反転する。ツァーリ・ボンバの色反転と同じ仕組み）。INV_MS＝反転している長さ(ミリ秒)
