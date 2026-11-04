@@ -6078,10 +6078,10 @@ function applyWeaponLevel(base, level) {
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
 const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf' / 'overlord' / 'ghostrun' / 'bombrun'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
-const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
+const GLITCH_TEST_ATK = 'shoot'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
 const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
-const GLITCH_TEST_GAUGE_START = false; // 🔷 テスト用：true なら、グリッチ戦が始まった時点で古代魔法のゲージが3/4（＝必殺技が始まるゲージ）から始まる。本番は false
+const GLITCH_TEST_GAUGE_START = true; // 🔷 テスト用：true なら、グリッチ戦が始まった時点で古代魔法のゲージが3/4（＝必殺技が始まるゲージ）から始まる。本番は false
 const GLITCH_TEST_ULT_START = false; // 🌀 テスト用：true なら、ゲージに関係なく、グリッチ戦が始まって最初にサメが泳ぎ回りに戻った時点から必殺技（ワープの常時発動）が始まる。本番は false
 const GLITCH_TSAR = { flyT: 7, v0: 0, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, blastSpd: 600, startDist: 1, invBand: 240, landTile: { x: 63, y: 63 }, fieldH: 128, invFadeT: 3.5, walkSpeedK: 1, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／startDist＝星が出る位置の、プレイヤーからの距離（マス。小さいほど近い。壁が近ければ、さらに手前になる）／blastSpd＝爆風（白い光）が広がる速さ（px/秒）。爆発してから画面が真っ白になるまで、ずっとこの一定の速さ（サメの逃げる速さ＝最大およそ475より大きくすること。小さいと追いつけない）／creep＝（今は使っていない）白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
@@ -17597,7 +17597,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       for (const d of [R * 0.3, R * 0.62]) for (let i = 0; i < n; i++) { if (rnd() < 0.25) continue; const q1 = at(rays[i], d * (0.9 + 0.2 * rnd())), q2 = at(rays[(i + 1) % n], d * (0.9 + 0.2 * rnd())); if (q1 && q2) C.push([rel(q1), rel(q2)]); } // となり合う放射状のヒビどうしをつなぐ、輪のヒビ（内側と外側の2周。ところどころ途切れる）
     } }
 
-    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20) * (this.glitchHard ? 0.5 : 1)); /* 🟩 Glitch-Hardcore：溜まりやすさは半分 */ A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
+    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20) * 0.5); /* 🔷 ゲージのたまる速さは、ノーマルもハードコアも半分（以前はハードコアだけ半分だった。ハードコアだけ変えたい時は (this.glitchHard ? 0.5 : 1) のように分ける） */ A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
     for (let i = 0; i < 22; i++) { const an = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 260; A.sp.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp, life: 0.45 + Math.random() * 0.3, max: 0.75, s: 3 + Math.random() * 3 }); }
     A.rings.push({ x, y, t: 0 });
     try { this.cameras.main.flash(90, 255, 255, 255); this.cameras.main.shake(140, 0.005); } catch (e) {}
@@ -17610,7 +17610,9 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     const on = !!(w && w.type === 'ancient' && pl && !this.isGhost && !this.isDowned && !this.transitioning && !this._ransomLock());
     this._ancGaugeUI(on, A, w); // 🔷 画面下のゲージ／「魔法をえがく」ボタン／シンボル描画の更新
     if (on) {
-      const held = IS_TOUCH_DEVICE ? !!(window.aimVector && window.aimVector.active) : (!A.draw && this.input.activePointer.isDown); let angle = A.angle || this.facingAngle || 0; // 🔷 A.draw＝シンボルを描いている間は、スティックの操作でシールドは張らない
+      if (!IS_TOUCH_DEVICE && A._pcIn !== this.input) { A._pcIn = this.input; const h = p => { if (p.button === 0) A.clk = true; }; this.input.on('pointerdown', h); this.events.once('shutdown', () => { try { this.input.off('pointerdown', h); } catch (e) {} A._pcIn = null; }); } // 🖱 PC：一瞬で終わるクリックも取りこぼさない（押して離すまでが1フレームより短いと、isDown だけでは見えない）
+      const drawing = !!(A.draw && A.draw.id !== null); // 🖱 PC：シンボルを右ドラッグで描いている最中だけ、シールドを張らない（A.draw は魔法が使える間ずっと在るので、以前はゲージ満タンの間、左クリックでシールドが出なかった）
+      const held = IS_TOUCH_DEVICE ? !!(window.aimVector && window.aimVector.active) : (!drawing && (this.input.activePointer.leftButtonDown() || !!A.clk)); A.clk = false; let angle = A.angle || this.facingAngle || 0; // 🔷 A.draw＝シンボルを描いている間は、スティックの操作でシールドは張らない
       if (IS_TOUCH_DEVICE) { const aim = window.aimVector; if (aim && aim.active && (aim.x !== 0 || aim.y !== 0)) angle = Math.atan2(aim.y, aim.x); }
       else { const pt = this.input.activePointer, wp = this.cameras.main.getWorldPoint(pt.x, pt.y); angle = Phaser.Math.Angle.Between(pl.x, pl.y, wp.x, wp.y); }
       if (held) { A.held = true; A.angle = angle; }
@@ -17775,6 +17777,34 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     this._ancSigilStop = stop; this.events.once('shutdown', stop);
     this.events.on('update', upd);
   }
+  _ancPath(ctx, p) { // 点の列を、なめらかな曲線（となり合う点の中点を通る2次ベジェ）にする
+    ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]);
+    for (let i = 1; i < p.length - 1; i++) ctx.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
+    const l = p[p.length - 1]; ctx.lineTo(l[0], l[1]);
+  }
+  _ancStroke(ctx, p, W, H, a, g) { // 描いた線を、全体を1本の曲線として1回で描く（短い線をつなぐと、つなぎ目で半透明が重なって切れて見えたので）。a＝全体の濃さ（0〜1）／g＝光り輝き（0〜1）
+    ctx.clearRect(0, 0, W, H); if (p.length < 2) return;
+    ctx.save(); ctx.lineCap = ctx.lineJoin = 'round'; ctx.globalAlpha = a;
+    if (g > 0) { ctx.shadowColor = 'rgba(190,150,255,1)'; ctx.shadowBlur = 8 + 32 * g; }
+    ctx.strokeStyle = 'rgba(160,120,255,' + (0.55 + 0.3 * g).toFixed(3) + ')'; ctx.lineWidth = 12 + 14 * g; this._ancPath(ctx, p); ctx.stroke();
+    if (g > 0) { ctx.shadowColor = '#fff'; ctx.shadowBlur = 20 * g; }
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 4 + 3 * g; this._ancPath(ctx, p); ctx.stroke(); ctx.restore();
+  }
+  _ancFx(R, p, glow) { // 描き終えた線の「消える演出」。glow＝true（技が発動する）なら、線が光り輝いてから消える／false（失敗）なら、そのままなめらかに消える。描く場所（zone）とは別のキャンバスで動かす
+    if (!p || p.length < 2) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), cv = document.createElement('canvas'); cv.width = R.width * dpr; cv.height = R.height * dpr;
+    cv.style.cssText = 'position:fixed;left:' + R.left + 'px;top:' + R.top + 'px;width:' + R.width + 'px;height:' + R.height + 'px;z-index:60;pointer-events:none;';
+    document.body.appendChild(cv); const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+    const dur = glow ? 750 : 450, t0 = performance.now(), sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+    const step = now => {
+      const k = Math.min(1, (now - t0) / dur);
+      if (k >= 1) { cv.remove(); return; }
+      if (glow) this._ancStroke(ctx, p, R.width, R.height, k < 0.45 ? 1 : 1 - sm((k - 0.45) / 0.55), sm(k / 0.4)); // 前半：だんだん強く光る → 後半：光ったまま薄くなって消える
+      else this._ancStroke(ctx, p, R.width, R.height, 1 - sm(k), 0);
+      requestAnimationFrame(step);
+    };
+    this._ancStroke(ctx, p, R.width, R.height, 1, 0); requestAnimationFrame(step);
+  }
   _ancDrawStart(A) { // 真ん中の帯（左右のスティックの間）を、シンボルを描けるエリアにする。使える間は出しっぱなし。帯の外は触れるので、スティックで動きながら描ける
     if (A.draw) return; A.held = false;
     const zone = document.createElement('div'); zone.id = 'ancDraw'; zone.style.cssText = 'position:fixed;left:34vw;width:32vw;top:6vh;height:82vh;z-index:60;box-sizing:border-box;background:rgba(190,150,255,0);border-radius:2vh;transition:background .2s;user-select:none;-webkit-user-select:none;' + (IS_TOUCH_DEVICE ? 'touch-action:none;' : 'pointer-events:none;'); // PCは左クリックを邪魔しない（右ドラッグで描く）
@@ -17782,17 +17812,19 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     const msg = document.createElement('div'); msg.style.cssText = 'position:absolute;top:1.2vh;left:0;right:0;text-align:center;color:#fff;font:bold max(2.2vh,12px) sans-serif;text-shadow:0 0 8px #9b6bff;pointer-events:none;opacity:0;transition:opacity .25s;';
     zone.appendChild(cv); zone.appendChild(msg); document.body.appendChild(zone);
     const R = zone.getBoundingClientRect(), W = R.width, H = R.height; cv.width = W * dpr; cv.height = H * dpr; const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
-    const D = A.draw = { ov: zone, cv, ctx, msg, pts: [], id: null, R, offs: [] };
+    const D = A.draw = { ov: zone, cv, ctx, msg, pts: [], dp: [], id: null, R, offs: [] }; // pts＝認識に使う点／dp＝見た目用の点（細かい動きも拾う）
     const pt = ev => [ev.clientX - R.left, ev.clientY - R.top], inR = ev => ev.clientX >= R.left && ev.clientX <= R.right && ev.clientY >= R.top && ev.clientY <= R.bottom;
     const say = t => { msg.textContent = t; msg.style.opacity = '1'; clearTimeout(D.mt); D.mt = setTimeout(() => { msg.style.opacity = '0'; }, 900); };
-    const down = ev => { if (D.id !== null || this._tsar || this._paused) return; D.id = ev.pointerId; D.pts = [pt(ev)]; ctx.clearRect(0, 0, W, H); zone.style.background = 'rgba(190,150,255,0.22)'; }; // 描いている間だけ、描ける部分が淡い紫になる
-    const move = ev => { if (ev.pointerId !== D.id) return; const p = pt(ev), q = D.pts[D.pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) < 2) return; D.pts.push(p);
-      ctx.lineCap = ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(160,120,255,0.55)'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(p[0], p[1]); ctx.stroke(); };
-    const up = ev => { if (ev.pointerId !== D.id) return; D.id = null; zone.style.background = 'rgba(190,150,255,0)'; const pts = D.pts; D.pts = []; setTimeout(() => { if (A.draw === D) ctx.clearRect(0, 0, W, H); }, 300);
-      const res = this._ancRecognize(pts); if (!res.ok) { if (pts.length > 6 && (res.why === 'small' || res.why === 'short')) say('もっと大きく、一筆で'); return; } // ちょんと触れただけでは何も言わない
+    const down = ev => { if (D.id !== null || this._tsar || this._paused) return; D.id = ev.pointerId; D.pts = [pt(ev)]; D.dp = [pt(ev)]; ctx.clearRect(0, 0, W, H); zone.style.background = 'rgba(190,150,255,0.22)'; }; // 描いている間だけ、描ける部分が淡い紫になる
+    const move = ev => { if (ev.pointerId !== D.id) return; const p = pt(ev), q = D.pts[D.pts.length - 1]; if (Math.hypot(p[0] - q[0], p[1] - q[1]) >= 2) D.pts.push(p); // 認識に使う点（今までどおり）
+      let ch = false; for (const e of (ev.getCoalescedEvents ? ev.getCoalescedEvents() : [ev])) { const c = pt(e), l = D.dp[D.dp.length - 1]; if (!l || Math.hypot(c[0] - l[0], c[1] - l[1]) >= 1.5) { D.dp.push(c); ch = true; } } // 見た目用の点：細かい動きも拾って、なめらかにする
+      if (ch) this._ancStroke(ctx, D.dp, W, H, 1, 0); }; // 線は、毎回「全体を1本の曲線」で描き直す（つなぎ目が切れて見えない）
+    const up = ev => { if (ev.pointerId !== D.id) return; D.id = null; zone.style.background = 'rgba(190,150,255,0)'; const pts = D.pts, dp = D.dp; D.pts = []; D.dp = [];
+      const fade = glow => { this._ancFx(R, dp, glow); ctx.clearRect(0, 0, W, H); }; // 描いた線は、ぱっと消さずに、なめらかに消える（発動する時は、光り輝いてから消える）
+      const res = this._ancRecognize(pts); if (!res.ok) { fade(false); if (pts.length > 6 && (res.why === 'small' || res.why === 'short')) say('もっと大きく、一筆で'); return; } // ちょんと触れただけでは何も言わない
       const sy = this.ANC_SYMBOLS.find(q => q.key === res.key), gm = (this.weapon && this.weapon.gaugeMax) || 100;
-      if (sy && (A.gauge || 0) < (sy.cost == null ? 1 : sy.cost) * gm - 1e-6) { say('魔力がたりない'); return; }
-      this._ancDrawEnd(A, true, res.key); };
+      if (sy && (A.gauge || 0) < (sy.cost == null ? 1 : sy.cost) * gm - 1e-6) { fade(false); say('魔力がたりない'); return; }
+      fade(true); this._ancDrawEnd(A, true, res.key); };
     const on = (t, fn, o) => { t.addEventListener(fn[0], fn[1], o); D.offs.push(() => t.removeEventListener(fn[0], fn[1], o)); };
     if (IS_TOUCH_DEVICE) { // スマホ：帯の上を指でなぞる（スティックとは別の指）
       cv.onpointerdown = ev => { ev.preventDefault(); ev.stopPropagation(); down(ev); try { cv.setPointerCapture(ev.pointerId); } catch (e) {} };
@@ -30182,7 +30214,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     if (this.lounge) { tx(PARTY_PORTAL_LGRASS.x, 119, '🌿', 14, '#ffffff'); tx(PARTY_PORTAL_LGRASS.x, 151, '草原', 11, '#ffffff', { c: '#2f7a49', w: 3 }); tx(PARTY_PORTAL_LDUNGEON.x, 119, '🕳', 14, '#ffffff'); tx(PARTY_PORTAL_LDUNGEON.x, 151, 'ダンジョン', 11, '#ffffff', { c: '#4a3a7a', w: 3 }); tx(PARTY_PORTAL_LSTAIRS.x, 119, '🪜', 14, '#ffffff'); tx(PARTY_PORTAL_LSTAIRS.x, 151, '階段', 11, '#ffffff', { c: '#8a5a2a', w: 3 }); } // 💬 交流ルーム：草原とダンジョンの2つの入口（斬り合いの入口はない）
     if (this.lounge) { tx(PARTY_PORTAL_SOCIAL.x, 119, '🎙', 14, '#ffffff'); tx(PARTY_PORTAL_SOCIAL.x, 151, '交流ルーム', 11, '#ffffff', { c: '#2f5f9a', w: 3 }); } // パーティールームには、ホラーと交流ルームの入口はない（斬り合いだけ）
     if (!this.lounge) { const dis = !!PARTY_PORTAL_HERO.disabled; tx(PARTY_PORTAL_HERO.x, 119, '⚔', 14, '#ffffff').setAlpha(dis ? 0.5 : 1); tx(PARTY_PORTAL_HERO.x, 151, '斬り合い', 11, dis ? '#dddddd' : '#ffffff', { c: dis ? '#555555' : '#9a2f2f', w: 3 }); if (dis) tx(PARTY_PORTAL_HERO.x, 164, '準備中', 10, '#dddddd', { c: '#555555', w: 3 }); }
-    if (!this.lounge) { tx(PARTY_PORTAL_GLITCH.x, 119, '⚠', 14, '#ffffff'); this._partyGlTx = tx(PARTY_PORTAL_GLITCH.x, 151, 'Glitch-Hardcore', 11, '#c8ffd6', { c: '#0a5a1a', w: 3 }); this._partyGlTxS = 'Glitch-Hardcore'; } // 🟩 Glitch-Hardcore の看板（文字は _drawParty でちらつく）
+    if (!this.lounge) { const lk = this._partyGlLocked = this._glitchHcLocked(); /* 🔒 ノーマルをクリアしていない間は、看板も灰色 */ tx(PARTY_PORTAL_GLITCH.x, 119, '⚠', 14, '#ffffff').setAlpha(lk ? 0.5 : 1); this._partyGlTx = tx(PARTY_PORTAL_GLITCH.x, 151, 'Glitch-Hardcore', 11, lk ? '#dddddd' : '#c8ffd6', { c: lk ? '#555555' : '#0a5a1a', w: 3 }); this._partyGlTxS = 'Glitch-Hardcore'; } // 🟩 Glitch-Hardcore の看板（文字は _drawParty でちらつく）
     this.player.x += (Math.random() - 0.5) * 80; // 同時に入った人と重ならないように
     if (!this.lounge) this._partyLoadMemos(); // 💬 交流ルームには、メモがない
     this.events.once('shutdown', () => { const pb = document.getElementById('partyPrompt'); if (pb) pb.remove(); });
@@ -30204,6 +30236,11 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       g.fillStyle(hsl(i * 67 + 10, 0.45, 0.66), 1); g.fillEllipse(bx, y, 22, 28); g.fillStyle(0xffffff, 0.5); g.fillEllipse(bx - 4, y - 5, 5, 8);
     });
     for (const PP of this._partyPortals()) { // 🌿 草原（緑）／🎙 みんなの広場（水色）／⚔ 斬り合い（赤）への入口：光る扉
+      if (PP.glitch && this._partyGlLocked) { // 🔒 ノーマルをクリアするまでは、「準備中」の扉と同じ灰色（光らない）
+        g.fillStyle(0xb0b0b0, 0.11); g.fillCircle(PP.x, PP.y, 27); g.fillStyle(0x808080, 1); g.fillEllipse(PP.x, PP.y, 30, 40); g.fillStyle(0xc8c8c8, 1); g.fillEllipse(PP.x, PP.y, 20, 30);
+        if (tg === PP) { g.lineStyle(2, 0xffffff, 1); g.strokeEllipse(PP.x, PP.y, 38, 48); }
+        continue;
+      }
       if (PP.glitch) { // 🟩 Glitch-Hardcore：ノイズで崩れた、バグったような扉（赤紫と水色にずれて、ときどき横にずれる／横線のノイズ／ブロックのちらつき）
         const gx = PP.x, gy = PP.y, fl = Math.floor(t * 12), hs = n => (((n * 2654435761) >>> 0) % 1000) / 1000, jit = hs(fl) < 0.25 ? (hs(fl + 7) - 0.5) * 8 : 0;
         g.fillStyle(0x2aff5a, 0.16 + 0.1 * Math.sin(t * 9)); g.fillCircle(gx, gy, 27);
@@ -30251,6 +30288,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       c.fillStyle(hsl(hash(i + 3) % 360, 0.5, 0.66), 1); c.fillRect(x, y, 4, 3);
     }
   }
+  _glitchHcLocked() { try { return loadSave().titles.debugger !== true; } catch (e) { return false; } } // 🔒 Glitch-Hardcore は、ノーマルのグリッチ戦をクリアして称号 Debugger（debugger）を持っている人だけが遊べる（開発者モードでも同じ）。称号はノーマルを倒した時だけ付く（ハードコアは ERR_404）
   _partyPortals() { return this.lounge ? [PARTY_PORTAL_LGRASS, PARTY_PORTAL_LDUNGEON, PARTY_PORTAL_LSTAIRS, PARTY_PORTAL_SOCIAL] : [PARTY_PORTAL_HERO, PARTY_PORTAL_GLITCH]; } // 入口の一覧（交流ルームは、斬り合いがなく、ホラーが「草原」「ダンジョン」に分かれる）
   _updateParty(t) {
     if (!this._partyFx || !this._partyFx.scene || !this.player) return;
@@ -30270,15 +30308,16 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
         pb.addEventListener('pointerdown', go); pb.addEventListener('touchstart', go, { passive: false });
         document.body.appendChild(pb);
       }
-      const label = (tg.portal ? (tg.hero ? '⚔ 主人公と戦う' : tg.glitch ? '⚠ Glitch-Hardcoreへ挑む' : tg.social ? '🎙 交流ルームへ行く' : tg.lgrass ? '🌿 草原へ行く' : tg.ldungeon ? '🕳 ダンジョンへ行く' : tg.lstairs ? '🪜 階段へ行く' : 'ホラーへ行く') : tg.stat ? '黒いメモを読む' : '🔍 メモを読む') + (IS_TOUCH_DEVICE ? '' : '  [E]');
+      const label = (tg.portal ? (tg.hero ? '⚔ 主人公と戦う' : tg.glitch ? (this._partyGlLocked ? '🔒 ノーマルクリア後に解放' : '⚠ Glitch-Hardcoreへ挑む') : tg.social ? '🎙 交流ルームへ行く' : tg.lgrass ? '🌿 草原へ行く' : tg.ldungeon ? '🕳 ダンジョンへ行く' : tg.lstairs ? '🪜 階段へ行く' : 'ホラーへ行く') : tg.stat ? '黒いメモを読む' : '🔍 メモを読む') + (IS_TOUCH_DEVICE || (tg.glitch && this._partyGlLocked) ? '' : '  [E]');
       if (pb.textContent !== label) pb.textContent = label;
+      { const lk = !!(tg.glitch && this._partyGlLocked); pb.style.borderColor = lk ? '#9a9a9a' : '#ffd6e6'; pb.style.color = lk ? '#bdbdbd' : '#ffd6e6'; } // 🔒 解放前は、表示も灰色
       pb._scene = this; pb.style.display = 'block';
       if (this._partyKey && Phaser.Input.Keyboard.JustDown(this._partyKey)) this._partyAct();
     }
     if (!this._partyLeaving && p.y > 416 + 6 && p.x > 288 && p.x < 352) this._partyLeave(); // 下の扉に入った：ロビーへ戻る
   }
   _partyAct() {
-    const tg = this._partyTarget; if (!tg || tg.disabled || this._hutReading || this._partyLeaving) return;
+    const tg = this._partyTarget; if (!tg || tg.disabled || this._hutReading || this._partyLeaving) return; if (tg.glitch && this._glitchHcLocked()) return; // 🔒 Glitch-Hardcore：ノーマルをクリアする（称号 Debugger を持つ）まで入れない
     const pb = document.getElementById('partyPrompt'); if (pb) pb.style.display = 'none';
     if (tg.hero) { this._partyLeave(true); return; } // ⚔ 斬り合い：部屋を出て、ボス部屋へ
     if (tg.glitch) { this._partyLeave('glitch'); return; } // 🟩 Glitch-Hardcore：部屋を出て、グリッチ戦へ
