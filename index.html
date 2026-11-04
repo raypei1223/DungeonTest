@@ -9088,7 +9088,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
         if (this._gwG && this._gwG.scene) this._gwG.clear(); this._titleHide(this._gwTitles || [], 0);
         this.interruptBandage();
         pl.setPosition(A.spawnX, A.spawnY);
-        try { this.cameras.main.flash(260, 60, 255, 120); this.cameras.main.centerOn(A.spawnX, A.spawnY); } catch (e) {}
+        try { this.cameras.main.flash(260, 60, 255, 120); this.cameras.main.centerOn(A.spawnX, A.spawnY); window.openQualitySwapWindow(150); } catch (e) {} // 🌑 画質の切り替えの機会
         this.spawnBurst(A.spawnX, A.spawnY, 0x3dff85, 14);
         this.placeAlliesAtPlayer();
         const enter = this['_gwPat_' + gw.pat + '_enter']; if (enter) enter.call(this, S, A);
@@ -9152,7 +9152,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       if (this.circleHitsWall(nx, ny, pl.radius || 10)) { const rm = this.dungeon.rooms[0]; nx = (rm.x + rm.w / 2) * TILE; ny = (rm.y + rm.h / 2) * TILE; }
       this.interruptBandage();
       pl.setPosition(nx, ny);
-      try { this.cameras.main.flash(260, 60, 255, 120); this.cameras.main.centerOn(nx, ny); } catch (e) {}
+      try { this.cameras.main.flash(260, 60, 255, 120); this.cameras.main.centerOn(nx, ny); window.openQualitySwapWindow(150); } catch (e) {} // 🌑 画質の切り替えの機会
       this.spawnBurst(nx, ny, 0x3dff85, 14);
       this.placeAlliesAtPlayer();
     }
@@ -9439,6 +9439,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     try { this._ransomInvFlash(); this.cameras.main.shake(300, 0.006); } catch (e) {} // 感染の瞬間：画面の色が一瞬反転する＋少し揺れる（以前の赤いフラッシュの代わり）
   }
   _ransomInvFlash() { // 🔀 感染の瞬間に、画面全体の色を一瞬だけ反転させる（白を「差の絶対値」で重ねる＝下の絵の色が反転する。ツァーリ・ボンバの色反転と同じ仕組み）。INV_MS＝反転している長さ(ミリ秒)
+    window.openQualitySwapWindow(150); // 🌑 画面全体の色が反転する瞬間：画質の切り替えの機会
     const INV_MS = 200, e = document.createElement('div');
     e.style.cssText = 'position:fixed;inset:0;z-index:25;pointer-events:none;background:#fff;mix-blend-mode:difference;';
     document.body.appendChild(e); setTimeout(() => { try { e.remove(); } catch (err) { /* 消えていれば何もしない */ } }, INV_MS);
@@ -23619,7 +23620,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
         if (hit) {
           k.thrown = true; k.endT = k.t;
           this._a4Hold = false;
-          cam.shake(350, 0.03); cam.flash(120, 255, 255, 255);
+          cam.shake(350, 0.03); cam.flash(120, 255, 255, 255); window.openQualitySwapWindow(120); // 🌑 白く光る瞬間：画質の切り替えの機会
           this.spawnBurst(pl.x + (V ? 0 : sg * pl.radius), pl.y + (V ? sg * pl.radius : 0), 0xcfcfdd, 14);
           this.a4HurtAim(W.dmg, 1.0, true);
         }
@@ -35620,6 +35621,8 @@ const RENDER_H_MIN = 400;  // 下限
 // 重い時に自動で下げる段階（1＝画面と同じ細かさ。0番目から始める）。下げる／戻す処理は launchGame の「自動で画質を下げる」を参照。
 const RENDER_LEVELS = [1, 0.75, 0.56];
 window.RENDER_LEVEL = 0;
+// 🌑 画面が大きく変わる瞬間（ワープ・操作反転・天使の殴り飛ばしで壁にぶつかる時など）に呼ぶと、その後の ms ミリ秒のあいだ、画質の段階の切り替え（画面がパッと変わって見える）をここで済ませてよいことになる。暗転が来ない戦闘中の切り替え場所
+window.openQualitySwapWindow = function (ms) { window.__qSwapUntil = performance.now() + (ms || 150); };
 // 描く画素数（w×h）と、画面に合わせて縮める倍率（zoom）
 function renderSizeNow() {
   const H = Math.max(1, window.innerHeight), dpr = window.devicePixelRatio || 1;
@@ -35719,7 +35722,9 @@ function launchGame() {
     // カメラが通常の倍率の時だけ段階を変える（演出中などで倍率が特別な間は待つ。演出が元の倍率を覚えているため）
     const camNormal = () => { const sc = game.scene.getScene('game'), c = sc && sc.cameras && sc.cameras.main; return !!c && Math.abs(c.zoom - window.GAME_VIEW_ZOOM) < 0.02 * window.GAME_VIEW_ZOOM; };
     // 🌑 画質の段階を変えると画面がパッと切り替わって見えるので、階の移動・リザルトなどで画面がほぼ真っ暗（フェードの暗さ92%以上）になった瞬間まで待ってから変える
-    const screenDark = () => { const sc = game.scene.getScene('game'), c = sc && sc.cameras && sc.cameras.main, f = c && c.fadeEffect; return !!f && (f.isRunning || f.isComplete) && f.alpha >= 0.92; };
+    const screenDark = () => { const sc = game.scene.getScene('game'), c = sc && sc.cameras && sc.cameras.main, f = c && c.fadeEffect; return (performance.now() < (window.__qSwapUntil || 0)) || (!!f && (f.isRunning || f.isComplete) && f.alpha >= 0.92); };
+    // 🧊 最北戦線は暗転がほとんど無い（ずっと戦い続ける）ので、画面がパッとなってもいいから、重いと分かったらすぐ切り替える
+    const isFrontline = () => { const sc = game.scene.getScene('game'); return !!(sc && sc.frontline); };
     const setLevel = (lv, why, m) => { console.info('[画質] 段階 ' + window.RENDER_LEVEL + ' → ' + lv + '（' + why + '、中央値 ' + m.toFixed(1) + 'ms）'); window.RENDER_LEVEL = lv; fitRender(); };
     document.addEventListener('visibilitychange', () => clear(3000));
     game.events.on('prerender', () => {
@@ -35727,7 +35732,7 @@ function launchGame() {
       if (document.hidden || t < quietUntil) { last = 0; return; }
       if (last) { const d = t - last; if (d < 200) { ring[idx] = d; idx = (idx + 1) % WIN; if (n < WIN) n++; } }
       last = t;
-      if (pend && screenDark() && camNormal()) { // 暗くなった：まだ重いなら、今のうちに段階を下げる（見えない）
+      if (pend && (screenDark() || isFrontline()) && camNormal()) { // 暗くなった：まだ重いなら、今のうちに段階を下げる（見えない）
         pend = false; const m0 = median(), lv0 = window.RENDER_LEVEL;
         if (m0 > SLOW_MS && lv0 < RENDER_LEVELS.length - 1) { setLevel(lv0 + 1, '重い（暗転中に切り替え）', m0); return; }
       }
