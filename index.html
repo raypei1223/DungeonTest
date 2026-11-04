@@ -6062,7 +6062,7 @@ function applyWeaponLevel(base, level) {
 // ============== Phaserシーン ==============
 const TILE = 32;
 // 📺 グリッチ戦の攻撃のテスト用：'shell'（シェルゲーム）／'shoot'（射撃）／'rush'（追撃）を入れると、毎回その攻撃だけになる。普段は null（ランダム）
-const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf' / 'overlord' / 'ghostrun' / 'bombrun'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
+const GLITCH_TEST_WARP = 'bombrun'; // テストでワープの行き先を固定する時：'chargers' / 'hell' / 'lounge' / 'angel' / 'holy' / 'wolf' / 'overlord' / 'ghostrun' / 'bombrun'（null ならランダム）。GLITCH_TEST_ATK = 'warp' の時に効く
 const GLITCH_TEST_ATK = 'warp'; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
 const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
@@ -6088,7 +6088,7 @@ const GLITCH_WARP = {
   wolf: { stay: 20, hp: 999999, simahar: [27, 19] }, // 🐺 人狼広場（人狼ゲームの元のマップの広場。左に転送され、右にシマハルがいる）：stay＝戻るまでの秒（時間で戻る）／hp＝シマハルのHP(倒せない)／simahar＝シマハルの位置(部屋の左上からのマス)
   holy: { stay: 15, hp: 999999, snakes: [[9.5, 4.5], [23.5, 4.5]] }, // ✨ 聖域：stay＝戻るまでの秒（時間で戻る）／hp＝ウロボロスの頭のHP(倒せない)／snakes＝2匹のウロボロスの位置(部屋の左上からのマス)
   overlord: { stay: 40, hp: 999999, appear: 1.5, range: 900 }, // 👹 オーバーロードの部屋（20×20）：stay＝戻るまでの上限(秒。ふつうは、連続突進を1セット打ち終えたら戻る)／hp＝オーバーロードのHP(倒せない)／appear＝転送されてから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める（部屋のどこでも）
-  bombrun: { stay: 30, len: 40, h: 6, lane: 2, from: 4, to: 34, goal: 37, fuse: 1.0 }, // 💣 ボマーの廊下：len×h＝廊下の長さ×幅(マス)／lane＝真ん中の通路の幅(マス。残りの上下が、ボマーの敷き詰め)／from〜to＝ボマーを敷き詰める横の範囲(マス)／goal＝ここまで走ったら終わり(マス)／fuse＝導火線の秒数（短いほど、足を止められない）
+  bombrun: { stay: 30, len: 40, h: 4, lane: 2, from: 0, to: 34, goal: 37, fuse: 1.0 }, // 💣 ボマーの廊下：len×h＝廊下の長さ×幅(マス)／lane＝真ん中の通路の幅(マス。残りの上下が、ボマーの敷き詰め)／from〜to＝ボマーを敷き詰める横の範囲(マス。from が0＝左の端の、立っている足元のすぐ横から敷き詰める＝走り出さないと、すぐ爆発に巻き込まれる)／goal＝ここまで走ったら終わり(マス)／fuse＝導火線の秒数（短いほど、足を止められない）
   ghostrun: { stay: 30, dur: 15, lanes: 7, run: 10, cw: 1, wall: 1, speed: 27.5, startY: -100, spacing: 40, dmg: 30 }, // 👻 ゴースト逃走（曲がりくねった道）：dur＝続ける秒数／lanes＝横の道の本数（右へ・左へ…と交互）／run＝1本の横の道の長さ(マス)／cw＝道の幅(マス)／wall＝道と道の間の壁の厚さ(マス)／speed＝ゴーストの列が下へ進む速さ(px/秒。プレイヤー168が全力で道なりに走った時の下へ進む速さ≒28より、少しだけ遅い)／startY＝列の出発位置（部屋の上端からのpx。マイナス＝上の外）／spacing＝ゴーストの間隔(px。隙間を通れない広さ)／dmg＝当たった時のダメージ
   chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
 };
@@ -7351,7 +7351,7 @@ class GameScene extends Phaser.Scene {
     // 再現する（当たり判定・起爆・与ダメージの権威は置いた本人の画面だけが持つ）。
     if (payload.trapPlace) {
       const w = WEAPON_TYPES.find(x => x.key === 'trap');
-      this.placeTrap(payload.x, payload.y, Object.assign({}, w, { trapRadius: payload.radius }), false, payload.id);
+      this.placeTrap(payload.x, payload.y, Object.assign({}, w, { trapRadius: payload.radius }), false, payload.id, payload.uid);
       return;
     }
     // trapRemove:true は「上限超過で（爆発せず）撤去された」という通知。見た目の地雷を消すだけ。
@@ -9309,13 +9309,13 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     if (e.state === 'telegraph' || e.state === 'dash') e._gwD = true;
     return !!e._gwD && e.state === 'idle';
   }
-  // 💣 パターン 'bombrun'：幅6マスで横に続く廊下の左端に立っていて、廊下の上下（壁ぎわ）にボマーがぎっしり敷き詰められている。真ん中の細い通路を、右の端まで駆け抜ける。ボマーは動かず、横を通ると導火線に火が付く（fuse 秒後に爆発）。爆風で隣のボマーにも火が付く（連鎖）ので、足を止めると巻き込まれる
+  // 💣 パターン 'bombrun'：幅4マスで横に続く廊下（真ん中の通路2マス＋上下の壁ぎわ1列ずつ）の左端に立っていて、廊下の上下（壁ぎわ）にボマーが、左の端（立っている足元のすぐ横）から右へ、ぎっしり敷き詰められている。真ん中の細い通路を、右の端まで駆け抜ける。ボマーは動かず、横を通ると導火線に火が付く（fuse 秒後に爆発）。爆風で隣のボマーにも火が付く（連鎖）ので、足を止めると巻き込まれる
   _gwPat_bombrun_room() { const C = GLITCH_WARP.bombrun; return { w: C.len, h: C.h, spawn: [1.5, C.h / 2] }; }
   _gwPat_bombrun_enter(S, A) {
     const C = GLITCH_WARP.bombrun, gw = S.gw, base = ENEMY_TYPES.find(o => o.key === 'bomber'); if (!base) return;
     this._gwSeq = (this._gwSeq || 0) + 1;
     const rows = Math.floor((C.h - C.lane) / 2), ys = [];
-    for (let r = 0; r < rows; r++) { ys.push(r + 0.5); ys.push(C.h - r - 0.5); } // 上の壁ぎわ rows 段・下の壁ぎわ rows 段
+    for (let r = 0; r < rows; r++) { ys.push(r + 0.5); ys.push(C.h - r - 0.5); } // 上の壁ぎわ・下の壁ぎわに、それぞれ rows 列
     let n = 0;
     for (let tx = C.from; tx < C.to; tx++) for (const ty of ys) {
       const x = A.x0 + (tx + 0.5) * TILE, y = A.y0 + ty * TILE, e = this.rtMakeEnemy('bomber', x, y, 'gw_' + this._gwSeq + '_b' + (n++), base.hp, base.hp, base.damage); if (!e) continue;
@@ -11852,7 +11852,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
         this.enemies.push(e); this.enemyById[e.id] = e; pv.proxies[uid] = e;
       }
     }
-    for (const uid in pv.proxies) if (!this.remotePlayers[uid]) this.pvpRemoveProxy(uid);
+    for (const uid in pv.proxies) if (!this.remotePlayers[uid]) { this.pvpRemoveProxy(uid); this.pvpClearTraps(uid); } // 🧹 抜けた人のトラップの見た目コピーも消す
   }
 
   pvpRemoveProxy(uid) {
@@ -12965,6 +12965,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       // 武器選択画面を開いたままバトルが始まった場合は閉じる
       pv.wzOpen = false; pv.wpicking = false;
       { const ws = document.getElementById('weaponSelect'); if (ws) ws.style.display = 'none'; }
+      this.pvpClearTraps(); // 🧹 バトル開始：準備室で置いたトラップは持ち込まない
       pv.phase = 'battle'; pv.counting = false; pv.endSent = false; pv.waiting = false;
       pv.mode = m.mode || 'survival'; // 選ばれたモード（ボディカウント／レースは未実装：今はサバイバルと同じ進行）
       pv.ids = m.ids || []; pv.alive = new Set(pv.ids); pv.out = {}; pv.dead = false; pv.grace = PVP.spawnGrace;
@@ -13041,6 +13042,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       else if (pv.proxies && pv.proxies[m.to]) pv.proxies[m.to]._burnFxT = m.t || 3;
     } else if (m.a === 'dead') {
       pv.alive.delete(m.uid);
+      if (pv.mode !== 'bodycount') this.pvpClearTraps(m.uid); // 🧹 やられた人のトラップは消す（もう起爆できないまま残るのを防ぐ。ボディカウントはリスポーンするので残す）
       if (pv.mode === 'werewolf' && m.by && pv.roles && this.wwTeam(pv.roles[m.by]) === 'wolf') { // 人狼が殺した：その人の向きの線を、夜が明けるまで血で染まったように赤くする（全員の画面）
         const wiK = this.wwPhaseInfo();
         (pv.wwBloody = pv.wwBloody || {})[m.by] = { until: Infinity, n: wiK ? wiK.n : null };
@@ -13114,6 +13116,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     const pv = this.pv;
     if (pv.dead) return;
     pv.dead = true;
+    if (pv.mode !== 'bodycount' && this.net) this.pvpClearTraps(this.net.uid); // 🧹 自分がやられた：自分のトラップは消す（観戦中は起爆できないので）
     this.pvpSetSpectator(true);
     if (pv.mode === 'bodycount') { pv.respLeft = PVP.bodycount.respawnTime; pv.respShown = -1; } // 一定時間後に updatePvp がリスポーンさせる
     else if (pv.mode !== 'werewolf') this.showBanner('やられた…（観戦中）', 3000); // 人狼ゲームは、画面上のバナー（wwUpdateGhostUi）
@@ -13837,6 +13840,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
 
   pvpReset() {
     const pv = this.pv;
+    this.pvpClearTraps(); // 🧹 準備室に戻る：前のバトルのトラップ（自分の分も、他の人の見た目コピーも）を全部消す
     this.wwClearBlood();
     this.amidaClear();
     pv.phase = 'prep'; pv.cd = PVP.countdown; pv.cdShown = -1; pv.cdMode = null; pv.counting = false;
@@ -19038,6 +19042,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     // 輪は全員で1枚のグラフィックスを共有しているので、clear は1フレームに1回だけ。
     // 振り回し中のスネークが2体以上（ツインウロボロス・調伏の儀・道連れ）いても、全員の輪が残る
     if (this._whirlFrameAt !== this.time.now) { g.clear(); this._whirlFrameAt = this.time.now; }
+    this._whirlShown = true; // 輪を描いた（取り残しの見回し用）
     g.fillStyle(w.rage ? 0xff1a1a : 0xff5b3a, w.phase === 'curl' ? 0.06 + 0.05 * pulse : 0.05).fillCircle(hx, hy, R);
     g.lineStyle(w.rage ? 3 : 2, w.rage ? 0xff3030 : 0xff8a3a, w.phase === 'curl' ? 0.35 + 0.4 * pulse : 0.3).strokeCircle(hx, hy, R);
   }
@@ -20707,7 +20712,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
 
   // own=true：自分が置いた本体（当たり判定・起爆の権威を持つ）。own=false：他プレイヤーの地雷を
   // 見た目だけ再現したもの（当たり判定はしない＝持ち主の画面が起爆と与ダメージを行う）。
-  placeTrap(x, y, w, own, id) {
+  placeTrap(x, y, w, own, id, ownerUid) {
     if (own === undefined) own = true;
     // 同じ場所に立ったまま連続で置くと完全に重なって1個にしか見えないので、自分が新しく置く分だけ
     // 少しだけ位置をばらけさせる（受信側は既にばらけた後の座標をそのまま貰うので二重にはずらさない）。
@@ -20731,7 +20736,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
 
     const trapId = id || ('t' + Date.now() + '_' + (this._trapIdSeq++));
     const trap = {
-      own: !!own, id: trapId, gfx, halo, x, y,
+      own: !!own, id: trapId, uid: own ? ((this.net && this.net.uid) || null) : (ownerUid || null), gfx, halo, x, y, // uid＝持ち主（PvPで、持ち主が死んだ・抜けた時に、その人のトラップを消すため）
       radius: r, blastRadius: w.splashRadius || 66, damage: w.damage || 40,
       stun: w.stunDuration != null ? w.stunDuration : 2, // 直撃した敵をこの秒数だけ動けなくする
       blinkTimer: 0, blinkOn: false,
@@ -20765,6 +20770,19 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     if (trap.own && this.mp && this.net) {
       this.net.sendShot({ trapRemove: true, id: trap.id, floor: this.floor });
     }
+  }
+
+  // 🧹 PvP：トラップを片付ける（uid を渡すとその人のトラップだけ。渡さないと全員ぶん）。通信は送らない（全員が同じ知らせをきっかけに、それぞれ自分の画面で消す）
+  pvpClearTraps(uid) {
+    if (!this.traps || !this.traps.length) return;
+    for (const t of this.traps.slice()) {
+      if (uid && t.uid !== uid) continue;
+      t._gone = true;
+      try { this.tweens.killTweensOf(t.halo); } catch (err) { /* 破棄済み */ }
+      try { t.halo.destroy(); } catch (err) { /* 破棄済み */ }
+      try { t.gfx.destroy(); } catch (err) { /* 破棄済み */ }
+    }
+    this.traps = this.traps.filter(t => !t._gone);
   }
 
   updateTraps(dt) {
@@ -22586,7 +22604,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     try { this.clearSimaharFx(e); } catch (err) { /* 演出の後始末に失敗しても続ける */ }
     if (e.gfx && e.gfx.scene) this.tweens.killTweensOf(e.gfx);
     e.hp = 0; e._removed = true;
-    kill(e.gfx); kill(e.hpBar); kill(e.label); kill(e._doomText);
+    kill(e.gfx); kill(e.hpBar); kill(e.label); kill(e._doomText); kill(e._fuseRing); e._fuseRing = null; // 💣 ボマーの爆発予告の円も
     delete this.enemyById[e.id];
   }
   rtCasterTick(dt) {
@@ -27924,7 +27942,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
         const prog = Math.min(1, e.fuseT / t.fuseTime);
         e.gfx.setFillStyle(Math.floor(e.fuseT * (6 + 14 * prog)) % 2 === 0 ? 0xffffff : t.color);
         e.gfx.setScale(1 + 0.35 * prog);
-        if (!e._fuseRing) e._fuseRing = this.add.circle(e.gfx.x, e.gfx.y, t.blastRadius, 0xff3b3b, 0.12).setStrokeStyle(2, 0xff6b6b, 0.7).setDepth(3);
+        if (!e._fuseRing) { e._fuseRing = this.add.circle(e.gfx.x, e.gfx.y, t.blastRadius, 0xff3b3b, 0.12).setStrokeStyle(2, 0xff6b6b, 0.7).setDepth(3); (this._fuseRings || (this._fuseRings = new Set())).add(e); }
         e._fuseRing.setPosition(e.gfx.x, e.gfx.y);
         if (e.fuseT >= t.fuseTime) this.bomberExplode(e); // 導火線は止まらない（離れても爆発する）
       } else if (playerDist < t.fuseRange) {
@@ -29254,6 +29272,12 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     // 十字架の魔法陣に触れた幽霊を消す（敵を動かしている側＝ホスト/ソロだけが判定する）
     if (!(this._amidaMirOn || (this.mp && !this.isHost && this._enemySnapshotSeen))) this.banishEnemiesInMagicCircles();
     if (this._bomberCleanup) { this._bomberCleanup = false; this.cleanupDeadEnemies(); } // ボマーの自爆で倒れた敵（自分自身も含む）を、敵のループが終わってから片付ける
+    // 🧹 円の取り残し防止：敵がどんな経路で消えても（ワープ後の片付け・階の作り直しなど）、持ち主のいない円は毎フレーム消す
+    if (this._fuseRings && this._fuseRings.size) for (const o of this._fuseRings) { // 💣 ボマーの爆発予告の円：持ち主がもう敵のリストにいない
+      if (!o._fuseRing) { this._fuseRings.delete(o); continue; }
+      if (o._removed || this.enemies.indexOf(o) < 0) { try { o._fuseRing.destroy(); } catch (err) { /* 破棄済み */ } o._fuseRing = null; this._fuseRings.delete(o); }
+    }
+    if (this._whirlShown && this.whirlGfx && this.whirlGfx.scene && !this.enemies.some(o => o.whirl && o.hp > 0 && !o._removed)) { this.whirlGfx.clear(); this._whirlShown = false; } // 🐍 ウロボロスの危険範囲の輪：振り回し中の個体が1体もいないのに残っていたら消す
 
     // 幽霊は壁をすり抜けるため、複数体が同じ場所に集まって重なり合ってしまいやすい。
     // 見分けが付かなくなるのを防ぐため、幽霊同士だけはお互いに軽く押し合って
