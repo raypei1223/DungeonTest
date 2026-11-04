@@ -36137,6 +36137,8 @@ const WHALE_VOICE_B64 = 'SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYwLjE2LjEwMAAAAAAAAAA
   const refresh = () => {
     btn.textContent = !canFs ? '📱 全画面のしかた' : (isFs() ? '⛶ 全画面を解除' : '⛶ 全画面');
     btn.style.display = (inLobby() || (canFs && !isFs())) ? '' : 'none';
+    const lob = inLobby(); // タイトル画面（ロビー）でだけ右下。上の記録バーのリセットボタンとかぶるため。ゲーム中は今までどおり右上（右下は攻撃スティックがある）
+    btn.style.top = lob ? 'auto' : 'max(1vh, env(safe-area-inset-top))'; btn.style.bottom = lob ? 'max(1vh, env(safe-area-inset-bottom))' : 'auto';
   };
   if (lobbyEl && window.MutationObserver) new MutationObserver(refresh).observe(lobbyEl, { attributes: true, attributeFilter: ['style', 'class'] });
   btn.addEventListener('click', () => {
