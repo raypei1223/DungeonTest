@@ -6088,7 +6088,7 @@ const GLITCH_WARP = {
   wolf: { stay: 20, hp: 999999, simahar: [27, 19] }, // 🐺 人狼広場（人狼ゲームの元のマップの広場。左に転送され、右にシマハルがいる）：stay＝戻るまでの秒（時間で戻る）／hp＝シマハルのHP(倒せない)／simahar＝シマハルの位置(部屋の左上からのマス)
   holy: { stay: 15, hp: 999999, snakes: [[9.5, 4.5], [23.5, 4.5]] }, // ✨ 聖域：stay＝戻るまでの秒（時間で戻る）／hp＝ウロボロスの頭のHP(倒せない)／snakes＝2匹のウロボロスの位置(部屋の左上からのマス)
   overlord: { stay: 40, hp: 999999, appear: 1.5, range: 900 }, // 👹 オーバーロードの部屋（20×20）：stay＝戻るまでの上限(秒。ふつうは、連続突進を1セット打ち終えたら戻る)／hp＝オーバーロードのHP(倒せない)／appear＝転送されてから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める（部屋のどこでも）
-  ghostrun: { stay: 30, dur: 15, lanes: 6, run: 10, cw: 3, wall: 1, speed: 47, startY: -130, spacing: 40, dmg: 30 }, // 👻 ゴースト逃走（曲がりくねった道）：dur＝続ける秒数／lanes＝横の道の本数（右へ・左へ…と交互）／run＝1本の横の道の長さ(マス)／cw＝道の幅(マス)／wall＝道と道の間の壁の厚さ(マス)／speed＝ゴーストの列が下へ進む速さ(px/秒。プレイヤー168が全力で道なりに走った時の下へ進む速さ≒48より、少しだけ遅い)／startY＝列の出発位置（部屋の上端からのpx。マイナス＝上の外）／spacing＝ゴーストの間隔(px。隙間を通れない広さ)／dmg＝当たった時のダメージ
+  ghostrun: { stay: 30, dur: 15, lanes: 7, run: 10, cw: 1, wall: 1, speed: 27.5, startY: -100, spacing: 40, dmg: 30 }, // 👻 ゴースト逃走（曲がりくねった道）：dur＝続ける秒数／lanes＝横の道の本数（右へ・左へ…と交互）／run＝1本の横の道の長さ(マス)／cw＝道の幅(マス)／wall＝道と道の間の壁の厚さ(マス)／speed＝ゴーストの列が下へ進む速さ(px/秒。プレイヤー168が全力で道なりに走った時の下へ進む速さ≒28より、少しだけ遅い)／startY＝列の出発位置（部屋の上端からのpx。マイナス＝上の外）／spacing＝ゴーストの間隔(px。隙間を通れない広さ)／dmg＝当たった時のダメージ
   chargers: { n: 6, ring: TILE * 5, appear: 1.0, range: TILE * 12, hpMult: 1, dmgMult: 1 }, // n＝チャージャーの数／ring＝円の半径（真ん中にプレイヤー）／appear＝並んでから最初の突進の溜めを始めるまで(秒)／range＝この距離以内なら突進を始める
 };
 // 🌊 グリッチの攻撃「波」の調整値（秒・px。_sharkWaveMove／_sharkWaveUpdate の流れの順）
@@ -9284,11 +9284,11 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     }
     return all;
   }
-  // 👹 パターン 'overlord'：20×20マスの正方形の部屋（4×4マスの柱が四本）。上の方に転送され、真ん中にオーバーロードがいる。オーバーロードが連続突進を1セット（5連）打ち終えたら戻る。倒せない。突進が止まった所の壁・柱は壊れる
+  // 👹 パターン 'overlord'：20×20マスの正方形の部屋（2×2マスの柱が四本）。上の方に転送され、真ん中にオーバーロードがいる。オーバーロードが連続突進を1セット（5連）打ち終えたら戻る。倒せない。突進が止まった所の壁・柱は壊れる
   _gwPat_overlord_room() { return { w: 20, h: 20, spawn: [10, 2.5], carve: true }; }
-  _gwPat_overlord_carve(gw, rx, ry) { // 柱：4×4マスを、左右2本×上下2本。真ん中の横の帯（上下の柱の間）と、上の真ん中は通れる
+  _gwPat_overlord_carve(gw, rx, ry) { // 柱：2×2マスを、左右2本×上下2本
     const grid = this.dungeon.grid;
-    for (const pp of [[3, 4], [13, 4], [3, 12], [13, 12]]) for (let y = pp[1]; y < pp[1] + 4; y++) for (let x = pp[0]; x < pp[0] + 4; x++) if (grid[ry + y]) grid[ry + y][rx + x] = 0;
+    for (const pp of [[4, 4], [14, 4], [4, 14], [14, 14]]) for (let y = pp[1]; y < pp[1] + 2; y++) for (let x = pp[0]; x < pp[0] + 2; x++) if (grid[ry + y]) grid[ry + y][rx + x] = 0;
   }
   _gwPat_overlord_enter(S, A) {
     const C = GLITCH_WARP.overlord, gw = S.gw, base = ENEMY_TYPES.find(o => o.key === 'overlord'); if (!base) return;
