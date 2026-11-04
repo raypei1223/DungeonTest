@@ -8767,7 +8767,7 @@ class GameScene extends Phaser.Scene {
       const a = Math.max(q.len / 2, rr + 1), cx = q.bx + q.ux * q.len / 2, cy = q.by + q.uy * q.len / 2, e = a - rr; // 楕円の中心と、芯の線分（中心から前後にeずつ）
       const hx = cx + q.ux * e, hy = cy + q.uy * e, tx = cx - q.ux * e, ty = cy - q.uy * e;
       if (!dead && plOk) {
-        if (!q.parried && this.playerInvuln <= 0) { const sP = (pl.x - q.bx) * q.ux + (pl.y - q.by) * q.uy, sH = Math.max(q.len / 2 - e, Math.min(q.len / 2 + e, sP)), c = this._ancientBlocksSeg(tx, ty, q.bx + q.ux * sH, q.by + q.uy * sH, rr * 0.9); /* 🛡 パリィ判定の線は、プレイヤーの位置（ビームの軸に落とした点）までで切る＝プレイヤーより奥（背中側）の盾ではガードできない */ if (c) { const px = c.x, py = c.y; q.parried = true; q.hit = true; q.cap = Math.max(0, (px - q.bx) * q.ux + (py - q.by) * q.uy) + rr; q.pt = 0.3; q.age = Math.max(q.age, 0.55); this._ancientParryFx(px, py); } } // 🛡 ビームの線全体（根元〜先端）が盾に触れたらパリィ成功（ダメージ判定と同じく線で判定）：ビームは消えず、盾に当たった所で止まり、細い筋になって後ろへ受け流される（もう当たらない）。ダメージを食らった直後（無敵時間中）はパリィできない
+        if (!q.parried && this.playerInvuln <= 0) { const sP = (pl.x - q.bx) * q.ux + (pl.y - q.by) * q.uy, sH = Math.max(q.len / 2 - e, Math.min(q.len / 2 + e, sP)), c = this._ancientBlocksSeg(tx, ty, q.bx + q.ux * sH, q.by + q.uy * sH, rr * 0.9); /* 🛡 パリィ判定の線は、プレイヤーの位置（ビームの軸に落とした点）までで切る＝プレイヤーより奥（背中側）の盾ではガードできない */ if (c) { const px = c.x, py = c.y; q.parried = true; q.hit = true; q.cap = Math.max(0, (px - q.bx) * q.ux + (py - q.by) * q.uy) + rr; q.len = Math.min(q.len, q.cap); /* 🛡 防いだ瞬間に、ビームの長さも盾の所までに切る（1フレームで先端が盾を越えて伸びるため、切らないと、その1フレームだけ盾やプレイヤーを貫いて見えた） */ q.pt = 0.3; q.age = Math.max(q.age, 0.55); this._ancientParryFx(px, py); } } // 🛡 ビームの線全体（根元〜先端）が盾に触れたらパリィ成功（ダメージ判定と同じく線で判定）：ビームは消えず、盾に当たった所で止まり、細い筋になって後ろへ受け流される（もう当たらない）。ダメージを食らった直後（無敵時間中）はパリィできない
         if (!dead && !q.hit && this.playerInvuln <= 0) { // 楕円の当たり判定：芯の線分から半径rr*0.9
           const abx = tx - hx, aby = ty - hy, l2 = abx * abx + aby * aby || 1, tt = Math.max(0, Math.min(1, ((pl.x - hx) * abx + (pl.y - hy) * aby) / l2));
           if (Math.hypot(pl.x - (hx + abx * tt), pl.y - (hy + aby * tt)) < rr * 0.9 + pl.radius) { q.hit = true; this._sharkHurt(30, 1.0); this.spawnBurst(pl.x, pl.y, 0x2aff5a, 14); } // 当たると30ダメージ
@@ -8778,7 +8778,7 @@ class GameScene extends Phaser.Scene {
         q.pt -= dt; const fx = q.bx + q.ux * q.len, fy = q.by + q.uy * q.len;
         for (let k = 0; k < 2; k++) { const sd = R() < 0.5 ? -1 : 1, sp = 500 + R() * 600, fw = 120 + R() * 320; DF.push({ x: fx, y: fy, vx: -q.uy * sd * sp + q.ux * fw, vy: q.ux * sd * sp + q.uy * fw, life: 0.3 + R() * 0.25, max: 0.55, w: 1 + R() * 1.5, c: GC[1 + ((R() * 3) | 0)] }); }
       }
-      orb(cx, cy, a, rr, q.ux, q.uy);
+      { const a2 = Math.max(q.len / 2, rr + 1); orb(q.bx + q.ux * q.len / 2, q.by + q.uy * q.len / 2, a2, rr, q.ux, q.uy); } // 🛡 長さを切った後（パリィ成功の瞬間）の値で描く
     }
     for (let i = DF.length - 1; i >= 0; i--) { // 受け流された細い筋：すぐ細く消える（見た目だけ）
       const f = DF[i]; f.life -= dt; if (f.life <= 0) { DF.splice(i, 1); continue; }
