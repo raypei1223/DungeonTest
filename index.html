@@ -5712,7 +5712,7 @@ const WEAPON_TYPES = [
     blastRadius: 50, blastPerSec: 14, wallBreakTime: 2, knockback: 300,
     hidden: true }, // hidden: true＝一旦なし（宝箱・武器選択画面に出ない）。戻す時はこの hidden を消す
   // 🛡 古代魔法：スティックを離すと、一瞬だけ魔法のシールドが出る。出ている間はサメの攻撃をパリィ（ダメージを受けず攻撃を終わらせる）できる。shieldDur＝シールドが出ている秒数、cooldown＝次に出せるまでの秒数
-  { key: 'ancient', name: '古代魔法', type: 'ancient', damage: 0, cooldown: 0.9, minFloor: 1, shieldDur: 0.2, ghostT: 0.5, gaugeMax: 100, gaugePerParry: 5, hidden: true }, // hidden: true＝グリッチ戦専用（宝箱・ドロップ・武器選択には出ない。グリッチ戦は WEAPON_TYPES.find で直接付与する）。 gaugeMax＝パリィゲージの最大値／gaugePerParry＝パリィ成功1回でたまる量（5なら20回で満タン）
+  { key: 'ancient', name: '古代魔法', type: 'ancient', damage: 0, cooldown: 0.9, minFloor: 1, shieldDur: 0.2, ghostT: 0.5, gaugeMax: 100, gaugePerParry: 3, hidden: true }, // hidden: true＝グリッチ戦専用（宝箱・ドロップ・武器選択には出ない。グリッチ戦は WEAPON_TYPES.find で直接付与する）。 gaugeMax＝パリィゲージの最大値／gaugePerParry＝パリィ成功1回でたまる量（3なら約34回で満タン）
 ];
 
 // 召喚された味方の表示名（バナー用）
@@ -6081,7 +6081,7 @@ const GLITCH_TEST_WARP = null; // テストでワープの行き先を固定す�
 const GLITCH_TEST_ATK = null; // テストで毎回同じ攻撃にする時は 'shoot' / 'rush' / 'shell' / 'fork' / 'ransom' / 'wave' / 'combo' / 'warp'
 const GLITCH_THUNDER_ENABLED = false; // ⚡ 古代魔法の「雷」を使えるか。false＝雷は出ない（描いても認識されない）／true＝雷が使える（今は効果が未定なので、演出だけ）
 const GLITCH_TEST_GAUGE_FULL = false; // 🔷 テスト用：true なら古代魔法のゲージが常に満タン（パリィ0回で魔法が使える）。本番は false
-const GLITCH_TEST_GAUGE_START = true; // 🔷 テスト用：true なら、グリッチ戦が始まった時点で古代魔法のゲージが3/4（＝必殺技が始まるゲージ）から始まる。本番は false
+const GLITCH_TEST_GAUGE_START = true; // 🔷 テスト用：true なら、グリッチ戦が始まった時点で古代魔法のゲージが3/4（75%。必殺技が始まるのは66%なので、このフラグがtrueだと開始と同時に必殺技が始まる）から始まる。本番は false
 const GLITCH_TEST_ULT_START = false; // 🌀 テスト用：true なら、ゲージに関係なく、グリッチ戦が始まって最初にサメが泳ぎ回りに戻った時点から必殺技（ワープの常時発動）が始まる。本番は false
 const GLITCH_TSAR = { flyT: 7, v0: 0, vAcc: 70, vAcc2: 28, vMax: 560, turn: 2.2, rad: 10, blastT: 1.9, fleeK: 4, creep: 140, creepGap: 520, whiteHold: 1.0, whiteFade: 2.6, walkT: 8, roomK: 4.5, blastSpd: 600, startDist: 1, invBand: 240, landTile: { x: 63, y: 63 }, fieldH: 128, invFadeT: 3.5, walkSpeedK: 1, win: true }; // ☢ ツァーリ・ボンバ（古代魔法・ゲージ100%）の調整値。flyT＝星が飛べる最長の秒数（過ぎたらその場で爆発）／v0・vAcc・vAcc2・vMax＝星の速さ（px/秒）は v0 + vAcc×t + vAcc2×t² で上がり vMax で止まる／turn＝スティックで曲がる速さ（ラジアン/秒）／rad＝壁に着いたと見なす半径／blastT＝爆発の最初の揺れの長さ／fleeK＝サメが逃げる速さ（サメの通常の速さの何倍か。まっすぐ、壁も通り抜けて逃げる）／startDist＝星が出る位置の、プレイヤーからの距離（マス。小さいほど近い。壁が近ければ、さらに手前になる）／blastSpd＝爆風（白い光）が広がる速さ（px/秒）。爆発してから画面が真っ白になるまで、ずっとこの一定の速さ（サメの逃げる速さ＝最大およそ475より大きくすること。小さいと追いつけない）／creep＝（今は使っていない）白い光が、逃げるサメに追いつく速さ（px/秒。小さいほど、じわじわ飲み込む）／creepGap＝光とサメの間がこの距離（px）まで縮むまでは、一気に追いつく／whiteHold・whiteFade＝サメを飲み込んだあと、画面が真っ白なままの秒数／白が引いていく秒数／roomK＝爆発するまで（星が飛んでいる間）サメが部屋の中を逃げ回る速さ（サメの通常の速さの何倍か。星からなるべく遠い所へ泳ぐ。爆発したら、fleeK の速さで一直線に逃げる）／invBand＝爆風の縁（白い光の少し外側）の、色が反転して見える帯の幅（px。0なら色反転の演出なし）。爆発の瞬間と、白が引く時にも、画面全体が瞬いて反転する／walkT＝白が引いたあと、焼け野原をプレイヤーが自由に歩き回れる秒数（その間に壁が見えないよう、白い間に広い場所へ移す。0なら歩かずすぐ次へ）／win＝true ならサメが消えたあと撃破（GLITCH 撃破→結果画面）。false なら、白が引いたあとサメが戻ってくる（テスト用）
 // 🪟 フォークボム（ウイルスのウィンドウが右下へ次々と増える攻撃）の調整値
@@ -6092,7 +6092,7 @@ const GLITCH_RANSOM = { t: 30, castT: 1.6, aimP: 0.35, bothP: 0.2 }; // t＝反�
 // 🌀 ワープ：サメが姿を現したあと、プレイヤーの足元にウィンドウが出て（castT 秒）、最北戦線の発信機の上あたりへ転送される。そこでパターンごとの敵と戦い（今は 'chargers'＝円状に並んだチャージャーが突進）、終わったら（returnDelay 秒後）元の場所へ戻る。maxStay 秒たてば、何があっても戻す。テストで毎回この攻撃にする時は GLITCH_TEST_ATK = 'warp'。
 //   パターンを増やす時：メソッドを4つ作って、patterns に名前を足す。 _gwPat_<名前>_room()（部屋の大きさ { w, h（マス。最大 zoneW×zoneH）, spawn:[x,y]（転送されてくる場所。部屋の左上からのマス）, tx:[x,y]（任意：飾りの位置） }）／_gwPat_<名前>_enter(S, A)（転送された直後に敵などを出す。A＝部屋の範囲と位置(px)）／_gwPat_<名前>_done(S, dt)（終わったら true）／_gwPat_<名前>_draw(A)（任意：飾りの絵。毎フレーム）。部屋の床は、転送する時に岩の領域(dungeon.glitchZone＝addGlitchWarpArena)へ作り、戻る時に壁へ戻す。
 const GLITCH_RUSH_VERT = { baseK: 7, vertK: 4 }; // 🦈 突進の速さの倍率（サメの泳ぐ速さ×この値）。横向き（左右）の突進は baseK のまま、縦向き（上下）に近いほど vertK に近づいて遅くなる（画面の縦が狭いと、上下からの突進に反応できないため）。縦を遅くしすぎたくない時は vertK を baseK に近づける
-const GLITCH_ULT = { gaugeRate: 0.75, atkPool: ['rush', 'combo', 'shoot'], invRate: 0.9 }; // 🌀 必殺技「ワープの常時発動」：パリィゲージ（古代魔法）がこの割合に達したら、サメが使い始める（グリッチ戦が終わるまで続く）。ワープ先は毎回かわり、サメもワープ先の部屋へ一緒に出てきて、フォークボム以外の技を並行して出す
+const GLITCH_ULT = { gaugeRate: 0.66, atkPool: ['rush', 'combo', 'shoot'], invRate: 0.85 }; // 🌀 必殺技「ワープの常時発動」：パリィゲージ（古代魔法）がこの割合に達したら、サメが使い始める（グリッチ戦が終わるまで続く）。ワープ先は毎回かわり、サメもワープ先の部屋へ一緒に出てきて、フォークボム以外の技を並行して出す
 const GLITCH_WARP = {
   castT: 1.3, winW: TILE * 5, winH: TILE * 3.6, returnDelay: 0.8, maxStay: 9, arenaGap: 84,
   zoneW: 48, zoneH: 40, // 転送先の部屋を作れる領域の大きさ（マス）。ボス部屋（36×24）より広めに余裕を持たせてある。パターンの部屋はこの中の真ん中に作る
@@ -8963,7 +8963,7 @@ class GameScene extends Phaser.Scene {
     const splashBurst = (n, pt = fbP) => { for (let i = 0; i < n && S.splash.length < 420; i++) S.splash.push({ x: pt.x + (R() - 0.5) * 18, y: pt.y + (R() - 0.5) * 8, z: 2 + R() * 10, vx: (R() - 0.5) * 110, vy: (R() - 0.5) * 50, vz: 70 + R() * 150, life: 0.5 + R() * 0.5, sz: 2 + Math.floor(R() * 3), c: SPC[Math.floor(R() * 4)] }); };
     S.mt -= dt;
     if (m0 === 'fin') {
-      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? GLITCH_ULT.atkPool : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', (this._ransomT > 0 || S.ultDone) ? 'rush' : 'ransom'].concat(S.ultDone ? [] : ['warp']); /* 🏁 古代魔法が満タンになったあとは、操作反転の技（ランサムウェア）も出さない */ /* 🏁 古代魔法が満タンになったあとは、ワープは選ばない */ /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = (S.invDue && !S.invOver && !S.invPerm) ? 'ransom' : (GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]); /* 🔀 ゲージ90%の予約中は、次の技が確定でランサムウェア */ if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
+      if (S.mt <= 0) { if (S.sg) S.mt = 0.5; else if (plOk) { const pool = S.ult ? GLITCH_ULT.atkPool : ['shoot', 'rush', 'shell', 'wave', this._fork ? 'rush' : 'fork', 'combo', (this._ransomT > 0 || S.ultDone) ? 'rush' : 'ransom'].concat(S.ultDone ? [] : ['warp']); /* 🏁 古代魔法が満タンになったあとは、操作反転の技（ランサムウェア）も出さない */ /* 🏁 古代魔法が満タンになったあとは、ワープは選ばない */ /* 🌀 必殺技中は、フォークボムもワープも選ばない（ワープは常に発動中） */ S.atk = (S.invDue && !S.invOver && !S.invPerm) ? 'ransom' : (GLITCH_TEST_ATK || pool[Math.min(pool.length - 1, Math.floor(Math.random() * pool.length))]); /* 🔀 ゲージ85%の予約中は、次の技が確定でランサムウェア */ if (S.atk === 'combo') { S.cb = { left: GLITCH_COMBO.count }; S.cbKeep = false; S.rushBrg = null; S.cbSign = 0; } /* 🔁 連撃：1回目も、ワープせず、泳いでいた場所から */ // 🪟 前のフォークボムのウィンドウが残っている間は、重ねて出さない
        S.mode = 'emerge'; S.mt = 0.45; splashBurst(34, S.atk === 'combo' ? { x: S.x, y: S.y } : fbP); } else S.mt = 2; } // しばらく泳ぎ回ったら、距離に関係なくその場で姿を現して、追撃を始める
     } else if (m0 === 'chase') {
       if (!plOk || S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 追いつけない・見失ったら、泳ぎ回りに戻る
@@ -9006,7 +9006,7 @@ class GameScene extends Phaser.Scene {
     } else if (m0 === 'ransom') { if (S.mt <= 0) { S.mode = 'fin'; S.mt = 3 + R() * 3; S.wpT = 0; } // 🔒 感染させたあと、少し止まってから泳ぎ回りに戻る（効果は残る）
     } else if (m0 === 'fork') { this._forkPhase(S, shp, dt, splashBurst); } // 🪟 フォークボムの進行
     else if (m0 === 'warp') { this._warpPhase(S, dt); } // 🌀 ワープの進行（サメは潜ったまま動かない）
-this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを常時発動（サメの技は並行して続く）
+this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが66%でワープを常時発動（サメの技は並行して続く）
     S.dive = Math.max(0, Math.min(1, S.dive + ((S.mode === 'fin' || S.mode === 'chase' || S.mode === 'cdive' || (S.mode === 'sg' && S.sgDown) || (S.mode === 'fork' && S.fk && S.fk.down) || S.mode === 'warp') ? 1 : -1) * dt / ((S.mode === 'emerge' || (S.mode === 'sg' && !S.sgDown)) ? 0.4 : 0.28))); // 出る：0.4秒／潜る：0.28秒
     // --- 🦈 体の当たり判定：体が出ていて低い間は、体に重なれない（押し出される）／飛びかかり中に頭に当たると噛まれる ---
     if (plOk && S.dive < 0.4) {
@@ -9132,16 +9132,16 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
     if (GLITCH_TEST_WARP && pats.includes(GLITCH_TEST_WARP)) return GLITCH_TEST_WARP;
     return pats[Math.floor(Math.random() * pats.length)];
   }
-  _ultUpdate(S, dt, plOk) { // 🌀 必殺技「ワープの常時発動」の進行（毎フレーム）。ゲージが3/4になったら、サメが泳ぎ回りに戻った所から始める
+  _ultUpdate(S, dt, plOk) { // 🌀 必殺技「ワープの常時発動」の進行（毎フレーム）。ゲージが66%になったら、サメが泳ぎ回りに戻った所から始める
     if (S.tsarGone) return;
-    { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100, g = A ? (A.gauge || 0) : 0; // 🔀 パリィゲージ（古代魔法）が90%に達したら、両スティックの操作反転が始まり、ゲージが満タンになるまでずっと続く（90%を下回っても解けない）。満タンになったら反転が解け、次のワープで最初の部屋へ戻って、それ以降ワープしない
+    { const A = this._anc, gm = (this.weapon && this.weapon.gaugeMax) || 100, g = A ? (A.gauge || 0) : 0; // 🔀 パリィゲージ（古代魔法）が85%に達したら、両スティックの操作反転が始まり、ゲージが満タンになるまでずっと続く（85%を下回っても解けない）。満タンになったら反転が解け、次のワープで最初の部屋へ戻って、それ以降ワープしない
       if (!S.invOver) {
         if (g >= gm) { // 🏁 満タン：反転を解く／必殺技のワープは次の転送で最初の部屋へ戻って終わり（通常のワープ攻撃も、もう選ばない）
           S.invOver = true; S.ultDone = true; S.invDue = false;
           if (S.invPerm) { S.invPerm = false; this._ransomT = 0; } // 解けた瞬間の演出は _ransomHud がやる
           if (S.ult) S.ultFin = true;
         } else if (g >= gm * GLITCH_ULT.invRate) {
-          if (!S.invPerm) S.invDue = true; /* 🔀 90%に達したら、反転はまだ始めず「サメの次の技はランサムウェア（両スティック反転）」と予約する（実際の反転は _ransomStart で始まる） */
+          if (!S.invPerm) S.invDue = true; /* 🔀 85%に達したら、反転はまだ始めず「サメの次の技はランサムウェア（両スティック反転）」と予約する（実際の反転は _ransomStart で始まる） */
           if (S.invPerm) { this._ransomT = 1e9; this._ransomMove = true; this._ransomAim = true; } // 毎フレーム入れ直す（他の処理で解けても、すぐ戻る）
         }
       }
@@ -9546,7 +9546,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
   _ransomLock() { const S = this._shark; return !!(S && ((S.mode === 'fork' && S.fk && this._fork) || (S.gw && S.gw.ph === 'fight' && !S.ult))); } // フォークボム中、または🌀ワープで転送されている間：武器が使えず、右スティックが壊れる
   _ransomStart(S) { // 🔀 ランサムウェア攻撃：サメが姿を現し終えたら、感染させる（_ransomT 秒、移動の操作が反転）。サメは castT 秒止まる（'ransom' モード）
     const R = GLITCH_RANSOM; S.mode = 'ransom'; S.mt = R.castT; this._ransomT = R.t; const rr = Math.random(); this._ransomMove = !(rr < R.aimP); this._ransomAim = rr < R.aimP + R.bothP; // どのスティックが反転するか：攻撃スティックだけ／両方／移動スティックだけ
-    if (S.invDue && !S.invOver) { S.invDue = false; S.invPerm = true; this._ransomT = 1e9; this._ransomMove = true; this._ransomAim = true; } // 🔀 ゲージ90%の予約：両スティックが反転し、満タンになるまで続く（_ultUpdate が毎フレーム入れ直す）
+    if (S.invDue && !S.invOver) { S.invDue = false; S.invPerm = true; this._ransomT = 1e9; this._ransomMove = true; this._ransomAim = true; } // 🔀 ゲージ85%の予約：両スティックが反転し、満タンになるまで続く（_ultUpdate が毎フレーム入れ直す）
     try { this._ransomInvFlash(); this.cameras.main.shake(300, 0.006); } catch (e) {} // 感染の瞬間：画面の色が一瞬反転する＋少し揺れる（以前の赤いフラッシュの代わり）
   }
   _ransomInvFlash() { // 🔀 感染の瞬間に、画面全体の色を一瞬だけ反転させる（白を「差の絶対値」で重ねる＝下の絵の色が反転する。ツァーリ・ボンバの色反転と同じ仕組み）。INV_MS＝反転している長さ(ミリ秒)
@@ -17597,7 +17597,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが3/4でワープを
       for (const d of [R * 0.3, R * 0.62]) for (let i = 0; i < n; i++) { if (rnd() < 0.25) continue; const q1 = at(rays[i], d * (0.9 + 0.2 * rnd())), q2 = at(rays[(i + 1) % n], d * (0.9 + 0.2 * rnd())); if (q1 && q2) C.push([rel(q1), rel(q2)]); } // となり合う放射状のヒビどうしをつなぐ、輪のヒビ（内側と外側の2周。ところどころ途切れる）
     } }
 
-    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20) * 0.5); /* 🔷 ゲージのたまる速さは、ノーマルもハードコアも半分（以前はハードコアだけ半分だった。ハードコアだけ変えたい時は (this.glitchHard ? 0.5 : 1) のように分ける） */ A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
+    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20)); /* 🔷 ゲージのたまる量は、パリィ1回で gaugePerParry（今は3＝3%）。ノーマルもハードコアも同じ（ハードコアだけ変えたい時は * (this.glitchHard ? 0.5 : 1) のように分ける） */ A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
     for (let i = 0; i < 22; i++) { const an = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 260; A.sp.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp, life: 0.45 + Math.random() * 0.3, max: 0.75, s: 3 + Math.random() * 3 }); }
     A.rings.push({ x, y, t: 0 });
     try { this.cameras.main.flash(90, 255, 255, 255); this.cameras.main.shake(140, 0.005); } catch (e) {}
