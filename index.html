@@ -5712,7 +5712,7 @@ const WEAPON_TYPES = [
     blastRadius: 50, blastPerSec: 14, wallBreakTime: 2, knockback: 300,
     hidden: true }, // hidden: true＝一旦なし（宝箱・武器選択画面に出ない）。戻す時はこの hidden を消す
   // 🛡 古代魔法：スティックを離すと、一瞬だけ魔法のシールドが出る。出ている間はサメの攻撃をパリィ（ダメージを受けず攻撃を終わらせる）できる。shieldDur＝シールドが出ている秒数、cooldown＝次に出せるまでの秒数
-  { key: 'ancient', name: '古代魔法', type: 'ancient', damage: 0, cooldown: 0.9, minFloor: 1, shieldDur: 0.2, ghostT: 0.5, gaugeMax: 100, gaugePerParry: 3, hidden: true }, // hidden: true＝グリッチ戦専用（宝箱・ドロップ・武器選択には出ない。グリッチ戦は WEAPON_TYPES.find で直接付与する）。 gaugeMax＝パリィゲージの最大値／gaugePerParry＝パリィ成功1回でたまる量（3なら約34回で満タン）
+  { key: 'ancient', name: '古代魔法', type: 'ancient', damage: 0, cooldown: 0.9, minFloor: 1, shieldDur: 0.2, ghostT: 0.5, gaugeMax: 100, gaugePerParry: 5, hidden: true }, // hidden: true＝グリッチ戦専用（宝箱・ドロップ・武器選択には出ない。グリッチ戦は WEAPON_TYPES.find で直接付与する）。 gaugeMax＝パリィゲージの最大値／gaugePerParry＝パリィ成功1回でたまる量（5なら20回で満タン）
 ];
 
 // 召喚された味方の表示名（バナー用）
@@ -17718,7 +17718,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが55%でワープを
       for (const d of [R * 0.3, R * 0.62]) for (let i = 0; i < n; i++) { if (rnd() < 0.25) continue; const q1 = at(rays[i], d * (0.9 + 0.2 * rnd())), q2 = at(rays[(i + 1) % n], d * (0.9 + 0.2 * rnd())); if (q1 && q2) C.push([rel(q1), rel(q2)]); } // となり合う放射状のヒビどうしをつなぐ、輪のヒビ（内側と外側の2周。ところどころ途切れる）
     } }
 
-    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20)); /* 🔷 ゲージのたまる量は、パリィ1回で gaugePerParry（今は3＝3%）。ノーマルもハードコアも同じ（ハードコアだけ変えたい時は * (this.glitchHard ? 0.5 : 1) のように分ける） */ A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
+    { const gw = this.weapon || {}, gm = gw.gaugeMax || 100; A.gauge = Math.min(gm, (A.gauge || 0) + (gw.gaugePerParry || 20)); /* 🔷 ゲージのたまる量は、パリィ1回で gaugePerParry（今は5＝5%）。ノーマルもハードコアも同じ（ハードコアだけ変えたい時は * (this.glitchHard ? 0.5 : 1) のように分ける） */ A.gFlash = 0.35; } // 🔷 パリィゲージ：パリィ成功のたびにたまる（攻撃魔法は未実装。今はためるだけ）
     for (let i = 0; i < 22; i++) { const an = Math.random() * Math.PI * 2, sp = 120 + Math.random() * 260; A.sp.push({ x, y, vx: Math.cos(an) * sp, vy: Math.sin(an) * sp, life: 0.45 + Math.random() * 0.3, max: 0.75, s: 3 + Math.random() * 3 }); }
     A.rings.push({ x, y, t: 0 });
     try { this.cameras.main.flash(90, 255, 255, 255); this.cameras.main.shake(140, 0.005); } catch (e) {}
