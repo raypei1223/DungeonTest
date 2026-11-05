@@ -4209,7 +4209,7 @@ const VS_HERO = { // ⚔ 斬り合いの調整値
   moveSmooth: 0.05         // 動き出し・止まりのなめらかさ（秒。0＝すぐ最高速／止まる。大きいほどぬるっと動く）
 };
 const PARTY_PORTAL_HERO = { i: -4, portal: true, hero: true, x: 260, y: 118 }; // ⚔ 斬り合いへの入口（入るとボス部屋へ飛ぶ。装飾品は全部持っていけない）
-const PARTY_PORTAL_GLITCH = { i: -8, portal: true, glitch: true, x: 380, y: 118 }; // 🟩 Glitch-Hardcore への入口（パーティールーム）：グリッチ戦とほぼ同じ。違いは、HPが常に1／シールドが自分の前の1枚だけ／倒すと称号 ERR_404
+const PARTY_PORTAL_GLITCH = { i: -8, portal: true, glitch: true, x: 380, y: 118 }; // 🟩 Glitch-Hardcore への入口（パーティールーム）：グリッチ戦とほぼ同じ。違いは、HPが常に1／倒すと称号 ERR_404
 const PARTY_PORTAL_LGRASS = { i: -5, portal: true, lgrass: true, x: 280, y: 118 }; // 💬 交流ルーム：🌿 草原（ホラーの影が出ない。何も起こらない）
 const PARTY_PORTAL_LDUNGEON = { i: -6, portal: true, ldungeon: true, x: 360, y: 118 }; // 💬 交流ルーム：🕳 ダンジョン（ホラーで影に追いつかれてワープした直後から始まる）
 const PARTY_PORTAL_LSTAIRS = { i: -7, portal: true, lstairs: true, x: 200, y: 118 }; // 💬 交流ルーム：🪜 階段（無限に続く暗い階段を上っていく。踊り場ごとに階数の数字とドアがある）
@@ -6933,7 +6933,7 @@ class GameScene extends Phaser.Scene {
       app.hellTest = false;
       if (!this.mp && !this.pvp && !this.frontline && !this.bossRush) { this.hell = true; this._hellDest = this.floor; this._hellT0 = performance.now(); }
     }
-    this.glitchBoss = !this.mp && !!app.bossRush && !!app.glitchBoss; this.glitchHard = this.glitchBoss && !!app.glitchHard; /* 🟩 Glitch-Hardcore：HPが常に1／シールドは前の1枚だけ／称号は ERR_404 */ this._glitchWon = false; this._tsarSlow = false; // 📺 グリッチのボスの挑戦（装飾品なし。倒すとリザルト）
+    this.glitchBoss = !this.mp && !!app.bossRush && !!app.glitchBoss; this.glitchHard = this.glitchBoss && !!app.glitchHard; /* 🟩 Glitch-Hardcore：HPが常に1／称号は ERR_404 */ this._glitchWon = false; this._tsarSlow = false; // 📺 グリッチのボスの挑戦（装飾品なし。倒すとリザルト）
     this.rushWeaponKey = ((!this.mp && (app.bossRush || app.arms4Ritual || app.vsHero)) || app.frontline || app.pvp) ? (app.rushWeaponKey || null) : null;
     // ボスラッシュでは選んだ武器のLv.5でスタートする（デベロッパーモードの開始武器と同じ仕組みを流用）
     this.devWeaponKey = this.rushWeaponKey || app.devWeaponKey || null;
@@ -17659,7 +17659,7 @@ this._ultUpdate(S, dt, plOk); // 🌀 必殺技：ゲージが55%でワープを
   // 🛡 古代魔法：スティック（PCではマウス）を離すと、輝きながら一瞬だけ魔法のシールド（白い半透明の六角形の集まり）がその向きに張られる。シールドの跡は、その場に残像として残る
   _ancientHexes(px, py, a) { // 自分を覆う六角形1枚（一辺が向きaを向く。見た目だけでパリィ判定なし）＋その前の辺と、両隣の辺に隣接する3枚（計4枚。パリィ判定はこの3枚）
     const r = 16, d = Math.sqrt(3) * r, out = [{ x: px, y: py, r }];
-    for (const k of (this.glitchHard ? [0] : [-1, 0, 1])) { const an = a + k * Math.PI / 3; /* 🟩 Glitch-Hardcore：自分の前の1枚だけ */ out.push({ x: px + Math.cos(an) * d, y: py + Math.sin(an) * d, r }); } // 辺の中点の向き＝向きa、a±60°
+    for (const k of [-1, 0, 1]) { const an = a + k * Math.PI / 3; /* 🟩 Glitch-Hardcoreもノーマルと同じ3枚 */ out.push({ x: px + Math.cos(an) * d, y: py + Math.sin(an) * d, r }); } // 辺の中点の向き＝向きa、a±60°
     return out;
   }
   _ancientCol(fr) { // 🎨 パリィゲージの溜まり具合（0〜1）から、シールドの色を式で計算する（段階ではなく連続したグラデーション）。水色 → 緑 → 青紫 → 黒っぽい紫。返り値：f＝六角形の塗り、s＝輪郭、o＝外のにじむ光
@@ -36558,7 +36558,7 @@ if (DEBUG_URL.test) ['pvpTestBtn', 'hutWarpBtn', 'endingTestBtn', 'endingFullTes
   if (!go) return;
   setTimeout(() => { try { startGame('solo', { vsHero: true, weaponKey: 'sword' }); } catch (err) { console.error('斬り合いを始められませんでした:', err); } }, 0);
 })();
-// 🟩 パーティールームの「Glitch-Hardcore」から来た：ロビーを出て、すぐグリッチ戦へ（ソロ。HPが常に1・シールドは前の1枚だけ・倒すと称号 ERR_404）
+// 🟩 パーティールームの「Glitch-Hardcore」から来た：ロビーを出て、すぐグリッチ戦へ（ソロ。HPが常に1・倒すと称号 ERR_404）
 (function () {
   let go = false; try { go = sessionStorage.getItem('zk_glitch_hc') === '1'; sessionStorage.removeItem('zk_glitch_hc'); } catch (e) {}
   if (!go) return;
