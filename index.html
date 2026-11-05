@@ -473,7 +473,7 @@
   /* 🎫 日記サイトのチケット：称号の横の小さなボタンと、コード入力の画面 */
   #titleBtnWrap { display: flex; justify-content: center; align-items: flex-start; gap: 6px; margin: 0 auto 6px; max-width: 100%; }
   #titleBtnWrap #titlePickBtn { margin: 0; }
-  #ticketBtn { flex: none; width: auto; margin-top: 0; font-size: 13px; line-height: 1; padding: 6px 8px; color: #ffe9a8; cursor: pointer; border-radius: 999px; border: 1px solid rgba(255,220,120,0.55); background: linear-gradient(180deg, rgba(255,220,120,0.22), rgba(255,220,120,0.08)); box-shadow: 0 2px 0 rgba(0,0,0,0.45); -webkit-tap-highlight-color: transparent; }
+  #ticketBtn { display: none; /* 🎫 一旦非表示（戻す時は、この display: none; を消す） */ flex: none; width: auto; margin-top: 0; font-size: 13px; line-height: 1; padding: 6px 8px; color: #ffe9a8; cursor: pointer; border-radius: 999px; border: 1px solid rgba(255,220,120,0.55); background: linear-gradient(180deg, rgba(255,220,120,0.22), rgba(255,220,120,0.08)); box-shadow: 0 2px 0 rgba(0,0,0,0.45); -webkit-tap-highlight-color: transparent; }
   #ticketBtn:hover { border-color: rgba(255,220,120,0.9); }
   #ticketBtn:active { transform: translateY(2px); box-shadow: none; }
   #ticketModal { display: none; position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,0.72); align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; color: #e8e8f0; }
@@ -1186,7 +1186,7 @@ const DEMON_SENSOR_RATIO = 1 / 3;
 // 🔧 確認用のURLパラメータ（URLの末尾に付ける。例: index.html?library=1&demon=1）
 //   ?library=1 … 隠し書庫の扉が、確率に関係なく毎階（扉を置ける階なら）出る
 //   ?test=1    … テスト用ボタン（PvP一人テスト・小屋ワープ・エンディング・地獄）を出す。ただし、下の TEST_BUTTONS_SHOWN が true の時だけ（普段は false なので、?test=1 を付けても何も出ない。出したい時だけ true にする）
-//   ?glitch=1 … タイトル画面のボスラッシュのボタンが、確率（GLITCH_CHANCE）に関係なく必ずグリッチ（ノイズが走る）状態になる（今は確率が0％なので、これを付けた時だけグリッチになる）
+//   ?glitch=1 … タイトル画面のボスラッシュのボタンが、確率（GLITCH_CHANCE）や1日の回数に関係なく必ずグリッチ（ノイズが走る）状態になる（今は確率が20％で、1日10回まで。これを付けると、いつでもグリッチになる）
 //   ?demon=1   … 25階（ソロ）に着いたら、全滅の記録やDEMON_ENABLEDに関係なく悪魔が出る（デベロッパーモードでも出る。デベロッパーモードは、?demon=1 が無い時だけ悪魔が出ない）
 const TEST_BUTTONS_SHOWN = false; // 🛠 テスト用ボタンを出せるようにするか。普段は false（?test=1 を付けても何も出ない）。出したい時だけ true にする（true の間も、URLに ?test=1 を付けた時だけ出る）
 const DEBUG_URL = (function () {
@@ -35803,10 +35803,10 @@ let askWeapon = null;
     document.getElementById('ticketModal').style.display = 'none'; // 🎫の画面を閉じてから始める
     startGame('solo', { bossRush: true, weaponKey: 'ancient', glitchBoss: true });
   });
-  // 📺 タイトル画面を開いた時、GLITCH_CHANCE の確率でボスラッシュのボタンがグリッチ（ノイズが走る）状態になる。今は 0（0％）なので、確率では起こらない。
-  //   URLに ?glitch=1（すでに ? がある時は &glitch=1）を付けると、確率に関係なく必ずなる。ボタンの見た目がグリッチになり、押すとグリッチのボスの部屋へ直行する。確率を戻す時は、GLITCH_CHANCE を 0.05（5％）などにする。
+  // 📺 タイトル画面を開いた時、GLITCH_CHANCE の確率でボスラッシュのボタンがグリッチ（ノイズが走る）状態になる。今は 0.20（20％）で、1日10回まで（GD_MAX）。
+  //   URLに ?glitch=1（すでに ? がある時は &glitch=1）を付けると、確率・回数に関係なく必ずなる。ボタンの見た目がグリッチになり、押すとグリッチのボスの部屋へ直行する。確率を変える時は、GLITCH_CHANCE を 0.05（5％）などにする。
   (function () {
-    const GLITCH_CHANCE = 0.10; // グリッチになる確率（0.10＝10％）。ただし1日10回まで（GD_MAX）。URLの ?glitch=1 を付けた時は、確率・回数に関係なく必ずなる
+    const GLITCH_CHANCE = 0.20; // グリッチになる確率（0.20＝20％）。ただし1日10回まで（GD_MAX）。URLの ?glitch=1 を付けた時は、確率・回数に関係なく必ずなる
     const GD_MAX = 10, GD_KEY = 'glitchDailyUse'; // 🗓 1日に遊べる回数（グリッチのボタンから始めた回数。日付が変わると0に戻る）
     const gdToday = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
     const gdUsed = () => { try { const o = JSON.parse(localStorage.getItem(GD_KEY) || 'null'); return (o && o.date === gdToday()) ? (o.used | 0) : 0; } catch (e) { return 0; } };
@@ -35814,7 +35814,7 @@ let askWeapon = null;
       use() { const u = Math.min(GD_MAX, gdUsed() + 1); try { localStorage.setItem(GD_KEY, JSON.stringify({ date: gdToday(), used: u })); } catch (e) { /* 保存できなければ数えない */ } this.pending = Math.max(0, GD_MAX - u); return this.pending; } }; // use()＝1回使って、残り回数を pending に入れる（始まりの床メッセージが読む）
     let force = false;
     try { force = new URLSearchParams(location.search).get('glitch') === '1'; } catch (e) { /* 取れなければ通常の確率 */ }
-    if (!force && !(window.GlitchDaily.left() > 0 && Math.random() < GLITCH_CHANCE)) return; // 今日の回数が残っている時だけ、10％の確率で出る
+    if (!force && !(window.GlitchDaily.left() > 0 && Math.random() < GLITCH_CHANCE)) return; // 今日の回数が残っている時だけ、20％の確率で出る
     const btn = document.getElementById('bossRushBtn');
     if (!btn) return;
     btn.classList.add('glitchBtn');
